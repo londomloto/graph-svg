@@ -1,0 +1,33 @@
+{
+  "name": "easyflow",
+  "version": "1.0.0",
+  "description": "web based workflow gui",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/londomloto/easyflow.git"
+  },
+  "keywords": [
+    "jquery-plugin",
+    "workflow",
+    "activity",
+    "diagram"
+  ],
+  "author": "londomloto",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/londomloto/easyflow/issues"
+  },
+  "homepage": "https://github.com/londomloto/easyflow#readme",
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-concat": "^2.6.0",
+    "gulp-rename": "^1.2.2",
+    "gulp-sourcemaps": "^1.6.0",
+    "gulp-uglify": "^2.0.0",
+    "pump": "^1.0.1"
+  }
+}
