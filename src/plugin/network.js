@@ -8,16 +8,12 @@
     Graph.plugin.Network = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
-            vector:  null,
+            shield: null,
+            vector: null,
             wiring: 'h:h'
         },
 
         links: [],
-        
-        cached: {
-            bboxMatrix: null,
-            pathMatrix: null
-        },
         
         linking: {
             valid: false,
@@ -31,9 +27,18 @@
         constructor: function(vector, options) {
             var me = this, guid = vector.guid();
             
-            _.assign(me.props, options || {});
-            
+            options = options || {};
+
+            if (options.shield) {
+                options.shield = options.shield.guid();
+            } else {
+                options.shield = guid;
+            }
+
+            _.assign(me.props, options);
+
             me.props.vector = guid;
+
             vector.addClass('graph-connectable');
             
             // setup link droppable
@@ -75,7 +80,7 @@
                         source = vector;
                         target = link.router.target();
                     }
-    
+                    
                     valid  = source.connectable().canConnect(target.connectable(), link);
                     
                     if (valid) {
@@ -135,12 +140,6 @@
                     }
                 }
             });
-            
-        },
-
-        invalidate: function() {
-            this.cached.bboxMatrix = null;
-            this.cached.pathMatrix = null;
         },
         
         invalidateTrans: function() {
@@ -149,78 +148,6 @@
             }
         },  
         
-        bboxMatrix: function() {
-            var matrix = this.cached.bboxMatrix;
-            
-            if ( ! matrix) {
-                var vector = this.vector(),
-                    paper  = vector.paper(),
-                    matrix = vector.matrix(),
-                    scope  = null;
-                
-                if (paper) {
-                    scope = paper.viewport();
-                }
-                
-                vector.bubble(function(curr){
-                    if (scope && scope === curr) {
-                        return false;
-                    }
-                    matrix = curr.matrix();
-                });
-                
-                matrix = matrix.clone();
-                this.cached.bboxMatrix = matrix;
-            }
-            
-            return matrix;
-        },
-        
-        pathMatrix: function() {
-            var matrix = this.cached.pathMatrix;
-            
-            if ( ! matrix) {
-                var vector = this.vector(),
-                    paper  = vector.paper(),
-                    matrix = Graph.matrix(),
-                    scope  = null;
-                
-                if (paper) {
-                    scope = paper.viewport();
-                }
-                
-                vector.bubble(function(curr){
-                    if (scope && scope === curr) {
-                        return false;
-                    }
-                    matrix.multiply(curr.matrix());
-                });
-                
-                this.cached.pathMatrix = matrix;
-            }
-            
-            return matrix;
-        },
-
-        bbox: function() {
-            var matrix = this.bboxMatrix(),
-                path = this.vector().pathinfo().transform(matrix),
-                bbox = path.bbox();
-            
-            matrix = path = null;
-            
-            return bbox;
-        },
-
-        pathinfo: function() {
-            var matrix = this.pathMatrix(),
-                path = this.vector().pathinfo().transform(matrix);
-            
-            matrix = null;
-            
-            return path;
-        },
-
         wiring: function() {
             return this.props.wiring;
         },

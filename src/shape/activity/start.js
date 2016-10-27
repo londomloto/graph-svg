@@ -11,7 +11,7 @@
             height: 60,
             left: 0,
             top: 0
-        }, 
+        },
 
         initComponent: function() {
             var me = this, 
@@ -31,8 +31,8 @@
                 .render(shape);
 
             block.draggable({ghost: true});
-            block.connectable({wiring: 'h:v'});
-            block.resizable();
+            block.connectable({shield: shape, wiring: 'h:v'});
+            block.resizable({shield: shape});
             block.editable();
 
             block.on('edit',    _.bind(me.onLabelEdit, me));

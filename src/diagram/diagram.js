@@ -8,23 +8,11 @@
             type: ''
         },
 
-        shapes: [
-
-        ],
-
-        links: [
-
-        ],
-
         constructor: function(paper) {
             
         },
 
         destroy: function() {
-
-        },
-
-        draw: function(shape, options) {
 
         }
 

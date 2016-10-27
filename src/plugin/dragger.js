@@ -13,10 +13,12 @@
             suspended: true,
             inertia: false,
             bound: false,
-            grid: [1, 1],
+            // grid: [1, 1],
+            grid: null,
             axis: false,
             hint: false,
-            cursor: 'move'
+            cursor: 'move',
+            snappable: false
         },
 
         rotation: {
@@ -43,10 +45,6 @@
             holder: null,
             helper: null
         },
-
-        cached: {
-            snapping: null
-        },
         
         constructor: function(vector, options) {
             var me = this;
@@ -66,6 +64,7 @@
             
             _.assign(me.props, options);
 
+            me.cached.snapping = null;
             me.initComponent();
 
             vector.on('render.dragger', _.bind(me.onVectorRender, me));
@@ -149,19 +148,21 @@
             if (me.props.single) {
                 vendor.on('move', _.bind(me.onPointerMove, me, _, vector));    
             }
-
+            
             var matrix = vector.matrix(true),
                 rotate = matrix.rotate(),
-                scale = matrix.scale();
+                scale  = matrix.scale();
 
             me.rotate(rotate.deg);
             me.scale(scale.x, scale.y);
             
-            me.snap({
-                mode: 'grid',
-                x: me.props.grid[0],
-                y: me.props.grid[1]
-            });
+            if (me.props.grid) {
+                me.snap({
+                    mode: 'grid',
+                    x: me.props.grid[0],
+                    y: me.props.grid[1]
+                });
+            }
         },
 
         enable: function() {

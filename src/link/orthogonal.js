@@ -269,6 +269,10 @@
             this.update(this.router.command());
             this.invalidate();
             this.resumeControl();
+        },
+
+        toString: function() {
+            return 'Graph.link.Orthogonal';
         }
 
     });

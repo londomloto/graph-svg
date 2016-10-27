@@ -17,12 +17,6 @@
 
             me.props.vector = vector.guid();
 
-            if (vector.isPaper()) {
-                Graph.topic.subscribe('paper/collect', function(){
-                    me.activate('panzoom');
-                });
-            }
-
         },
         
         has: function(tool) {
@@ -65,8 +59,9 @@
             }
         },
 
-        activate: function(name) {
+        activate: function(name, activator) {
             if (this.props.current != name) {
+
                 var tool = this.get(name), data;
                 
                 if (tool) {
@@ -76,7 +71,8 @@
                     data = this.tools[name];
                     data.enabled = true;
 
-                    tool.enable();
+                    activator = _.defaultTo(activator, 'tool');
+                    tool.enable(activator);
 
                     this.fire('activate', {
                         name: data.name,

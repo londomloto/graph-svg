@@ -30,8 +30,8 @@
                 .render(shape);
 
             block.draggable({ghost: true});
-            block.connectable();
-            block.resizable();
+            block.connectable({shield: shape});
+            block.resizable({shield: shape});
             block.editable();
 
             block.on('edit',    _.bind(me.onLabelEdit, me));

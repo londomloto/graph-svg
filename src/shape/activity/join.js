@@ -22,7 +22,7 @@
                 .render(shape);
 
             block.draggable({ghost: true});
-            block.connectable();
+            block.connectable({shield: shape});
             block.on('dragend', _.bind(me.onDragEnd, me));
 
             comp.shape = shape.guid();

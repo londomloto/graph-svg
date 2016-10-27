@@ -340,3 +340,42 @@ rect {
     border-radius: 2px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
+
+/** SHAPE */
+/** ACTIVITY-SHAPES */
+
+.graph-shape-activity-final .block {
+    fill: rgba(255,255,255,0);
+}
+
+.graph-shape-activity-final .inner {
+    fill: #000;
+    stroke-width: 0;
+}
+
+.graph-shape-activity-final .label tspan {
+    fill: #ffffff;
+}
+
+.graph-shape-activity-final .block.allowed:hover ~ .inner {
+    fill: #30D0C6;
+}
+
+.graph-shape-activity-lane .block,
+.graph-shape-activity-lane .header {
+    fill: rgba(255,255,255,0);
+    /*stroke-width: 1;*/
+}
+
+.graph-shape-activity-join .block {
+    fill: #000;
+    stroke-width: 0;
+}
+
+.graph-shape-activity-join .block.allowed:hover {
+    fill: #30D0C6;
+}
+
+.graph-shape-activity-lane rect {
+    stroke-width: 1;
+}

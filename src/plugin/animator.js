@@ -445,6 +445,10 @@
             } else {
                 // ___DONE___
             }
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Animator';
         }
 
     });

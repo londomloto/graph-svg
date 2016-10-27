@@ -24,19 +24,19 @@
             editor: null
         },
 
-        cached: {
-            left: 0,
-            top: 0,
-            width: 0,
-            height: 0
-        },
-
         constructor: function(vector, options) {
             var vendor;
 
             _.assign(this.props, options || {});
 
             this.props.vector = vector.guid();
+
+            _.assign(this.cached, {
+                left: 0,
+                top: 0,
+                width: 0,
+                height: 0
+            });
 
             vendor = vector.interactable().vendor();
             vendor.on('doubletap', _.bind(this.onDoubleTap, this));

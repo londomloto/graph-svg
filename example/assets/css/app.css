@@ -1,0 +1,281 @@
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+}
+
+body {
+    color: #fff;
+    font-family: "Segoe UI";
+    overflow: hidden;
+}
+
+.e-hidden {
+    display: none;
+}
+
+.e-bg-cyan {
+    background-color: #30D0C6;
+}
+
+.e-bg-dark {
+    background-color: #4A4D6E;
+}
+
+.e-hbox,
+.e-vbox {
+    border-spacing: 0;
+}
+
+.e-hbox {
+    display:table;
+    table-layout:fixed;
+    border-spacing:0;
+    width:100%;
+}
+
+.e-hbox.stretch {
+    height: 100%;
+}
+
+.e-hbox > aside,
+.e-hbox > section {
+    display:table-cell;
+    vertical-align:top;
+    height:100%;
+    padding:0;
+    float:none;
+}
+
+.e-vbox {
+    display:table;
+    border-spacing:0;
+    position:relative;
+    height:100%;
+    width:100%;
+}
+
+.e-vbox > section,
+.e-vbox > footer {
+    top:0;
+    bottom:0;
+    width:100%;
+    position: absolute;
+}
+
+.e-vbox > header ~ section {
+    top: 70px;
+}
+
+.e-aside-xs {
+    width:48px;
+}
+.e-aside {
+    width:180px;
+}
+.e-aside-sm {
+    width:150px;
+}
+.e-aside-md {
+    width:220px;
+}
+.e-aside-lg {
+    width:250px;
+}
+.e-aside-xl {
+    width:300px;
+}
+.e-aside-xxl {
+    width:450px;
+}
+
+.e-workspace {
+    
+}
+
+.e-workspace h1,
+.e-workspace h2, 
+.e-workspace h3 {
+    margin: 0;
+}
+
+.e-header {
+    height: 70px;
+    position: relative;
+    z-index: 2;
+}
+.e-logo {}
+.e-logo-text {
+    display: block;
+    font-size: 25px;
+    font-weight: bold;
+    text-align: center;
+    margin: 15px 0 !important;
+    color: #fff;
+    text-decoration: none;
+}
+
+/** page */
+.e-page {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    border-bottom: solid 1px #4A4D6E;
+    background-color: #fafafa;
+    overflow: hidden;
+}
+
+/** accordion */
+.e-accordion .e-pane {
+    border-bottom: #4B4F6C solid 1px;
+}
+.e-accordion .e-pane-header {
+    padding: 8px 15px;
+    background-color: #434665;
+}
+
+.e-accordion .e-pane-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #A0A2B2;
+    line-height: 20px;
+    cursor: pointer;
+}
+
+.e-accordion .e-pane-title:hover {
+    color: #fff;
+}
+
+.e-accordion .e-pane-title .icon {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+    position: relative;
+    top: 2px;
+    line-height: 1;
+}
+
+.e-accordion .e-pane .e-pane-body {
+    overflow: auto;
+    overflow-x: hidden;
+    display: none;
+    padding: 10px;
+}
+
+.e-accordion .e-pane.active .e-pane-body {
+    display: block;
+}
+
+.e-center {
+    height: 100%;
+    overflow: auto;
+}
+
+/** stencil */
+.e-stencil {
+    height: 600px;
+}
+
+.e-stencil-item {
+    cursor: pointer;
+}
+
+.e-stencil-item line,
+.e-stencil-item rect,
+.e-stencil-item polygon,
+.e-stencil-item circle {
+    stroke-width: 2;
+    stroke: #30D0C6;
+}
+
+.e-stencil-item rect,
+.e-stencil-item polygon {
+    fill: rgba(255, 255, 255, 0);
+}
+
+.e-stencil-item rect.full {
+    stroke-width: 0;
+    fill: #FF4081;
+}
+
+.e-stencil-item circle {
+    fill: rgba(255, 255, 255, 0);
+}
+
+.e-stencil-item circle.full {
+    stroke-width: 0;
+    fill: #FF4081;
+}
+
+.e-stencil-item text,
+.e-stencil-item text tspan {
+    stroke: #fff;
+    stroke-width: 0;
+    fill: #fff;
+    font-family: 'Segoe UI';
+    text-anchor: middle;
+    font-size: 12px;
+    pointer-events: none;
+}
+
+.e-stencil-item:hover rect,
+.e-stencil-item:hover circle,
+.e-stencil-item:hover line {
+    stroke: #FF4081;
+}
+
+/** toolbar */
+.e-toolbar {
+    text-align: right;
+    margin-top: 10px;
+    padding: 5px;
+}
+
+.e-toolbar a {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 36px;
+    font-size: 28px;
+    color: #555;
+    margin: 0 3px;
+}
+
+.e-toolbar a:hover {
+    color: #fff;
+    background-color: #555;
+}
+
+.e-toolbar a.active,
+.e-toolbar a.active:hover {
+    color: #fff;
+    background-color: orange;
+}
+
+.e-title {
+    display: block;
+    text-align: center;
+    margin: 0;
+    font-size: 14px;
+    color: #4A4D6E;
+}
+
+/** dialog */
+.e-dialog {
+    
+}
+
+.e-dialog h3,
+.e-dialog p {
+    padding: 0;
+    margin: 0
+}

@@ -23,8 +23,10 @@
         for (name in config) {
             value = config[name];
             if ( ! _.isFunction(value)) {
+
                 proto[name] = value;
                 defaults[name] = value;
+                
             } else {
                 proto[name] = value;
 
@@ -52,18 +54,37 @@
         }
         
         clazz = function() {
-            var me = this, ct = me.constructor;
+            var me = this;
+            var prop, value;
+
             me.listeners = {};
 
-            if (me.superclass.defaults) {
-                _.forOwn(me.superclass.defaults, function(v, k){
-                    me[k] = _.cloneDeep(v);
-                });
+            var classdef = me.constructor.defaults,
+                superdef = me.superclass.defaults;
+
+            var inherits = {};
+
+            if (superdef) {
+                for(prop in superdef) {
+                    me[prop] = _.cloneDeep(superdef[prop]);
+                    inherits[prop] = true;
+                }
             }
 
-            _.forOwn(ct.defaults, function(v, k){
-                me[k] = _.cloneDeep(v);
-            });
+            if (classdef) {
+                for(prop in classdef) {
+                    value = _.cloneDeep(classdef[prop]);
+                    if (inherits[prop]) {
+                        if (_.isPlainObject(value) || _.isArray(value)) {
+                            _.assign(me[prop], value);
+                        }
+                    } else {
+                        me[prop] = value;    
+                    }
+                }
+            }
+
+            inherits = superdef = classdef = null;
             
             if ( ! initializing) {
                 init && init.apply(me, arguments);
@@ -114,12 +135,19 @@
          * Enable eventbus
          */
         
-        clazz.prototype.on = function(type, handler) {
+        clazz.prototype.on = function(type, handler, once) {
             var me = this, data;
 
             if (_.isPlainObject(type)) {
-                _.forOwn(type, function(v, k){
-                    me.on(k, v);
+                _.forOwn(type, function(h, t){
+                    if (_.isPlainObject(h)) {
+                        var o = h;
+                        h = o.handler;
+                        s = o.once;
+                        me.on(t, h, s);
+                    } else {
+                        me.on(t, h, false);
+                    }
                 });
                 return me;
             }
@@ -129,14 +157,30 @@
 
             me.listeners[fire] = me.listeners[fire] || [];
             
+            once = _.defaultTo(once, false);
+
             data = {
                 type: type,
+                once: once,
                 orig: handler,
                 func: _.bind(handler, this)
             };
 
             me.listeners[fire].push(data);
             return this;
+        };
+
+        clazz.prototype.one = function(type, handler) {
+            var me = this;
+
+            if (_.isPlainObject(type)) {
+                _.forOwn(type, function(h, t){
+                    me.on(t, h, true);
+                });
+                return me;
+            }
+
+            return me.on(type, handler, true);
         };
 
         /**
@@ -229,16 +273,32 @@
                 cached.rgex = rgex;
             }
 
+            var onces = [];
+
             if (lsnr.length) {
                 for (var i = 0, ii = lsnr.length; i < ii; i++) {
                     if (fire != type) {
                         if (rgex.test(lsnr[i].type)) {
+                            if (lsnr[i].once) {
+                                onces.push(lsnr[i]);
+                            }
                             lsnr[i].func.apply(lsnr[i].func, args);
                         }
                     } else {
+                        if (lsnr[i].once) {
+                            onces.push(lsnr[i]);
+                        }
+
                         lsnr[i].func.apply(lsnr[i].func, args);
                     }
                 }
+            }
+
+            if (onces.length) {
+                var me = this;
+                _.forEach(onces, function(lsnr){
+                    me.off(lsnr.type, lsnr.orig);
+                });
             }
 
             rgex = null;

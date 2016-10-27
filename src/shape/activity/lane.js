@@ -23,7 +23,7 @@
                 .addClass('block')
                 .render(shape);
 
-            block.resizable();
+            block.resizable({shield: shape});
             block.draggable({ghost: true});
 
             block.on('dragend', _.bind(me.onDragEnd, me));

@@ -4,6 +4,7 @@
     Graph.plugin.Resizer = Graph.extend(Graph.plugin.Plugin, {
         
         props: {
+            shield: null,
             vector: null,
             enabled: true,
             suspended: true,
@@ -36,18 +37,28 @@
             dy: 0
         },
 
-        cached: {
-            snapping: null,
-            vertices: null
-        },
-
-        constructor: function(vector) {
-            var me = this;
+        constructor: function(vector, options) {
+            var me = this, guid = vector.guid();
             
+            options = options || {};
+
+            if (options.shield) {
+                options.shield = options.shield.guid();
+            } else {
+                options.shield = guid;
+            }
+
+            _.assign(me.props, options);
+
             vector.addClass('graph-resizable');
 
             me.props.handleImage = Graph.config.base + 'img/resize-control.png';
-            me.props.vector = vector.guid();
+
+            me.props.vector = guid;
+
+            me.cached.snapping = null;
+            me.cached.vertices = null;
+
             me.initComponent();
         },
         
@@ -136,6 +147,7 @@
         },
 
         invalidate: function()  {
+            this.superclass.prototype.invalidate.call(this);
             this.cached.vertices = null;
         },
 
@@ -158,71 +170,82 @@
         },
 
         vertices: function() {
-            var me = this, 
+            var me = this,
                 vector = me.vector(),
                 vertices = me.cached.vertices;
 
-            var dt, m1, m2, b1, b2, ro, p1, p2, cx, cy;
-            
             if ( ! vertices) {
+                // get original bounding
+                var path = vector.pathinfo(),
+                    bbox = path.bbox().toJson(),
+                    rotate = vector.matrix(true).rotate();
 
-                m1 = vector.matrix().clone();
-                b1 = vector.bbox(true).toJson();
-                // p1 = vector.pathinfo().transform(m1);
-                p1 = vector.pathinfo();
-                
-                // (new Graph.svg.Path(vector.pathinfo())).style('stroke', 'red').render(vector.parent());
-                
-                ro = m1.rotate().deg;
-                cx = b1.x + b1.width / 2;
-                cy = b1.y + b1.height / 2;
-                
-                m2 = Graph.matrix();
-                m2.rotate(-ro, cx, cy);
+                var ro, cx, cy, ox, oy, hs, hw, hh;
 
-                p2 = p1.transform(m2);
-                b2 = p2.bbox().toJson();
+                ro = rotate.deg;
+                cx = 0;
+                cy = 0;
+                ox = bbox.x;
+                oy = bbox.y;
+                hs = me.props.handleSize / 2;
 
-                var bx = b2.x,
-                    by = b2.y,
-                    bw = b2.width,
-                    bh = b2.height,
-                    hw = bw / 2,
-                    hh = bh / 2,
-                    hs = me.props.handleSize / 2;
+                if (ro) {
+                    var rmatrix = Graph.matrix(),
+                        path = me.pathinfo();
+
+                    cx = bbox.x + bbox.width / 2,
+                    cy = bbox.y + bbox.height / 2;
+
+                    rmatrix.rotate(-ro, cx, cy);
+
+                    path = path.transform(rmatrix);
+                    bbox = path.bbox().toJson();
+                } else {
+                    if ( ! this.hasShield()) {
+                        path = me.pathinfo();
+                        bbox = path.bbox().toJson();
+                    }
+                }
+
+                hw = bbox.width / 2;
+                hh = bbox.height / 2;
 
                 vertices = {
                     ne: {
-                        x: bx + bw - hs,
-                        y: by - hs
+                        x: bbox.x + bbox.width - hs,
+                        y: bbox.y - hs
                     },
+
                     se: {
-                        x: bx + bw - hs,
-                        y: by + bh - hs
+                        x: bbox.x + bbox.width - hs,
+                        y: bbox.y + bbox.height - hs
                     },
+
                     sw: {
-                        x: bx - hs,
-                        y: by + bh - hs
+                        x: bbox.x - hs,
+                        y: bbox.y + bbox.height - hs
                     },
+
                     nw: {
-                        x: bx - hs,
-                        y: by - hs
+                        x: bbox.x - hs,
+                        y: bbox.y - hs
                     },
+
                     n: {
-                        x: bx + hw - hs,
-                        y: by - hs
+                        x: bbox.x + hw - hs,
+                        y: bbox.y - hs
                     },
                     e: {
-                        x: bx + bw - hs,
-                        y: by + hh - hs
+                        x: bbox.x + bbox.width - hs,
+                        y: bbox.y + hh - hs
                     },
                     s: {
-                        x: bx + hw - hs,
-                        y: by + bh - hs
+                        x: bbox.x + hw - hs,
+                        y: bbox.y + bbox.height - hs
                     },
                     w: {
-                        x: bx - hs,
-                        y: by + hh - hs
+                        x: bbox.x - hs,
+                        y: bbox.y + hh - hs
                     },
 
                     rotate: {
@@ -232,19 +255,19 @@
                     },
 
                     box: {
-                        x: bx,
-                        y: by,
-                        width: bw,
-                        height: bh
+                        x: bbox.x,
+                        y: bbox.y,
+                        width: bbox.width,
+                        height: bbox.height
                     },
 
                     offset: {
-                        x: b1.x,
-                        y: b1.y
+                        x: ox,
+                        y: oy
                     }
                 };
 
-                me.cached.vertices = vertices;
+                this.cached.vertices = vertices;
             }
 
             return vertices;
@@ -262,6 +285,10 @@
             }
 
             vx = this.vertices();
+
+            if ( ! vx) {
+                return;
+            }
             
             helper.reset();
 
@@ -302,13 +329,16 @@
                 return;
             }
 
-            this.props.suspended = false;
+            if (this.props.suspended) {
 
-            if ( ! this.props.rendered) {
-                this.render();
-            } else {
-                this.vector().parent().elem.append(this.holder().elem);
-                this.redraw();
+                this.props.suspended = false;
+
+                if ( ! this.props.rendered) {
+                    this.render();
+                } else { 
+                    this.vector().parent().elem.append(this.holder().elem);
+                    this.redraw();
+                }
             }
         },
 

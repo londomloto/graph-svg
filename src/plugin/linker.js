@@ -38,7 +38,7 @@
             vendor = vector.interactable().vendor();
             vendor.on('down', _.bind(me.onPointerDown, me, _, vector));
 
-            vector.on('keynav', function(e){
+            vector.on('keynavdown', function(e){
                 if (e.keyCode === Graph.event.ESC) {
                     me.invalidate();
                     vector.tool().activate('panzoom');

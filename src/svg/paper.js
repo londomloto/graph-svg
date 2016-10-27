@@ -62,12 +62,15 @@
             me.plugins.pencil = new Graph.plugin.Pencil(me);
             me.plugins.definer = new Graph.plugin.Definer(me);
 
+            me.plugins.snapper = new Graph.plugin.Snapper(me);
+
             me.utils.spotlight = new Graph.util.Spotlight(me);
             me.utils.hinter = null; // new Graph.util.Hinter(me);
             me.utils.toolpad = new Graph.util.Toolpad(me);
             
             me.on('pointerdown', _.bind(me.onPointerDown, me));
-            me.on('keynav', _.bind(me.onNavigation, me));
+            me.on('keynavdown', _.bind(me.onKeynavDown, me));
+            me.on('keynavup', _.bind(me.onKeynavUp, me));
 
             // subscribe topics
             Graph.topic.subscribe('link/update', _.bind(me.listenLinkUpdate, me));
@@ -136,11 +139,6 @@
             return shape;
         },
 
-        draw: function(shape, options) {
-            var shape = this.plugins.pencil.draw(shape, options);
-            return shape;
-        },
-
         render: function(container) {
             var me = this, 
                 vp = me.viewport(),
@@ -196,6 +194,19 @@
                 return this.viewport().matrix().scale();
             }
             return this.plugins.transformer.scale(sx, sy, cx, cy);
+        },
+
+        snapping: function(options) {
+            if (Graph.isVector(options)) {
+                options = {
+                    vector: options,
+                    shield: options,
+                    enabled: true
+                };
+            }
+
+            var snapper = this.plugins.snapper;
+            snapper.subscribe(options);
         },
 
         connect: function(source, target, start, end, options) {
@@ -261,10 +272,10 @@
             }
         },
 
-        onNavigation: function(e) {
-            var me = this;
+        onKeynavDown: function(e) {
+            var me = this, key = e.keyCode;
 
-            switch(e.keyCode) {
+            switch(key) {
                 case Graph.event.DELETE:
 
                     var selections = me.plugins.collector.collection;
@@ -275,6 +286,26 @@
                             selections.splice(i, 1);
                         }
                     }
+
+                    e.preventDefault();
+                    break;
+
+                case Graph.event.SHIFT:
+                    
+                    break;
+
+                case Graph.event.ESC:
+
+                    break;
+            }   
+
+        },
+
+        onKeynavUp: function(e) {
+            var me = this, key = e.keyCode;
+
+            switch(key) {
+                case Graph.event.SHIFT:
 
                     break;
             }

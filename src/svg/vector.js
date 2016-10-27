@@ -23,6 +23,7 @@
             traversable: true,
             selectable: true,
             focusable: false,
+            snappable: false,
             selected: false,
             rendered: false,
             state: null
@@ -324,25 +325,17 @@
             return this.plugins.network;
         },
 
-        /**
-         * Get or set traversable state
-         */
-        traversable: function(value) {
-            if (value === undefined) {
-                return this.props.traversable;
-            }
-            this.props.traversable = value;
+        traversable: function(traversable) {
+            traversable = _.defaultTo(traversable, true);
+            this.props.traversable = traversable;
+
             return this;
         },
 
-        /**
-         * Get or set selectable state
-         */
-        selectable: function(value) {
-            if (value === undefined) {
-                return this.props.selectable;
-            }
-            this.props.selectable = value;
+        selectable: function(selectable) {
+            selectable = _.defaultTo(selectable, true);
+            this.props.selectable = selectable;
+
             return this;
         },
 
@@ -382,6 +375,37 @@
                 });
             }
             return this.plugins.editor;
+        },
+
+        snappable: function(options) {
+            var me = this;
+            var enabled;
+
+            if (_.isBoolean(options)) {
+                options = {
+                    vector: me,
+                    shield: me,
+                    enabled: options
+                };
+            } else {
+                options = _.extend({
+                    vector: me,
+                    shield: me,
+                    enabled: true
+                }, options || {});
+            }
+
+            me.props.snappable = options.enabled;
+
+            if (me.props.rendered) {
+                me.paper().snapping(options);
+            } else {
+                me.on('render', function(){
+                    me.paper().snapping(options);
+                });
+            }
+            
+            return me;
         },
 
         id: function() {
@@ -679,6 +703,7 @@
 
         render: function(container, method) {
             var me = this,
+                guid = me.guid(),
                 traversable = me.props.traversable;
             
             if (me.props.rendered) {
@@ -725,8 +750,11 @@
                     me.props.rendered = true;
                     me.fire('render');
 
-                    // update registry context
-                    Graph.registry.vector.setContext(me.guid(), me.tree.paper);
+                    var paper = container.isViewport() ? container.paper() : null;
+
+                    if (paper) {
+                        Graph.registry.vector.setContext(guid, me.tree.paper);
+                    }
 
                     me.cascade(function(c){
                         if (c !== me && ! c.props.rendered) {
@@ -734,7 +762,9 @@
                             c.tree.paper = me.tree.paper;
                             c.fire('render');
 
-                            Graph.registry.vector.setContext(c.guid(), me.tree.paper);
+                            if (paper) {
+                                Graph.registry.vector.setContext(c.props.guid, me.tree.paper);
+                            }
                         }
                     });
                 }
@@ -991,6 +1021,10 @@
 
         isConnectable: function() {
             return this.plugins.network ? true : false;
+        },
+
+        isSnappable: function() {
+            return this.props.snappable;
         },
 
         isRendered: function() {

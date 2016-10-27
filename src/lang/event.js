@@ -9,7 +9,7 @@
     E.toString = function() {
         return 'function(type, data)';
     };
-    
+
     _.extend(E.prototype, {
         
         cancelBubble: false,
@@ -20,7 +20,7 @@
         immediatePropagationStopped: false,
 
         originalData: null,
-
+        
         init: function(data) {
             if (data) {
                 this.originalData = data;    
@@ -50,12 +50,13 @@
     Graph.event = function(type, data) {
         return new Graph.lang.Event(type, data);
     };
-
+    
     _.extend(Graph.event, {
 
         ESC: 27,
         ENTER: 13,
         DELETE: 46,
+        SHIFT: 16,
 
         fix: function(event) {
             return $.event.fix(event);

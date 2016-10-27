@@ -2,6 +2,7 @@
 (function(){
 
     Graph.plugin.Collector = Graph.extend(Graph.plugin.Plugin, {
+
         props: {
             x: 0,
             y: 0,
@@ -15,7 +16,8 @@
             offset: [0, 0],
             enabled: false,
             suspended: true,
-            rendered: false
+            rendered: false,
+            activator: 'tool'
         },
 
         paper: null,
@@ -27,13 +29,16 @@
 
         constructor: function(paper) {
             var me = this;
-            
+
             if ( ! paper.isPaper()) {
                 throw Graph.error('Lasso tool only available for paper !');
             }
             
             me.paper = paper;
             me.components.rubber = Graph.$('<div class="graph-rubberband">');
+
+            paper.on('keynavdown', _.bind(me.onKeynavDown, me));
+            paper.on('keynavup', _.bind(me.onKeynavUp, me));
 
             if (me.paper.props.rendered) {
                 me.setup();
@@ -44,8 +49,10 @@
             }
         },
 
-        enable: function() {
+        enable: function(activator) {
             this.props.enabled = true;
+            this.props.activator = activator;
+
             this.paper.cursor('crosshair');
             this.paper.state('collecting');
         },
@@ -161,14 +168,16 @@
                     bbox = me.bbox();
                     
                     paper.cascade(function(c){
-                        if (c !== paper && c.selectable() && ! c.isGroup()) {
+                        if (c !== paper && c.isSelectable() && ! c.isGroup()) {
                             if (bbox.contains(c)) {
                                 me.collect(c);
                             }
                         }
                     });
 
-                    Graph.topic.publish('paper/collect');
+                    if (me.props.activator == 'tool') {
+                        paper.tool().activate('panzoom');    
+                    }
 
                     me.resize(0, 0);
                     me.suspend();
@@ -190,7 +199,7 @@
                 var vector = Graph.registry.vector.get(e.target),
                     single = ! (e.ctrlKey || e.shiftKey);
                 
-                if (vector && vector.selectable()) {
+                if (vector && vector.isSelectable()) {
                     if (vector.paper().state() == 'linking') {
                         me.clearCollection();
                         return;
@@ -417,6 +426,10 @@
                             v.plugins.dragger.suspend();
                         }
                         
+                        if ( ! manual) {
+                            v.dirty(true);    
+                        }
+
                         if (v.plugins.resizer) {
                             v.plugins.resizer.resume();
                         }
@@ -430,10 +443,6 @@
                         
                         delete v.syncdrag;
 
-                        if ( ! manual) {
-                            v.dirty(true);    
-                        }
-
                     }(v, e));
                 }
             });
@@ -446,7 +455,31 @@
 
         toString: function() {
             return 'Graph.plugin.Collector';
+        },
+
+        onKeynavDown: function(e) {
+            if (e.keyCode == Graph.event.SHIFT && this.props.activator != 'key') {
+                var tool = this.paper.tool(),
+                    curr = tool.current();
+
+                if (curr != 'collector') {
+                    tool.activate('collector', 'key');
+                }
+            }
+        },
+
+        onKeynavUp: function(e) {
+            if (e.keyCode == Graph.event.SHIFT) {
+                var tool = this.paper.tool(),
+                    curr = tool.current();
+
+                if (curr == 'collector') {
+                    this.props.activator = 'tool';
+                    tool.activate('panzoom');
+                }
+            }
         }
+
     });
 
 }());

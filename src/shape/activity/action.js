@@ -26,9 +26,9 @@
                 .render(shape);
 
             block.draggable({ghost: true});
-            block.resizable();
+            block.resizable({shield: shape});
             block.editable();
-            block.connectable({wiring: 'h:v'});
+            block.connectable({shield: shape, wiring: 'h:v'});
 
             block.on('edit.shape',    _.bind(me.onLabelEdit, me));
             block.on('dragend.shape', _.bind(me.onDragEnd, me));

@@ -33,9 +33,9 @@
                 .render(shape);
 
             block.draggable({ghost: true});
-            block.resizable();
+            block.resizable({shield: shape});
             block.editable();
-            block.connectable();
+            block.connectable({shield: shape});
 
             block.on('edit', _.bind(me.onLabelEdit, me));
             block.on('dragend', _.bind(me.onDragEnd, me));

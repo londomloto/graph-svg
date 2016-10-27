@@ -8,13 +8,18 @@
         },
 
         plugin: null,
-
-        cached: {
-            keynavHandler: null
-        },
+        
+        navigationKeys: [
+            Graph.event.ENTER,
+            Graph.event.DELETE,
+            Graph.event.SHIFT,
+            Graph.event.CTRL,
+            Graph.event.ESC
+        ],
 
         constructor: function(vector, listeners) {
-            
+            var me = this;
+
             this.props.vector = vector.guid();
             this.plugin = interact(vector.node());
             this.listeners = listeners || {};
@@ -37,10 +42,24 @@
 
             if (vector.isPaper()) {
                 Graph.$(document).on('keydown', function(e){
-                    e.originalType = 'keynav';
-                    vector.fire(e);
+                    if (me.isNavigation(e)) {
+                        e.originalType = 'keynavdown';
+                        vector.fire(e);    
+                    }
+                });
+
+                Graph.$(document).on('keyup', function(e){
+                    if (me.isNavigation(e)) {
+                        e.originalType = 'keynavup';
+                        vector.fire(e);
+                    }
                 });
             }
+        },
+
+        isNavigation: function(e) {
+            var key = e.keyCode;
+            return _.indexOf(this.navigationKeys, key) > -1;
         },
         
         vendor: function() {

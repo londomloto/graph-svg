@@ -7,7 +7,7 @@
 
     ///////// BUILDER /////////
     
-    Graph.dom = function(selector, context) {
+    Graph.dom = function(selector, context, query) {
         var fragment, element;
 
         if (domParser === undefined) {
@@ -18,23 +18,27 @@
             }
         }
 
+        query = _.defaultTo(query, false);
+
         if (_.isString(selector)) {
             if (REGEX_SVG_BUILDER.test(selector)) {
                 if (domParser) {
                     fragment = '<g xmlns="'+ Graph.config.xmlns.svg +'">' + selector + '</g>';
                     element  = domParser.parseFromString(fragment, 'text/xml').documentElement.childNodes[0];
                     fragment = null;
+                    element  = query ? $(element) : element;
                 }
             } else {
-                element = $(selector, context)[0];
+                element = query ? $(selector, context) : $(selector, context)[0];
             }
         } else {
             if (Graph.isHTML(selector) || Graph.isSVG(selector)) {
-                element = selector;
+                element = query ? $(selector) : selector;
             } else if (Graph.isElement(selector)) {
-                element = selector.query[0];
+                element = query ? selector.query : selector.query[0];
             } else {
-                element = null;
+                // document, window, ...etc
+                element = query ? $(selector) : selector;
             }
         }
 
@@ -47,8 +51,8 @@
 
     ///////// ELEMENT /////////
     
-    var E = Graph.dom.Element = function(node) {
-        this.query = $(node);
+    var E = Graph.dom.Element = function(query) {
+        this.query = $(query);
     };
 
     E.prototype.node = function() {
@@ -319,8 +323,8 @@
     /// HELPERS ///
 
     Graph.$ = function(selector, context) {
-        var node = Graph.dom(selector, context);
-        return new Graph.dom.Element(node);
+        var query = Graph.dom(selector, context, true);
+        return new Graph.dom.Element(query);
     };
 
 }(_, jQuery));
