@@ -12,12 +12,23 @@ html, body {
 
 body {
     color: #fff;
-    font-family: "Segoe UI";
+    font-family: Roboto, "Segoe UI", sans-serif;
     overflow: hidden;
+}
+
+h5 {
+    font-size: 1.64rem;
+    line-height: 110%;
+    margin: 0.82rem 0 0.656rem;
+    font-weight: 400;
 }
 
 .e-hidden {
     display: none;
+}
+
+.e-right {
+    text-align: right;
 }
 
 .e-bg-cyan {
@@ -26,6 +37,10 @@ body {
 
 .e-bg-dark {
     background-color: #4A4D6E;
+}
+
+.e-color-blue {
+    color: #2196f3 !important;
 }
 
 .e-hbox,
@@ -109,6 +124,7 @@ body {
     height: 70px;
     position: relative;
     z-index: 2;
+    background: #fafafa;
 }
 .e-logo {}
 .e-logo-text {
@@ -127,7 +143,7 @@ body {
     height: 100%;
     position: relative;
     border-bottom: solid 1px #4A4D6E;
-    background-color: #fafafa;
+    background-color: #fff;
     overflow: hidden;
 }
 
@@ -166,7 +182,7 @@ body {
     overflow: auto;
     overflow-x: hidden;
     display: none;
-    padding: 10px;
+    padding: 10px 0;
 }
 
 .e-accordion .e-pane.active .e-pane-body {
@@ -178,57 +194,9 @@ body {
     overflow: auto;
 }
 
-/** stencil */
-.e-stencil {
+/** pallet */
+.e-pallet {
     height: 600px;
-}
-
-.e-stencil-item {
-    cursor: pointer;
-}
-
-.e-stencil-item line,
-.e-stencil-item rect,
-.e-stencil-item polygon,
-.e-stencil-item circle {
-    stroke-width: 2;
-    stroke: #30D0C6;
-}
-
-.e-stencil-item rect,
-.e-stencil-item polygon {
-    fill: rgba(255, 255, 255, 0);
-}
-
-.e-stencil-item rect.full {
-    stroke-width: 0;
-    fill: #FF4081;
-}
-
-.e-stencil-item circle {
-    fill: rgba(255, 255, 255, 0);
-}
-
-.e-stencil-item circle.full {
-    stroke-width: 0;
-    fill: #FF4081;
-}
-
-.e-stencil-item text,
-.e-stencil-item text tspan {
-    stroke: #fff;
-    stroke-width: 0;
-    fill: #fff;
-    font-family: 'Segoe UI';
-    text-anchor: middle;
-    font-size: 12px;
-    pointer-events: none;
-}
-
-.e-stencil-item:hover rect,
-.e-stencil-item:hover circle,
-.e-stencil-item:hover line {
-    stroke: #FF4081;
 }
 
 /** toolbar */
@@ -255,6 +223,7 @@ body {
     background-color: #555;
 }
 
+.e-toolbar a:active,
 .e-toolbar a.active,
 .e-toolbar a.active:hover {
     color: #fff;
@@ -269,13 +238,121 @@ body {
     color: #4A4D6E;
 }
 
-/** dialog */
-.e-dialog {
-    
+/** COMMON */
+
+
+.e-row::after {
+    clear: both;
+    content: "";
+    display: table;
 }
 
-.e-dialog h3,
-.e-dialog p {
+.e-row {
+    margin-bottom: 20px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.e-row .e-col {
+    box-sizing: border-box;
+    float: left;
+    min-height: 1px;
+    padding: 0 0.75rem;
+}
+
+.e-row .e-col.e-col-12 {
+    left: auto;
+    margin-left: auto;
+    right: auto;
+    width: 100%;
+}
+
+.e-btn {
+    border: medium none;
+    border-radius: 2px;
+    display: inline-block;
+    height: 36px;
+    line-height: 36px;
+    outline: 0 none;
+    padding: 0 2rem;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.e-btn:hover {
+    background-color: #2bbbad;
+    box-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.18), 0 4px 15px 0 rgba(0, 0, 0, 0.15);
+}
+
+.e-btn-flat {
+    background-color: transparent;
+    box-shadow: none;
+    color: #343434;
+    cursor: pointer;
+    transition: background-color 0.2s ease 0s;
+}
+
+.e-btn-flat:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    box-shadow: none;
+}
+
+.e-field {
+    position: relative;
+}
+
+.e-field input:not([type]),
+.e-field input[type=text],
+.e-field input[type=password],
+.e-field input[type=email],
+.e-field input[type=url],
+.e-field input[type=time],
+.e-field input[type=date],
+.e-field input[type=datetime],
+.e-field input[type=datetime-local],
+.e-field input[type=tel],
+.e-field input[type=number],
+.e-field input[type=search],
+.e-field textarea {
+    line-height: normal;
+    background-color: transparent;
+    border: none;
+    border-bottom: 1px solid #9e9e9e;
+    border-radius: 0;
+    outline: none;
+    height: 3rem;
+    width: 100%;
+    font-size: 1rem;
+    margin: 0 0 20px 0;
     padding: 0;
-    margin: 0
+    box-shadow: none;
+    box-sizing: content-box;
+    font-family: inherit;
+}
+
+.e-field textarea {
+    resize: none;
+}
+
+.e-field input:not([type]):focus:not([readonly]),
+.e-field input[type=text]:focus:not([readonly]),
+.e-field input[type=password]:focus:not([readonly]),
+.e-field input[type=email]:focus:not([readonly]),
+.e-field input[type=url]:focus:not([readonly]),
+.e-field input[type=time]:focus:not([readonly]),
+.e-field input[type=date]:focus:not([readonly]),
+.e-field input[type=datetime]:focus:not([readonly]),
+.e-field input[type=datetime-local]:focus:not([readonly]),
+.e-field input[type=tel]:focus:not([readonly]),
+.e-field input[type=number]:focus:not([readonly]),
+.e-field input[type=search]:focus:not([readonly]),
+.e-field textarea:focus:not([readonly]) {
+    border-bottom: 1px solid #26a69a;
+    box-shadow: 0 1px 0 0 #26a69a;
+}
+
+.e-field label {
+    color: #9e9e9e;
+    cursor: text;
+    font-size: 1rem;
 }

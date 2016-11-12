@@ -1,109 +1,114 @@
 
 (function(_, $){
 
-    var E = Graph.lang.Event = function(type, data){
+    var Evt = Graph.lang.Event = function(type, data){
         this.type = type;
+        this.originalData = null;
+        this.cancelBubble = false;
+        this.defaultPrevented = false;
+        this.propagationStopped = false;
+        this.immediatePropagationStopped = false;
+
         this.init(data);
     };
-
-    E.toString = function() {
-        return 'function(type, data)';
-    };
-
-    _.extend(E.prototype, {
-        
+    
+    Evt.defaults = {
+        type: null,
+        originalData: null,
         cancelBubble: false,
         defaultPrevented: false,
-
-        // sync with `interactjs`
         propagationStopped: false,
-        immediatePropagationStopped: false,
+        immediatePropagationStopped: false
+    };
 
-        originalData: null,
-        
-        init: function(data) {
-            if (data) {
-                this.originalData = data;    
-                _.assign(this, data || {});
-            }
-        },
+    Evt.extend = Graph.lang.Class.extend;
 
-        stopPropagation: function() {
-            this.cancelBubble = this.propagationStopped = true;
-        },
-
-        stopImmediatePropagation: function() {
-            this.immediatePropagationStopped = this.propagationStopped = true;
-        },
-
-        preventDefault: function() {
-            this.defaultPrevented = true;
-        },
-
-        toString: function() {
-            return 'Graph.lang.Event';
+    Evt.prototype.constructor = Evt;
+    
+    Evt.prototype.init = function(data) {
+        if (data) {
+            this.originalData = data;    
+            _.assign(this, data || {});
         }
-    });
+    };
+
+    Evt.prototype.stopPropagation = function() {
+        this.cancelBubble = this.propagationStopped = true;
+    };
+
+    Evt.prototype.stopImmediatePropagation = function() {
+        this.immediatePropagationStopped = this.propagationStopped = true;
+    };
+
+    Evt.prototype.preventDefault = function() {
+        this.defaultPrevented = true;
+    };
+
+    Evt.prototype.toString = function() {
+        return 'Graph.lang.Event';
+    };
 
     ///////// SHORTCUT /////////
     
     Graph.event = function(type, data) {
         return new Graph.lang.Event(type, data);
     };
+
+    Graph.isEvent = function(obj) {
+        return obj instanceof Graph.lang.Event;
+    };
     
-    _.extend(Graph.event, {
+    ///////// STATIC /////////
+    
+    Graph.event.ESC = 27;
+    Graph.event.ENTER = 13;
+    Graph.event.DELETE = 46;
+    Graph.event.SHIFT = 16;
 
-        ESC: 27,
-        ENTER: 13,
-        DELETE: 46,
-        SHIFT: 16,
+    Graph.event.fix = function(event) {
+        return $.event.fix(event);
+    };
 
-        fix: function(event) {
-            return $.event.fix(event);
-        },
+    Graph.event.original = function(event) {
+        return event.originalEvent || event;
+    };
 
-        original: function(event) {
-            return event.originalEvent || event;
-        },
-
-        position: function(event) {
-            return {
-                x: event.clientX,
-                y: event.clientY
+    Graph.event.position = function(event) {
+        return {
+            x: event.clientX,
+            y: event.clientY
+        };
+    };
+    
+    Graph.event.relative = function(event, vector) {
+        var position = Graph.event.position(event),
+            matrix = vector.matrix().clone().invert(),
+            relative = {
+                x: matrix.x(position.x, position.y),
+                y: matrix.y(position.x, position.y)
             };
-        },
-        
-        relative: function(event, vector) {
 
-            var position = Graph.event.position(event),
-                matrix = vector.matrix().clone().invert(),
-                relative = {
-                    x: matrix.x(position.x, position.y),
-                    y: matrix.y(position.x, position.y)
-                };
+        matrix = null;
 
-            matrix = null;
+        return relative;
+    };
 
-            return relative;
-        },
+    Graph.event.isPrimaryButton = function(event) {
+        var original = Graph.event.original(event);
+        return ! original.button;
+    };
 
-        isPrimaryButton: function(event) {
-            var original = Graph.event.original(event);
-            return ! original.button;
-        },
-
-        hasPrimaryModifier: function(event) {
-            if ( ! Graph.event.isPrimaryButton(event)) {
-                return false;
-            }
-            var original = Graph.event.original(event);
-            return Graph.isMac() ? original.metaKey : original.ctrlKey;
-        },
-
-        hasSecondaryModifier: function(event) {
-            var original = Graph.event.original(event);
-            return Graph.event.isPrimaryButton(event) && original.shiftKey;
+    Graph.event.hasPrimaryModifier = function(event) {
+        if ( ! Graph.event.isPrimaryButton(event)) {
+            return false;
         }
-    });
+        var original = Graph.event.original(event);
+        return Graph.isMac() ? original.metaKey : original.ctrlKey;
+    };
+
+    Graph.event.hasSecondaryModifier = function(event) {
+        var original = Graph.event.original(event);
+        return Graph.event.isPrimaryButton(event) && original.shiftKey;
+    };
     
 }(_, jQuery));

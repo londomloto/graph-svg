@@ -1,14 +1,15 @@
 
 (function(){
     
+    // storages
+    var vendors = {};
+
     var Reactor = Graph.plugin.Reactor = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
             vector: null
         },
 
-        plugin: null,
-        
         navigationKeys: [
             Graph.event.ENTER,
             Graph.event.DELETE,
@@ -18,43 +19,54 @@
         ],
 
         constructor: function(vector, listeners) {
-            var me = this;
+            var me = this, 
+                node = vector.node(),
+                guid = vector.guid();
 
-            this.props.vector = vector.guid();
-            this.plugin = interact(vector.node());
-            this.listeners = listeners || {};
+            var vendor;
 
-            this.plugin.on('down', function(e){
-                e.originalType = 'pointerdown';
-                vector.fire(e);
+            me.props.vector = guid;
+            me.listeners = listeners || {};
+
+            vendor = vendors[guid] = interact(node);
+
+            vendor.on('down', function reactorDown(e){
+                if (e.target === node) {
+                    e.originalType = 'pointerdown';
+                    vector.fire(e);    
+                }
             }, true);
 
             vector.elem.on({
-                mouseenter: function(e) {
-                    e.type = 'pointerin'
-                    vector.fire(e);
-                },
-                mouseleave: function(e) {
-                    e.type = 'pointerout';
-                    vector.fire(e);
+                contextmenu: function(e) {
+                    if (e.currentTarget === node) {
+                        vector.fire(e);
+                        // e.preventDefault();
+                    }
                 }
             });
 
             if (vector.isPaper()) {
-                Graph.$(document).on('keydown', function(e){
-                    if (me.isNavigation(e)) {
+                var doc = Graph.$(document);
+
+                doc.on('keydown', function(e){
+                    if (me.isNavigation(e) && Graph.cached.paper == guid) {
                         e.originalType = 'keynavdown';
-                        vector.fire(e);    
+                        vector.fire(e); 
                     }
                 });
 
-                Graph.$(document).on('keyup', function(e){
-                    if (me.isNavigation(e)) {
+                doc.on('keyup', function(e){
+                    if (me.isNavigation(e) && Graph.cached.paper == guid) {
                         e.originalType = 'keynavup';
                         vector.fire(e);
                     }
                 });
+
+                doc = null;
             }
+
+            vendor = null;
         },
 
         isNavigation: function(e) {
@@ -63,24 +75,30 @@
         },
         
         vendor: function() {
-            return this.plugin;
+            return vendors[this.props.vector];
         },
 
         draggable: function(options) {
-            return this.plugin.draggable(options);
+            return this.vendor().draggable(options);
         },
 
         dropzone: function(options) {
-            return this.plugin.dropzone(options);
+            return this.vendor().dropzone(options);
         },
 
         gesturable: function(options) {
-            return this.plugin.gesturable(options);
+            return this.vendor().gesturable(options);
         },
 
         destroy: function() {
-            this.plugin.unset();
-            this.plugin = null;
+            var guid = this.props.vector,
+                vendor = vendors[guid];
+
+            if (vendor) {
+                vendor.unset();
+            }
+
+            delete vendors[guid];
         },
 
         toString: function() {

@@ -108,7 +108,7 @@
         redraw: function() {
             var editor = this.components.editor,
                 vector = this.vector(),
-                matrix = vector.matrix(true),
+                matrix = vector.globalMatrix(),
                 scale  = matrix.scale();
 
             var vbox = vector.bbox().clone().transform(matrix).toJson();
@@ -157,8 +157,8 @@
         startEdit: function(e) {
             var me = this, vector = me.vector();
 
-            if (vector.$collector) {
-                vector.$collector.decollect(vector);
+            if (vector.lasso) {
+                vector.lasso.decollect(vector);
             }
 
             if (vector.paper().tool().current() == 'linker') {
@@ -171,7 +171,7 @@
             if (e && this.props.offset == 'pointer') {
                 var editor = me.components.editor,
                     paper = vector.paper(),
-                    scale = paper.layout().currentScale();
+                    scale = paper.layout().scale();
 
                 var offset, coords, left, top;
 

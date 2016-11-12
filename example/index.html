@@ -2,13 +2,18 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
     <title>Easyflow - Diagram Editor</title>
     
     <link rel="stylesheet" type="text/css" href="../css/graph.css">
 
+    <link rel="stylesheet" type="text/css" href="assets/vendor/roboto/roboto.css">
     <link rel="stylesheet" type="text/css" href="assets/vendor/ionicons/ionicons.css">
     <link rel="stylesheet" type="text/css" href="assets/vendor/bpmn/bpmn.css">
+    <link rel="stylesheet" type="text/css" href="assets/vendor/fonticons/fonticons.css">
     <link rel="stylesheet" type="text/css" href="assets/css/app.css">
+
 </head>
 <body>
 
@@ -22,11 +27,11 @@
                     <a href="#" data-tool="panzoom" title="Activate hand tool"><i class="bpmn-icon-hand-tool"></i></a>
                     <a href="#" data-tool="collector" title="Activate lasso tool"><i class="bpmn-icon-lasso-tool"></i></a>
                     <a href="#" data-tool="linker" title="Activate link tool"><i class="bpmn-icon-connection-multi"></i></a>
-                    <a href="#" title="Delete selection"><i class="bpmn-icon-trash"></i></a>
+                    <a href="#" data-util="trash" title="Delete selection"><i class="bpmn-icon-trash"></i></a>
                     <a href="#" title="Add annotation"><i class="bpmn-icon-text-annotation"></i></a>
                     <a href="#" data-util="export" title="Save as Image"><i class="ion-image"></i></a>
-                    <a href="#" data-util="diagram" title="New workspace"><i class="ion-android-document"></i></a>
-                    <a href="#" title="Open database"><i class="ion-android-archive"></i></a>
+                    <a href="#" data-util="diagram" title="New workspace"><i class="bpmn-icon-data-object"></i></a>
+                    <a href="#" title="Open database"><i class="bpmn-icon-data-store"></i></a>
                     <a href="#" title="Save workspace"><i class="ion-android-checkbox-outline"></i></a>
                     <a href="#" title="Use Case Config"><i class="ion-android-settings"></i></a>
                 </div>
@@ -37,59 +42,16 @@
                 <aside class="e-aside-sm e-bg-dark">
                     <div class="e-accordion">
                         <div class="e-pane active">
-                            <!-- <div class="e-pane-header">
-                                <h3 class="e-pane-title"><i class="icon ion-ios-minus-outline"></i> BASIC SHAPES</h3>
-                            </div> -->
                             <div class="e-pane-body">
-                                <div id="stencil" class="e-stencil">
-                                    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" class="graph-stencil" style="width: 100%; height: 100%;">
-                                        <g class="e-stencil-item" data-shape="activity.start" transform="translate(30, 0)">
-                                            <circle cx="32" cy="32" r="30" />
-                                            <text x="32" y="36">Start</text>
-                                        </g>
-                                        <g class="e-stencil-item" data-shape="activity.final" transform="translate(30, 80)">
-                                            <circle cx="32" cy="32" r="30" />
-                                            <circle cx="32" cy="32" r="24" class="full" />
-                                            <text x="32" y="36">Stop</text>
-                                        </g>
-                                        <g class="e-stencil-item" data-shape="activity.action" transform="translate(30, 160)">
-                                            <rect x="2" y="2" width="60" height="60" rx="7" ry="7" />
-                                            <text x="32" y="34">Action</text>
-                                        </g>
-                                        <g class="e-stencil-item" data-shape="activity.router" transform="translate(30, 250)">
-                                            <rect x="4" y="4" width="54" height="54" transform="rotate(45,32,32)" />
-                                            <text x="30" y="34">Route</text>
-                                        </g>
-                                        <g class="e-stencil-item" data-shape="activity.join" transform="translate(30, 340)">
-                                            <rect x="2" y="28" width="60" height="6" rx="0" ry="0" class="full" />
-                                            <line x1="10" y1="0" x2="10" y2="28" />
-                                            <line x1="54" y1="0" x2="54" y2="28" />
-                                            <line x1="32" y1="34" x2="32" y2="60" />
-                                            <text x="30" y="20">Join</text>
-                                        </g>
-                                        <g class="e-stencil-item" data-shape="activity.fork" transform="translate(30, 420)">
-                                            <rect x="2" y="28" width="60" height="6" rx="0" ry="0" class="full" />
-                                            <line x1="10" y1="34" x2="10" y2="60" />
-                                            <line x1="54" y1="34" x2="54" y2="60" />
-                                            <line x1="32" y1="0" x2="32" y2="28" />
-                                            <text x="30" y="50">Fork</text>
-                                        </g>
-                                        <g class="e-stencil-item" data-shape="activity.lane" transform="translate(30, 500)">
-                                            <rect x="2" y="2" width="60" height="60" rx="0" ry="0" />
-                                            <rect x="2" y="2" width="10" height="60" rx="0" ry="0" />
-                                            <text x="32" y="34">Role</text>
-                                        </g>
-                                    </svg>
-                                </div>
+                                <div id="pallet" class="e-pallet"></div>
                             </div>
                         </div>
-                        
                     </div>
                 </aside>    
                 <section>
                     <section class="e-vbox">
                         <section class="e-center">
-                            <div id="page0" class="e-page"></div>
+                            <div id="page" class="e-page"></div>
                         </section>
                     </section>
                 </section>
@@ -99,31 +61,48 @@
         
     </section>
 
-    <!-- CREATE DIALOG -->
-    <section class="e-hidden" id="create-dialog">
-        <h3 class="header">Create Diagram</h3>
-        <div class="body">
-            <p>Type your diagram name</p>
-            <input type="text">
+    <!-- .graph-dialog -->
+    <section class="graph-dialog" id="create-dialog">
+        <div class="e-row">
+            <div class="e-col e-col-12">
+                <h5>Diagram Baru</h5>
+            </div>
         </div>
-        <div class="footer">
-            <button>Save</button>
-            <button>Cancel</button>
+        <div class="e-row">
+            <div class="e-field e-col e-col-12">
+                <label for="diagram-name" class="">Nama diagram</label>
+                <input id="diagram-name" name="diagram_name" type="text">
+            </div>
+        </div>
+        <div class="e-row">
+            <div class="e-field e-col e-col-12">
+                <label for="diagram-desc" class="">Keterangan singkat</label>
+                <input id="diagram-desc" name="diagram_desc" type="text">
+            </div>
+        </div>
+        <div class="e-right">
+            <a class="btn-save e-btn e-btn-flat e-color-blue">Simpan</a>
+            <a class="btn-close e-btn e-btn-flat">Tutup</a>
         </div>
     </section>
-    <!-- END OF CREATE DIALOG -->
+    <!-- ./graph-dialog -->
+
+
 
     <script src="../vendor/lodash/lodash.js"></script>
     <script src="../vendor/jquery/jquery.js"></script>
     <script src="../vendor/interact/interact.js"></script>
+    <script src="../vendor/jed/jed.js"></script>
     
     <script src="../src/poly.js"></script>
     <script src="../src/core.js"></script>
     <script src="../src/util.js"></script>
+
+    <script src="../src/i18n/loader.js"></script>
     
+    <script src="../src/lang/class.js"></script>
     <script src="../src/lang/error.js"></script>
     <script src="../src/lang/event.js"></script>
-    <script src="../src/lang/class.js"></script>
     <script src="../src/lang/point.js"></script>
     <script src="../src/lang/line.js"></script>
     <script src="../src/lang/curve.js"></script>
@@ -133,6 +112,8 @@
 
     <script src="../src/collection/point.js"></script>
     <script src="../src/collection/vector.js"></script>
+    <script src="../src/collection/shape.js"></script>
+    <script src="../src/collection/tree.js"></script>
 
     <script src="../src/dom/element.js"></script>
 
@@ -162,10 +143,7 @@
     <script src="../src/link/link.js"></script>
     <script src="../src/link/directed.js"></script>
     <script src="../src/link/orthogonal.js"></script>
-
-    <script src="../src/util/spotlight.js"></script>
-    <script src="../src/util/hinter.js"></script>
-    <script src="../src/util/toolpad.js"></script>
+    
     <script src="../src/util/sweeplink.js"></script>
 
     <script src="../src/plugin/plugin.js"></script>
@@ -186,6 +164,7 @@
     <script src="../src/plugin/pencil.js"></script>
     <script src="../src/plugin/editor.js"></script>
     <script src="../src/plugin/snapper.js"></script>
+    <script src="../src/plugin/toolpad.js"></script>
     
     <script src="../src/shape/shape.js"></script>
     <script src="../src/shape/activity/start.js"></script>
@@ -195,9 +174,12 @@
     <script src="../src/shape/activity/fork.js"></script>
     <script src="../src/shape/activity/join.js"></script>
     <script src="../src/shape/activity/lane.js"></script>
+    <script src="../src/shape/activity/pool.js"></script>
 
     <script src="../src/data/exporter.js"></script>
     <script src="../src/data/importer.js"></script>
+
+    <script src="../src/pallet/activity.js"></script>
 
     <script src="../src/diagram/diagram.js"></script>
     <script src="../src/diagram/command.js"></script>

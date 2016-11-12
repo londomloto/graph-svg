@@ -2,7 +2,7 @@
 (function(){
 
     var Collection = Graph.collection.Vector = Graph.extend({
-
+        
         items: [],
 
         constructor: function(vectors) {
@@ -37,47 +37,50 @@
         
         push: function(vector) {
             var id = vector.guid();
-
             this.items.push(id);
-            this.fire('push', {vector: vector});
-
-            return this;
+            return this.items.length;
         },
 
         pop: function() {
-            this.items.pop();
+            var id = this.items.pop();
+            return Graph.registry.vector.get(id);
         },
 
         shift: function() {
-            this.items.shift();
+            var id = this.items.shift();
+            return Graph.registry.vector.get(id);
         },
 
         unshift: function(vector) {
             var id = vector.guid();
-
             this.items.unshift(id);
-            this.fire('unshift', {vector: vector});
+        },
 
-            return this;
+        insert: function(vector, offset) {
+            if (offset === -1) {
+                offset = 0;
+            }
+            this.items.splice(offset, 0, vector.guid());
         },
 
         pull: function(vector) {
             var id = vector.guid();
-
             _.pull(this.items, id);
-            this.fire('pull', {vector: vector});
-
-            return this;
         },
 
         clear: function() {
             this.items = [];
         },
 
-        each: function(handler) {
+        reverse: function() {
+            this.items.reverse();
+            return this;
+        },
+
+        each: function(iteratee) {
             _.forEach(this.items, function(id){
                 var vector = Graph.registry.vector.get(id);
-                handler.call(vector, vector);
+                iteratee.call(vector, vector);
             });
         },
         

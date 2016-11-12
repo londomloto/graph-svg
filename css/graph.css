@@ -21,6 +21,7 @@ g {
 }
 
 text, tspan {
+    font-family: Roboto, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
        -moz-font-smoothing: grayscale;
 }
@@ -57,13 +58,13 @@ rect {
     pointer-events: none;
 }
 
-.graph-elem-line,
-.graph-elem-path {
+line.graph-elem,
+path.graph-elem {
     fill: none;
     stroke-linecap: butt;
 }
 
-.graph-elem-text tspan {
+text.graph-elem tspan {
     stroke-width: .05;
     fill: #000000;
 }
@@ -79,7 +80,7 @@ rect {
     stroke: #3E7CF7;
     stroke-width: 1;
     pointer-events: none;
-    stroke-dasharray: 5 3;
+    stroke-dasharray: 5 2;
 }
 
 .graph-resizer .handle-nw,
@@ -115,10 +116,10 @@ rect {
 }
 
 .graph-elem.dragging {
-    opacity: .7;
+    opacity: .3;
 }
 
-/** rubberband */
+/** collector */
 .graph-rubberband {
     width: 1px;
     height: 1px;
@@ -130,6 +131,9 @@ rect {
     border: #0077ff solid 1px;
     opacity: .3;
 }
+.graph-selected {
+    stroke: #007DFC;
+}
 
 /** zoombox */
 .graph-zoom-toolbox {
@@ -137,10 +141,10 @@ rect {
     top: 10px;
     left: 10px;
     width: 38px;
-    background: #fafafa none repeat scroll 0 0;
+    background: #fff none repeat scroll 0 0;
     border: 1px solid #ccc;
     border-radius: 2px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .graph-zoom-toolbox a {
@@ -154,14 +158,15 @@ rect {
 }
 
 .graph-zoom-toolbox a:hover {
-    background: #fff;
+    color: orange;
 }
 
 .graph-zoom-toolbox .splitter {
     height: 1px;
     /*margin-left: 5px;
     margin-right: 5px;*/
-    background: #ccc;
+    background: #ddd;
+    margin: 0 4px;
 }
 
 
@@ -191,18 +196,22 @@ rect {
 }
 
 /** network */
-.graph-connectable {
-    
+.linking .graph-elem {
+    cursor: not-allowed;
 }
 
-.graph-connectable.connect-invalid.connect-hover,
-.graph-connectable.connect-invalid:hover {
-    fill: #FFDDE8;
+.linking .graph-connectable {
+    cursor: pointer;    
 }
 
-.graph-connectable.connect-valid.connect-hover,
-.graph-connectable.connect-valid:hover {
-    fill: #DEFFC9;
+.linking .graph-elem:not(.graph-link-coat).connect-invalid.connect-hover,
+.linking .graph-elem:not(.graph-link-coat).connect-invalid:hover {
+    fill: #FFF4F8;
+}
+
+.linking .connect-valid.connect-hover,
+.linking .connect-valid:hover {
+    fill: #F2FFEA;
 }
 
 /** link */
@@ -245,6 +254,10 @@ rect {
     stroke: #007DFC;
 }
 
+.graph-link.selected .graph-link-coat.dragging + .graph-link-path {
+    opacity: .3;
+}
+
 .graph-link-head {
     
 }
@@ -271,6 +284,20 @@ rect {
     stroke-linecap: butt;
 }
 
+/** SNAPPER */
+.graph-snapper path {
+    stroke: #FFA500;
+    stroke-width: 1;
+    /*opacity: .5;*/
+    fill: none;
+    stroke-linecap: butt;
+    display: none;
+}
+
+.graph-snapper path.visible {
+    display: inline;;
+}
+
 /** HINTER */
 .graph-util-hinter > line {
     stroke: #007DFC;
@@ -293,16 +320,39 @@ rect {
 }
 
 /** toolpad */
-.graph-util-toolpad {
+.graph-toolpad {
     position: absolute;
-    top: 0;
-    left: 0;
-    min-width: 50px;
-    min-height: 50px;
-    background-color: #FAFAFA;
+    top: 140px;
+    left: 10px;
+    width: 38px;
+    background: #fff none repeat scroll 0 0;
     border: 1px solid #ccc;
     border-radius: 2px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.graph-toolpad a {
+    display: block;
+    width: 36px;
+    height: 36px;
+    color: #555555;
+    font-size: 24px;
+    text-align: center;
+    line-height: 36px;
+}
+
+.graph-toolpad a:hover {
+    color: orange;
+}
+
+.graph-toolpad .pad-header a:hover {
+    color: #555;
+}
+
+.graph-toolpad .splitter {
+    height: 1px;
+    background: #ddd;
+    margin: 0 4px;
 }
 
 /** editor */
@@ -316,10 +366,126 @@ rect {
     border: solid 1px #ccc;
     border-radius: 4px;
     overflow: auto;
+    font-family: Roboto, 'Segoe UI', sans-serif;
 }
 
-/** popup */
-.graph-popup-backdrop {
+
+
+/** ACTIVITY-SHAPES */
+.graph-shape.shape-dragging text {
+    opacity: .3;
+}
+
+.graph-shape-activity-final .comp-block {
+    fill: rgba(255,255,255,0);
+}
+
+.graph-shape-activity-final .comp-inner {
+    fill: #000;
+    stroke-width: 0;
+}
+
+.graph-shape-activity-final .comp-label tspan {
+    fill: #ffffff;
+}
+
+.graph-shape-activity-final .comp-block.allowed:hover ~ .comp-inner {
+    fill: #30D0C6;
+}
+
+/** LANE */
+.graph-shape-activity-lane > .comp-block,
+.graph-shape-activity-lane > .comp-header {
+    fill: rgba(255,255,255,0);
+}
+
+.graph-shape-activity-lane.shape-selected > .comp-header {
+    stroke: #007DFC;
+}
+
+.graph-shape-activity-lane > rect {
+    stroke-width: 1;
+}
+
+.graph-shape-activity-lane.receiving > .comp-block {
+    fill: rgba(0, 125, 252, .05);
+}
+
+
+/** JOIN */
+.graph-shape-activity-join .block {
+    fill: #000;
+    stroke-width: 0;
+}
+
+.graph-shape-activity-join .block.allowed:hover {
+    fill: #30D0C6;
+}
+
+
+
+/** PALLET */
+.graph-pallet path {
+    stroke: #30D0C6;
+    stroke-width: 0;
+}
+.graph-pallet-item {
+    cursor: -webkit-grab;
+    cursor: -moz-grab;
+}
+
+.graph-pallet-item.grabbing {
+    cursor: -webkit-grabbing;
+    cursor: -moz-grabbing;
+}
+
+.graph-pallet-item line,
+.graph-pallet-item path,
+.graph-pallet-item rect,
+.graph-pallet-item polygon,
+.graph-pallet-item circle {
+    stroke-width: 2;
+    stroke: #30D0C6;
+}
+
+.graph-pallet-item rect,
+.graph-pallet-item polygon {
+    fill: rgba(255, 255, 255, 0);
+}
+
+.graph-pallet-item rect.full {
+    stroke-width: 0;
+    fill: #FF4081;
+}
+
+.graph-pallet-item circle {
+    fill: rgba(255, 255, 255, 0);
+}
+
+.graph-pallet-item circle.full {
+    stroke-width: 0;
+    fill: #FF4081;
+}
+
+.graph-pallet-item text,
+.graph-pallet-item text tspan {
+    stroke: #fff;
+    stroke-width: 0;
+    fill: #fff;
+    text-anchor: middle;
+    font-size: 12px;
+    pointer-events: none;
+}
+
+.graph-pallet-item:hover rect,
+.graph-pallet-item:hover circle,
+.graph-pallet-item:hover line {
+    stroke: #FF4081;
+}
+
+/** HTML */
+
+.graph-dialog-backdrop {
     position: absolute;
     left: 0;
     right: 0;
@@ -328,7 +494,8 @@ rect {
     background-color: rgba(0,0,0,.1);
     z-index: 999998;
 }
-.graph-popup-dialog {
+
+.graph-dialog {
     position: absolute;
     min-width: 380px;
     top: 0;
@@ -339,43 +506,9 @@ rect {
     color: #555;
     border-radius: 2px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
 }
 
-/** SHAPE */
-/** ACTIVITY-SHAPES */
-
-.graph-shape-activity-final .block {
-    fill: rgba(255,255,255,0);
-}
-
-.graph-shape-activity-final .inner {
-    fill: #000;
-    stroke-width: 0;
-}
-
-.graph-shape-activity-final .label tspan {
-    fill: #ffffff;
-}
-
-.graph-shape-activity-final .block.allowed:hover ~ .inner {
-    fill: #30D0C6;
-}
-
-.graph-shape-activity-lane .block,
-.graph-shape-activity-lane .header {
-    fill: rgba(255,255,255,0);
-    /*stroke-width: 1;*/
-}
-
-.graph-shape-activity-join .block {
-    fill: #000;
-    stroke-width: 0;
-}
-
-.graph-shape-activity-join .block.allowed:hover {
-    fill: #30D0C6;
-}
-
-.graph-shape-activity-lane rect {
-    stroke-width: 1;
+.graph-dialog.open {
+    display: block;
 }

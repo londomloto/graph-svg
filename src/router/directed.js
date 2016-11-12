@@ -468,4 +468,10 @@
         
     });
 
+    ///////// STATICS /////////
+    
+    Graph.router.Directed.toString = function() {
+        return 'function(domain, source, target, options)';
+    };
+
 }());

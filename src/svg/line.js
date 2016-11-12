@@ -2,14 +2,7 @@
 (function(){
 
     Graph.svg.Line = Graph.extend(Graph.svg.Vector, {
-
-        attrs: {
-            // 'stroke': '#696B8A',
-            // 'stroke-width': 1,
-            // 'stroke-linecap': 'butt',
-            'class': Graph.string.CLS_VECTOR_LINE
-        },
-
+        
         constructor: function(x1, y1, x2, y2) {
             var args = _.toArray(arguments);
 

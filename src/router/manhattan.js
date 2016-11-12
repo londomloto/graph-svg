@@ -302,8 +302,8 @@
             if (obstacle.permit(fpoint) && obstacle.permit(tpoint)) {
                 var parents = {},
                     distances = {},
-                    srckey = fpoint.toString(),
-                    tarkey = tpoint.toString();
+                    srckey = fpoint.toValue(),
+                    tarkey = tpoint.toValue();
 
                 var prevangle, currkey, currpoint, currdist, currangle,
                     nextkey, nextpoint, deltadir, dist, dir, i;
@@ -350,7 +350,7 @@
                         }
 
                         nextpoint = currpoint.clone().expand(dir.dx, dir.dy);
-                        nextkey   = nextpoint.toString();
+                        nextkey   = nextpoint.toValue();
 
                         if (heap.isClose(nextkey) || ! obstacle.permit(nextpoint)) {
                             continue;
@@ -609,7 +609,7 @@
             var me = this,
                 grid = me.props.grid,
                 step = me.props.step,
-                key = point.clone().snap(grid, grid).toString();
+                key = point.clone().snap(grid, grid).toValue();
 
             if (me.sourceDot && me.sourceBox) {
                 if (me.sourceBox.contains(point) && ! me.sourceDot.equals(point)) {

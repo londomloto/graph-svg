@@ -72,9 +72,9 @@
                 srcnet = source.connectable(),
                 tarnet = target.connectable(),
                 srcbox = srcnet.bbox(),
-                sbound = srcbox.data(),
+                sbound = srcbox.toJson(),
                 tarbox = tarnet.bbox(),
-                tbound = tarbox.data(),
+                tbound = tarbox.toJson(),
                 orient = srcnet.orientation(tarnet),
                 direct = srcnet.direction(tarnet),
                 tuneup  = false;
@@ -733,5 +733,11 @@
         }
 
     });
+
+    ///////// STATICS /////////
+    
+    Graph.router.Orthogonal.toString = function() {
+        return 'function(domain, source, target, options)';
+    };
 
 }());

@@ -20,6 +20,13 @@
 
         query = _.defaultTo(query, false);
 
+        if (context !== undefined) {
+            if (Graph.isElement(context)) {
+                context = context.node();
+            }
+        }
+
+
         if (_.isString(selector)) {
             if (REGEX_SVG_BUILDER.test(selector)) {
                 if (domParser) {
@@ -38,10 +45,11 @@
                 element = query ? selector.query : selector.query[0];
             } else {
                 // document, window, ...etc
-                element = query ? $(selector) : selector;
+                element = query ? $(selector, context) : selector;
             }
         }
 
+        context = null;
         return element;
     };  
 
@@ -50,10 +58,14 @@
     };
 
     ///////// ELEMENT /////////
-    
-    var E = Graph.dom.Element = function(query) {
-        this.query = $(query);
+
+    var E = Graph.dom.Element = function(node) {
+        this.query = $(node);
     };
+
+    E.prototype.is = function(pseudo) {
+        return this.query.is(pseudo);
+    };  
 
     E.prototype.node = function() {
         return this.query[0];
@@ -76,6 +88,10 @@
     };
 
     E.prototype.attr = function(name, value) {
+        if (value === undefined) {
+            return this.query.attr(name);
+        }
+        
         var me = this, node = this.query[0];
 
         if (Graph.isHTML(node)) {
@@ -150,12 +166,14 @@
         if (Graph.isHTML(node)) {
             this.query.addClass(classes);
         } else if (Graph.isSVG(node)) {
-            var currentClasses = _.split(node.className.baseVal || '', ' ');
-            classes = _.split(classes, ' ');
-            classes = _.concat(currentClasses, classes);
-            classes = _.uniq(classes);
-            classes = _.join(classes, ' ');
-            node.className.baseVal = _.trim(classes);
+            var values = _.chain([])
+                .concat(_.split(node.className.baseVal || '', ' '))
+                .concat(_.split(classes, ' '))
+                .uniq()
+                .join(' ')
+                .trim()
+                .value();
+            node.className.baseVal = values;
         }
         return this;
     };
@@ -194,7 +212,11 @@
     };
 
     E.prototype.append = function(element) {
-        this.query.append(element.query);
+        if (element.query === undefined) {
+            this.query.append(element);
+        } else {
+            this.query.append(element.query);
+        }
         return this;
     };
 
@@ -216,6 +238,15 @@
     E.prototype.before = function(element) {
         this.query.before(element.query);
         return this;
+    };
+
+    E.prototype.after = function(element) {
+        this.query.after(element.query);
+        return this;
+    };
+    
+    E.prototype.last = function() {
+        return new Graph.dom.Element(this.query.last());
     };
 
     E.prototype.remove = function() {
@@ -241,6 +272,14 @@
 
     E.prototype.trigger = function(type, data) {
         this.query.trigger(type, data);
+        return this;
+    };
+
+    E.prototype.val = function(value) {
+        if (value === undefined) {
+            return this.query.val();
+        }
+        this.query.val(value);
         return this;
     };
 
@@ -319,6 +358,10 @@
     E.prototype.toString = function() {
         return 'Graph.dom.Element';
     };
+
+    /// STATICS ///
+    
+    E.guid = 0;
     
     /// HELPERS ///
 

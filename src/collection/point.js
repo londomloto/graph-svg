@@ -1,15 +1,15 @@
 
 (function(){
 
-    var Collection = Graph.collection.Point = function(items) {
-        this.items = items || [];
+    var Collection = Graph.collection.Point = function(points) {
+        this.items = points || [];
     };
 
     Collection.prototype.constructor = Collection;
     Collection.prototype.items = [];
 
-    Collection.prototype.nth = function(index) {
-        return _.nth(this.items, index);
+    Collection.prototype.get = function(index) {
+        return this.items[index];
     };
 
     Collection.prototype.push = function(item) {

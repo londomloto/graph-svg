@@ -4,94 +4,116 @@
     Graph.plugin.Plugin = Graph.extend({
 
         props: {
-            shield: null,
+            context: null,
             vector: null,
             activator: 'tool'
         },
 
         cached: {
-            bboxMatrix: null,
-            pathMatrix: null
+            path: null,
+            bbox: null
         },
 
+        /**
+         * Update options
+         */
+        options: function(options) {
+            options = options || {};
+
+            var context = _.defaultTo(options.context, this.vector()),
+                contextId = context.guid();
+
+            if (contextId != this.props.context) {
+                this.props.context = contextId;
+                this.cached.bbox = null;
+                this.cached.path = null;
+            }
+        },
+        
         vector: function() {
             return Graph.registry.vector.get(this.props.vector);
         },
 
-        shield: function() {
-            if (this.props.shield == this.props.vector) {
+        context: function() {
+            if (this.props.context == this.props.vector) {
                 return this.vector();
             }
-            return Graph.registry.vector.get(this.props.shield);
-        },
-
-        invalidate: function() {
-            this.cached.bboxMatrix = null;
-            this.cached.pathMatrix = null;
-        },
-
-        bboxMatrix: function() {
-            var matrix = this.cached.bboxMatrix;
-
-            if ( ! matrix) {
-                if (this.props.vector == this.props.shield) {
-                    matrix = this.vector().matrix().clone();
-                } else {
-                    matrix = this.shield().matrix().clone();
-                }
-
-                this.cached.bboxMatrix = matrix;
-            }
-            
-            return matrix;
+            return Graph.registry.vector.get(this.props.context);    
         },
         
-        pathMatrix: function() {
-            var matrix = this.cached.pathMatrix;
-
-            if ( ! matrix) {
-                matrix = Graph.matrix();
-
-                if (this.props.vector == this.props.shield) {
-                    matrix = matrix.multiply(this.vector().matrix());
-                } else {
-                    var shield = this.shield(),
-                        vector = this.vector();
-
-                    vector.bubble(function(curr){
-                        matrix.multiply(curr.matrix());
-                        if (curr == shield) {
-                            return false;
-                        }
-                    });
-                }
-                this.cached.pathMatrix = matrix;
-            }
-
-            return matrix;
+        invalidate: function() {
+            this.cached.path = null;
+            this.cached.bbox = null;
         },
 
         bbox: function() {
-            var matrix = this.bboxMatrix(),
-                path = this.vector().pathinfo().transform(matrix),
+            var bbox = this.cached.bbox;
+
+            if ( ! bbox) {
+                // TODO: grab outer matrix based on current context
+                var vector = this.vector(),
+                    path = vector.pathinfo();
+
+                var matrix, contextId;
+
+                if (this.props.context == this.props.vector) {
+                    matrix = vector.matrix();
+                } else {
+                    matrix = Graph.matrix();
+                    contextId = this.props.context;
+
+                    vector.bubble(function(curr){
+                        if (curr.guid() == contextId) {
+                            return false;
+                        }
+                        matrix.multiply(curr.matrix());
+                    });
+                }
+
+                // TODO: transform path based on calculated matrix
+                path = path.transform(matrix);
+                
                 bbox = path.bbox();
-            
-            matrix = path = null;
-            
-            return bbox;
+                this.cached.bbox = bbox;
+
+                matrix = path = null;
+            }
+
+            return bbox.clone();
         },
 
         pathinfo: function() {
-            var matrix = this.pathMatrix(),
-                path = this.vector().pathinfo().transform(matrix);
-            
-            matrix = null;
-            
-            return path;
-        },
+            var path = this.cached.path;
 
-        hasShield: function() {
-            return this.props.vector != this.props.shield;
+            if ( ! path) {
+                // TODO: grab outer matrix based on current context
+                var vector = this.vector(),
+                    path = vector.pathinfo();
+
+                var matrix, contextId;
+
+                if (this.props.context == this.props.vector) {
+                    matrix = vector.matrix();
+                } else {
+                    matrix = Graph.matrix();
+                    contextId = this.props.context;
+
+                    vector.bubble(function(curr){
+                        if (curr.guid() == contextId) {
+                            return false;
+                        }
+                        matrix.multiply(curr.matrix());
+                    });
+                }
+
+                // TODO: transform path
+                path = path.transform(matrix);
+                this.cached.path = path;
+
+                matrix = null;
+            }
+
+            return path.clone();
         },
 
         enable: function(activator) {},

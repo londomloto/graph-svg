@@ -333,7 +333,7 @@
 
                                     matrix = plugin.commit(false, true);
 
-                                    vector.attr('transform', matrix.toString());
+                                    vector.attr('transform', matrix.toValue());
 
 
                                     matrix = null;
@@ -348,7 +348,7 @@
                                         from[key].props.e + ease * time * delta[key].e,
                                         from[key].props.f + ease * time * delta[key].f
                                     );
-                                    vector.attr('transform', matrix.toString());
+                                    vector.attr('transform', matrix.toValue());
                                     matrix = null;
                                 }
 
@@ -377,7 +377,7 @@
                                     matrix = plugin.commit(false, true);
 
                                     vector.graph.matrix = matrix;
-                                    vector.attr('transform', matrix.toString());
+                                    vector.attr('transform', matrix.toValue());
                                     
                                     matrix = null;
                                     plugin = null;
@@ -385,7 +385,7 @@
                                     matrix = to[key].clone();
 
                                     vector.graph.matrix = matrix;
-                                    vector.attr('transform', matrix.toString());
+                                    vector.attr('transform', matrix.toValue());
 
                                     matrix = null;
                                 }

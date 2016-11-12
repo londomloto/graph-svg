@@ -1,10 +1,15 @@
 
 (function(){
 
+    var CLS_CONNECT_VALID = 'connect-valid',
+        CLS_CONNECT_INVALID = 'connect-invalid',
+        CLS_CONNECT_RESET = 'connect-valid connect-invalid';
+
     Graph.plugin.Linker = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
             vector: null,
+            context: null,
             enabled: false,
             suspended: true,
             rendered: false
@@ -46,28 +51,42 @@
             });
 
             me.props.vector = vector.guid();
-            me.initComponent(vector);
+            me.initComponent();
         },
         
-        initComponent: function(paper) {
-            var me = this, comp = me.components;
+        initComponent: function() {
+            var me = this, 
+                comp = me.components;
 
-            comp.block = (new Graph.svg.Group())
+            var block, pointer, path;
+
+            block = (new Graph.svg.Group())
                 .addClass('graph-linker-path')
                 .selectable(false);
 
-            comp.pointer = (new Graph.svg.Circle())
+            pointer = (new Graph.svg.Circle())
                 .addClass('graph-linker-pointer')
-                .removeClass(Graph.string.CLS_VECTOR_CIRCLE)
+                .removeClass(Graph.styles.VECTOR)
                 .selectable(false)
-                .render(comp.block);
+                .render(block);
 
-            comp.path = (new Graph.svg.Path())
+            path = (new Graph.svg.Path())
                 .addClass('graph-linker-path')
-                .removeClass(Graph.string.CLS_VECTOR_PATH)
+                .removeClass(Graph.styles.VECTOR)
                 .selectable(false)
-                .render(comp.block)
+                .render(block)
                 .attr('marker-end', 'url(#marker-arrow)');
+
+            comp.block = block.guid();
+            comp.pointer = pointer.guid();
+            comp.path = path.guid();
+        },
+
+        component: function(name) {
+            if (name === undefined) {
+                return Graph.registry.vector.get(this.components.block);
+            }
+            return Graph.registry.vector.get(this.components[name]);
         },
 
         render: function() {
@@ -78,8 +97,10 @@
             }
 
             paper = this.vector();
-            this.components.block.render(paper);
+            this.component().render(paper);
+
             this.props.rendered = true;
+            this.props.context = paper.viewport().guid();
         },
 
         invalidate: function() {
@@ -88,15 +109,10 @@
             if (this.linking.enabled) {
                 vector = this.vector();
                 vendor = vector.interactable().vendor();
-
-                vector.removeClass('linking');
-
+                
                 if (this.linking.moveHandler) {
                     vendor.off('move', this.linking.moveHandler);
-                }
-
-                if (this.linking.stopHandler) {
-                    vendor.off('up', this.linking.stopHandler);   
+                    this.linking.moveHandler = null;
                 }
 
                 if (this.linking.source) {
@@ -128,19 +144,26 @@
         },
 
         enable: function() {
+            var paper = this.vector();
             this.props.enabled = true;
-            this.vector().state('linking');
+
+            paper.state('linking');
+            paper.addClass('linking');
         },
 
         disable: function() {
+            var paper = this.vector();
+
             this.props.enabled = false;
             this.invalidate();
             this.suspend();
+
+            paper.removeClass('linking');
         },
 
         suspend: function() {
             this.props.suspended = true;
-            this.components.block.elem.detach();
+            this.component().elem.detach();
         },
 
         resume: function() {
@@ -151,15 +174,87 @@
             }
 
             paper = this.vector();
+
             this.props.suspended = false;
             
             if ( ! this.props.rendered) {
                 this.render();
             } else {
-                paper.viewport().elem.append(this.components.block.elem);
+                this.component().elem.appendTo(paper.viewport().elem);
             }
         },
+        
+        /**
+         *  Start manual linking
+         */
+        start: function(source, anchor) {
+            var paper = this.vector(),
+                layout = paper.layout(),
+                offset = layout.offset();
+                
+            if (paper.tool().current() != 'linker') {
+                return;
+            }
+            
+            if (this.linking.enabled) {
+                if (this.linking.source && this.linking.target) {
+                    this.build();
+                } else {
+                    this.invalidate();
+                    this.suspend();
+                }
+                return;
+            }
+            
+            this.linking.visits = [];
+            
+            var vendor, sbox, port;
 
+            if (source.isConnectable()) {
+
+                if (this.props.suspended) {
+                    this.resume();    
+                }
+
+                var path = this.component('path'),
+                    context = this.context();
+
+                this.linking.moveHandler = _.bind(this.onPointerMove, this, _, paper, path, context);    
+                
+                vendor = paper.interactable().vendor();
+                vendor.on('move', this.linking.moveHandler);
+
+                this.linking.visits.push(source);    
+
+                if (source.isConnectable()) {
+                    
+                    if ( ! this.linking.source) {
+                        // update context
+                        source.connectable({
+                            context: context
+                        });
+
+                        sbox = source.connectable().bbox();
+                        port = sbox.center(true);
+
+                        this.linking.source = source;
+                        this.linking.start  = port;
+                        
+                        if (anchor) {
+                            path.moveTo(port.x, port.y).lineTo(anchor.x, anchor.y, false);
+                        } else {
+                            path.moveTo(port.x, port.y).lineTo(port.x, port.y, false);
+                        }   
+
+                        sbox = port = null;
+                    }
+
+                }
+
+                this.linking.enabled = true;
+            }
+        },
+        
         cropping: function(start, end) {
             var source = this.linking.source,
                 target = this.linking.target,
@@ -186,8 +281,9 @@
         },
 
         build: function() {
-            var tail = this.components.path.tail(),
-                head = this.components.path.head();
+            var path = this.component('path'),
+                tail = path.tail(),
+                head = path.head();
 
             if (tail && head) {
                 var paper = this.vector();
@@ -205,143 +301,118 @@
 
         onPointerDown: function(e, paper) {
             var layout = paper.layout(),
-                offset = layout.offset(),
-                vector = layout.grabVector(e), 
-                vendor = paper.interactable().vendor(),
-                tool = paper.tool().current();
-
-            if (tool != 'linker') {
-                return;
+                source = layout.grabVector(e);
+            
+            if (source) {
+                this.start(source);
             }
-
-            if (this.linking.enabled) {
-                if (this.linking.target) {
-                    this.build();
-                }
-            } else {
-                
-                this.linking.visits = [];
-
-                if (vector.isConnectable()) {
-                    var sbox, port;
-
-                    // track visit
-                    this.linking.visits.push(vector);
-
-                    if ( ! this.linking.source) {
-                        
-                        sbox = vector.connectable().bbox();
-                        port = sbox.center(true);
-
-                        this.linking.source = vector;
-                        this.linking.start = port;
-
-                        this.components.path
-                            .moveTo(port.x, port.y)
-                            .lineTo(port.x, port.y, false);
-
-                        sbox = port = null;
-                    }
-
-                    if (this.props.suspended) {
-                        this.resume();    
-                    }
-
-                    this.linking.enabled = true;
-                    this.linking.moveHandler = _.bind(this.onPointerMove, this, _, paper);
-
-                    paper.addClass('linking');
-
-                    vendor = paper.interactable().vendor();
-                    vendor.on('move', this.linking.moveHandler);
-                }
-            }
+            
+            layout = source = null;
         },
 
-        onPointerMove: function(e, paper) {
-            var layout = paper.layout(),
-                start = this.linking.start,
-                coord = layout.grabLocation(e);
+        onPointerMove: function(e, paper, path, context) {
 
-            var x = coord.x,
-                y = coord.y;
+            if (this.linking.enabled) {
 
-            // add threshold
-            var rad = Graph.util.rad(Graph.util.theta( start, {x: x, y: y} )),
-                sin = Math.sin(rad),
-                cos = Math.cos(rad),
-                tdx = this.linking.treshold * -cos,
-                tdy = this.linking.treshold *  sin;
+                var layout = paper.layout(),
+                    target = layout.grabVector(e);
 
-            x += tdx;
-            y += tdy;
-
-            var current = layout.grabVector(e),
-                valid = false;
-
-            var target, crop, tbox, port;
-
-            if (current && current.isConnectable()) {
-                
-                if (this.linking.visits.indexOf(current.guid()) === -1) {
-                    this.linking.visits.push(current);
+                if ( ! target) {
+                    return;
                 }
 
-                if (this.linking.source.connectable().canConnect(current.connectable())) {
-                    valid = true;
-                    target = current;
+                var source = this.linking.source,
+                    valid = false;
 
-                    target.removeClass('connect-invalid');
-                    target.addClass('connect-valid');
-                    
-                    tbox = current.connectable().bbox();
-                    port = tbox.center(true);
-                    
-                    this.linking.target = target;
-                    this.linking.end    = port;
+                if (source) {
 
-                    crop = this.cropping(start, port);
-
-                    if (crop.start) {
-                        this.components.path.moveTo(crop.start.x, crop.start.y);
+                    // track visit
+                    if (this.linking.visits.indexOf(target.guid()) === -1) {
+                        this.linking.visits.push(target);
                     }
+                    
+                    var start = this.linking.start,
+                        coord = layout.grabLocation(e),
+                        x = coord.x,
+                        y = coord.y,
+                        rad = Graph.util.rad(Graph.util.theta(start, {x: x, y: y})),
+                        sin = Math.sin(rad),
+                        cos = Math.cos(rad),
+                        tdx = this.linking.treshold * -cos,
+                        tdy = this.linking.treshold *  sin;
 
-                    if (crop.end) {
-                        this.components.path.lineTo(crop.end.x, crop.end.y, false);
+                    x += tdx;
+                    y += tdy;
+
+                    if (target.isConnectable()) {
+                        
+                        var crop, tbox, port;
+
+                        if (source.connectable().canConnect(target.connectable())) {
+                            valid  = true;
+                            
+                            target.removeClass(CLS_CONNECT_INVALID);
+                            target.addClass(CLS_CONNECT_VALID);
+                            
+                            // update target context
+                            target.connectable({
+                                context: context
+                            });
+
+                            tbox = target.connectable().bbox();
+                            port = tbox.center(true);
+
+                            this.linking.target = target;
+                            this.linking.end    = port;
+
+                            crop = this.cropping(start, port);
+
+                            if (crop.start) {
+                                path.moveTo(crop.start.x, crop.start.y);
+                            }
+
+                            if (crop.end) {
+                                path.lineTo(crop.end.x, crop.end.y, false);
+                            } else {
+                                path.lineTo(x, y, false);
+                            }
+
+                            tbox = port = null;
+                        } else {
+                            target.removeClass(CLS_CONNECT_VALID);
+                            target.addClass(CLS_CONNECT_INVALID);
+                        }
+
                     } else {
-                        this.components.path.lineTo(x, y, false);
+                        target.addClass(CLS_CONNECT_INVALID);
                     }
 
-                    tbox = port = null;
+                    if ( ! valid) {
 
-                } else {
-                    current.removeClass('connect-valid');
-                    current.addClass('connect-invalid');
+                        if (this.linking.target) {
+                            this.linking.target.removeClass(CLS_CONNECT_RESET);
+                        }
+
+                        this.linking.target = null;
+                        this.linking.end    = null; 
+
+                        crop = this.cropping(start, {x: x, y: y});
+
+                        if (crop.start) {
+                            path.moveTo(crop.start.x, crop.start.y);
+                        }
+
+                        if (crop.end) {
+                            path.lineTo(crop.end.x, crop.end.y, false);
+                        } else {
+                            path.lineTo(x, y, false);
+                        }
+                    }
+
                 }
             }
 
-            if ( ! valid) {
-
-                if (this.linking.target) {
-                    this.linking.target.removeClass('connect-valid connect-invalid');
-                }
-
-                this.linking.target = null;
-                this.linking.end    = null;
-
-                crop = this.cropping(start, {x: x, y: y});
-
-                if (crop.start) {
-                    this.components.path.moveTo(crop.start.x, crop.start.y);
-                }
-
-                if (crop.end) {
-                    this.components.path.lineTo(crop.end.x, crop.end.y, false);
-                } else {
-                    this.components.path.lineTo(x, y, false);
-                }
-            }
-
+            e.preventDefault();
         }
 
     });

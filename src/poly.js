@@ -102,15 +102,24 @@
     
     /**
      *  Bisector
+     *  https://github.com/d3/d3-array/blob/master/src/bisector.js
      */
-    _.bisector = function(f) {
+    function ascending(a, b) {
+        return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
+    }
+
+    function descending(a, b) {
+        return b < a ? -1 : b > a ? 1 : b >= a ? 0 : NaN;
+    }
+
+    function bisector(compare) {
         return {
             left: function(a, x, lo, hi) {
                 if (arguments.length < 3) lo = 0;
                 if (arguments.length < 4) hi = a.length;
                 while (lo < hi) {
                     var mid = lo + hi >>> 1;
-                    if (f.call(a, a[mid], mid) < x) lo = mid + 1; else hi = mid;
+                    if (compare(a[mid], x) < 0) lo = mid + 1; else hi = mid;
                 }
                 return lo;
             },
@@ -119,15 +128,22 @@
                 if (arguments.length < 4) hi = a.length;
                 while (lo < hi) {
                     var mid = lo + hi >>> 1;
-                    if (x < f.call(a, a[mid], mid)) hi = mid; else lo = mid + 1;
+                    if (compare(a[mid], x) > 0) hi = mid; else lo = mid + 1;
                 }
                 return lo;
             }
         };
+    }
+
+    _.bisector = function(f) {
+        return bisector(f.length === 1 ? function(d, x){
+            return ascending(f(d), x);
+        } : f);
     };
     
     /** 
      *  Sorter
+     *  https://github.com/gka/d3-jetpack/blob/master/d3-jetpack.js
      */
     _.ascendingKey = function(key) {
         return typeof key == 'function' ? function (a, b) {

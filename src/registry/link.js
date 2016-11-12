@@ -39,8 +39,12 @@
             return _.keys(storage).length;
         },
 
+        has: function(key) {
+            return storage[key] !== undefined;
+        },  
+
         get: function(key) {
-            if (_.isUndefined(key)) {
+            if (key === undefined) {
                 return this.toArray();
             }
 

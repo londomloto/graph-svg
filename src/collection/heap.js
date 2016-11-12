@@ -1,7 +1,7 @@
 
 (function(){    
 
-    var Heap = Graph.util.Heap = function(comparison) {
+    var Heap = Graph.collection.Heap = function(comparison) {
         this.comparison = _.defaultTo(comparison, defcmp);
         this.nodes = [];
     };  

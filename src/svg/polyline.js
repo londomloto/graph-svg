@@ -1,14 +1,7 @@
 (function(){
 
     Graph.svg.Polyline = Graph.extend(Graph.svg.Vector, {
-        attrs: {
-            // 'stroke': '#696B8A',
-            // 'stroke-width': 1,
-            // 'fill': '#ffffff',
-            'style': '',
-            'class': Graph.string.CLS_VECTOR_POLYLINE
-        },
-
+        
         constructor: function(points) {
             points = _.defaultTo(points, '');
 

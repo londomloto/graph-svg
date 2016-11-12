@@ -434,8 +434,8 @@
             height = bbox.height;
 
             if (bsize) {
-                if ( ! item.$collector) {
-                    me.batch.pop().$collector.clearCollection();
+                if ( ! item.lasso) {
+                    me.batch.pop().lasso.clearCollection();
                     me.batch = [];
                 } else {
                     height = 0;
@@ -504,12 +504,12 @@
             drag = Graph.registry.vector.get(e.relatedTarget);
             drop = Graph.registry.vector.get(e.target);
 
-            if (drag.$collector) {
+            if (drag.lasso) {
                 
                 height = 0;
                 width  = me.props.width;
 
-                _.forEach(drag.$collector.collection, function(v){
+                _.forEach(drag.lasso.collection, function(v){
                     var box;
 
                     if (v.$sorter) {

@@ -11,6 +11,12 @@
             top: 0
         },
 
+        metadata: {
+            name: 'activity.action',
+            icon: Graph.icons.SHAPE_ACTION,
+            style: 'graph-shape-activity-action'
+        },
+
         initComponent: function() {
             var me = this, comp = this.components;
             var shape, block, label;
@@ -22,20 +28,28 @@
                 .selectable(false);
 
             block = (new Graph.svg.Rect(0, 0, me.props.width, me.props.height))
+                .addClass(Graph.styles.SHAPE_BLOCK)
                 .data('text', me.props.label)
                 .render(shape);
 
-            block.draggable({ghost: true});
-            block.resizable({shield: shape});
+            block.elem.data(Graph.string.ID_SHAPE, me.guid());
+
+            block.draggable({ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            block.resizable();
             block.editable();
-            block.connectable({shield: shape, wiring: 'h:v'});
+            block.connectable({wiring: 'h:v'});
+            block.snappable();
 
             block.on('edit.shape',    _.bind(me.onLabelEdit, me));
+            block.on('dragstart.shape', _.bind(me.onDragStart, me));
             block.on('dragend.shape', _.bind(me.onDragEnd, me));
             block.on('resize.shape',  _.bind(me.onResize, me));
             block.on('remove.shape',  _.bind(me.onRemove, me));
+            block.on('select.shape',  _.bind(me.onSelect, me));
+            block.on('deselect.shape',  _.bind(me.onDeselect, me));
 
             label = (new Graph.svg.Text(cx, cy, me.props.label))
+                .addClass(Graph.styles.SHAPE_LABEL)
                 .clickable(false)
                 .selectable(false)
                 .render(shape);
@@ -58,7 +72,7 @@
             matrix = Graph.matrix().translate(bound.x, bound.y);
 
             shape.matrix().multiply(matrix);
-            shape.attr('transform', shape.matrix().toString());
+            shape.attr('transform', shape.matrix().toValue());
 
             block.attr({
                 x: 0,
@@ -74,8 +88,19 @@
             });
 
             label.wrap(bound.width - 10);
-
-            bound = null;
+            
+            // update props
+            
+            matrix = shape.matrix();
+            
+            this.data({
+                left: matrix.props.e,
+                top: matrix.props.f,
+                width: bound.width,
+                height: bound.height
+            });
+            
+            bound  = null;
             matrix = null;
         },
 
@@ -88,5 +113,11 @@
         }
 
     });
+
+    ///////// STATIC /////////
+    
+    Graph.shape.activity.Action.toString = function() {
+        return 'function(options)';
+    };
 
 }());

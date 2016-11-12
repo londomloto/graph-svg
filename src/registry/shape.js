@@ -49,6 +49,8 @@
                 key = Graph.$(key).data(Graph.string.ID_SHAPE);
             } else if (key instanceof Graph.dom.Element) {
                 key = key.data(Graph.string.ID_SHAPE);
+            } else if (key instanceof Graph.svg.Vector) {
+                key = key.elem.data(Graph.string.ID_SHAPE);
             }
             return storage[key];
         },

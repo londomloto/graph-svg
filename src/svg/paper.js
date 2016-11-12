@@ -6,9 +6,9 @@
      */
 
     var Paper = Graph.svg.Paper = Graph.extend(Graph.svg.Vector, {
-
+        
         attrs: {
-            'class': Graph.string.CLS_VECTOR_SVG
+            'class': Graph.styles.PAPER
         },
 
         props: {
@@ -58,20 +58,17 @@
 
             me.plugins.linker = new Graph.plugin.Linker(me);
             me.plugins.toolmgr.register('linker', 'plugin');
-
+            
             me.plugins.pencil = new Graph.plugin.Pencil(me);
             me.plugins.definer = new Graph.plugin.Definer(me);
-
-            me.plugins.snapper = new Graph.plugin.Snapper(me);
-
-            me.utils.spotlight = new Graph.util.Spotlight(me);
-            me.utils.hinter = null; // new Graph.util.Hinter(me);
-            me.utils.toolpad = new Graph.util.Toolpad(me);
             
+            me.plugins.snapper = new Graph.plugin.Snapper(me);
+            me.plugins.toolpad = new Graph.plugin.Toolpad(me);
+
             me.on('pointerdown', _.bind(me.onPointerDown, me));
             me.on('keynavdown', _.bind(me.onKeynavDown, me));
             me.on('keynavup', _.bind(me.onKeynavUp, me));
-
+            
             // subscribe topics
             Graph.topic.subscribe('link/update', _.bind(me.listenLinkUpdate, me));
             Graph.topic.subscribe('link/remove', _.bind(me.listenLinkRemove, me));
@@ -81,7 +78,7 @@
         initLayout: function() {
             // create viewport
             var viewport = (new Graph.svg.Group())
-                .addClass(Graph.string.CLS_VECTOR_VIEWPORT)
+                .addClass(Graph.styles.VIEWPORT)
                 .selectable(false);
 
             viewport.props.viewport = true;
@@ -91,8 +88,8 @@
             if (this.props.showOrigin) {
                 var origin = Graph.$(
                     '<g class="graph-origin">' + 
-                        '<rect class="x" rx="1" ry="1" x="-16" y="-2" height="2" width="30"></rect>' + 
-                        '<rect class="y" rx="1" ry="1" x="-2" y="-16" height="30" width="2"></rect>' + 
+                        '<rect class="x" rx="1" ry="1" x="-16" y="-1" height="1" width="30"></rect>' + 
+                        '<rect class="y" rx="1" ry="1" x="-1" y="-16" height="30" width="1"></rect>' + 
                         '<text class="t" x="-40" y="-10">(0, 0)</text>' + 
                     '</g>'
                 );
@@ -126,7 +123,7 @@
 
             if (options === undefined) {
                 return viewport.graph.layout;
-            }1
+            }
             
             viewport.layout(options);
             return this;
@@ -184,6 +181,20 @@
             return this.tree.container;
         },
 
+        selections: function() {
+            return this.plugins.collector.selections;
+        },
+
+        removeSelection: function() {
+            var selections = this.plugins.collector.collection;
+            
+            for (var v, i = selections.length - 1; i >= 0; i--) {
+                v = selections[i];
+                selections.splice(i, 1);
+                v.remove();
+            }
+        },
+
         viewport: function() {
             return Graph.registry.vector.get(this.components.viewport);
         },
@@ -196,17 +207,12 @@
             return this.plugins.transformer.scale(sx, sy, cx, cy);
         },
 
-        snapping: function(options) {
-            if (Graph.isVector(options)) {
-                options = {
-                    vector: options,
-                    shield: options,
-                    enabled: true
-                };
-            }
+        width: function() {
+            return this.elem.width();
+        },
 
-            var snapper = this.plugins.snapper;
-            snapper.subscribe(options);
+        height: function() {
+            return this.elem.height();
         },
 
         connect: function(source, target, start, end, options) {
@@ -220,8 +226,8 @@
                 }
             }
 
-            source = Graph.isShape(source) ? source.hub() : source;
-            target = Graph.isShape(target) ? target.hub() : target;
+            source = Graph.isShape(source) ? source.provider('network') : source;
+            target = Graph.isShape(target) ? target.provider('network') : target;
             layout = this.layout();
             router = layout.createRouter(source, target, options);
             
@@ -231,6 +237,14 @@
             link.render(this);
 
             return link;
+        },
+        
+        addPallet: function(pallet) {
+            pallet.bindPaper(this);
+        },
+        
+        removePallet: function(pallet) {
+            pallet.unbindPaper(this);
         },
 
         parse: function(json) {
@@ -264,12 +278,7 @@
         ///////// OBSERVERS /////////
         
         onPointerDown: function(e) {
-            if (e.target === this.node()) {
-                var tool = this.tool().current();
-                if (tool != 'collector') {
-                    this.tool().activate('panzoom');    
-                }
-            }
+
         },
 
         onKeynavDown: function(e) {
@@ -277,16 +286,7 @@
 
             switch(key) {
                 case Graph.event.DELETE:
-
-                    var selections = me.plugins.collector.collection;
-                    
-                    for (var v, i = selections.length - 1; i >= 0; i--) {
-                        if ((v = selections[i])) {
-                            v.remove();
-                            selections.splice(i, 1);
-                        }
-                    }
-
+                    me.removeSelection();
                     e.preventDefault();
                     break;
 
@@ -358,8 +358,7 @@
         group: 'Group',
         text: 'Text',
         image: 'Image',
-        line: 'Line',
-        connector: 'Connector'
+        line: 'Line'
     };
 
     _.forOwn(vectors, function(name, method){

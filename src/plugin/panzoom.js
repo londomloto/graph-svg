@@ -92,11 +92,17 @@
                 toolbox = me.components.toolbox = Graph.$('<div class="graph-zoom-toolbox">');
                 toolbox.html(
                     '<div>' + 
-                        '<a data-tool="zoom-reset" href="#"><i class="ion-pinpoint"></i></a>'+
+                        '<a data-tool="zoom-reset" href="javascript:void(0)" title="' + Graph._('Reset zoom') + '">' + 
+                            '<i class="'+ Graph.icons.ZOOM_RESET +'"></i>' + 
+                        '</a>'+
                         '<div class="splitter"></div>'+
-                        '<a data-tool="zoom-in" href="#"><i class="ion-android-add"></i></a>'+
+                        '<a data-tool="zoom-in" href="javascript:void(0)" title="' + Graph._('Zoom in') + '">' + 
+                            '<i class="'+ Graph.icons.ZOOM_IN +'"></i>' + 
+                        '</a>'+
                         '<div class="splitter"></div>'+
-                        '<a data-tool="zoom-out" href="#"><i class="ion-android-remove"></i></a>'+
+                        '<a data-tool="zoom-out" href="javascript:void(0)" title="' + Graph._('Zoom out') + '">' + 
+                            '<i class="'+ Graph.icons.ZOOM_OUT +'"></i>' + 
+                        '</a>'+
                     '</div>'
                 );
 
@@ -153,24 +159,24 @@
             matrix = Graph.matrix();
             matrix.translate(.5, .5);
 
-            viewport.attr('transform', matrix.toString());
+            viewport.attr('transform', matrix.toValue());
             viewport.graph.matrix = matrix;
         },
 
         zoomIn: function() {
-            var paper = this.vector(),
+            var paper = this.vector().paper(),
                 viewport = paper.viewport(),
-                direction = 0.1,
-                origin = viewport.bbox().center(true);
+                origin = paper.layout().center(),
+                direction = 0.1;
 
             this.zoom(paper, viewport, direction, origin);
         },
 
         zoomOut: function() {
-            var paper = this.vector(),
+            var paper = this.vector().paper(),
                 viewport = paper.viewport(),
-                direction = -0.1,
-                origin = viewport.bbox().center(true);
+                origin = paper.layout().center(),
+                direction = -0.1;
 
             this.zoom(paper, viewport, direction, origin);
         },
@@ -190,7 +196,7 @@
 
             matrixScale.scale(scale, scale, origin.x, origin.y);
 
-            viewport.attr('transform', matrixScale.toString());
+            viewport.attr('transform', matrixScale.toValue());
             viewport.graph.matrix = matrixScale;
 
             this.zooming.zoom  = zoom;
@@ -214,7 +220,7 @@
             
             matrix.translate(dx, dy);
 
-            viewport.attr('transform', matrix.toString());
+            viewport.attr('transform', matrix.toValue());
             viewport.graph.matrix = matrix;
 
             if (this.zooming.origin) {
@@ -286,6 +292,16 @@
 
             var offset;
 
+            if (this.panning.moveHandler) {
+                vendor.off('move', this.panning.moveHandler);
+                this.panning.moveHandler = null;
+            }
+
+            if (this.panning.stopHandler) {
+                vendor.off('up', this.panning.stopHandler);
+                this.panning.stopHandler = null;
+            }
+
             if (tool == 'collector') {
                 return;
             }
@@ -320,6 +336,7 @@
         },
 
         onPointerMove: function(e, paper, viewport) {
+            
             var offset = this.caching.offset,
                 start = this.panning.start,
                 current = { 
@@ -330,8 +347,6 @@
                 dy = current.y - start.y,
                 mg = Graph.util.hypo(dx, dy);
 
-            paper.cursor('move');
-
             this.scroll(paper, viewport, dx, dy);
 
             this.panning.start = {
@@ -339,13 +354,15 @@
                 y: e.clientY - offset.y
             };
 
+            paper.cursor('move');
+            
             // prevent select
             e.preventDefault();
         },
 
         onPointerStop: function(e, paper) {
             var me = this, vendor = paper.interactable().vendor();
-            var delay, bounce;
+            var delay;
 
             // wait interact to fire last posible event...
             delay = _.delay(function(){
@@ -355,6 +372,8 @@
                 vendor.off('move', me.panning.moveHandler);
                 vendor.off('up', me.panning.stopHandler);
 
+                me.panning.moveHandler = null;
+                me.panning.stopHandler = null;
             }, 0);
 
             paper.cursor('default');

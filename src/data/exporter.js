@@ -13,13 +13,13 @@
         if (vector.isPaper()) {
             width  = vector.elem.width();
             height = vector.elem.height();
-            scale  = vector.layout().currentScale();
+            scale  = vector.layout().scale();
         } else {
             var bounds = vector.bbox().toJson();
             
             width  = bounds.width;
             height = bounds.height;
-            scale  = vector.matrix(true).scale();
+            scale  = vector.globalMatrix().scale();
         }
         
         _.assign(this.options, {

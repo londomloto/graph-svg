@@ -10,6 +10,11 @@
             top: 0
         },
 
+        metadata: {
+            name: 'activity.fork',
+            style: 'graph-shape-activity-fork'
+        },
+
         initComponent: function() {
             var me = this, comp = this.components;
             var shape, block, label;
@@ -21,5 +26,11 @@
         }
 
     });
+
+    ///////// STATIC /////////
+    
+    Graph.shape.activity.Fork.toString = function() {
+        return 'function(options)';
+    };
 
 }());

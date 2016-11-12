@@ -4,13 +4,7 @@
     Graph.svg.Text = Graph.extend(Graph.svg.Vector, {
         
         attrs: {
-            // 'stroke': '#000000',
-            // 'stroke-width': .05,
-            // 'fill': '#000000',
-            // 'font-size': '12px',
-            // 'font-family': 'Arial',
-            'text-anchor': 'middle',
-            'class': Graph.string.CLS_VECTOR_TEXT
+            'text-anchor': 'middle'
         },  
 
         props: {
@@ -42,8 +36,7 @@
             });
 
             this.attr({
-                'font-size': Graph.config.font.size,
-                'font-family': Graph.config.font.family
+                'font-size': Graph.config.font.size
             });
 
             if (text) {
@@ -74,7 +67,7 @@
 
             me.empty();
             me.rows = [];
-
+            
             _.forEach(parts, function(t, i){
                 me.addSpan(t);
             });
@@ -85,7 +78,7 @@
 
         addSpan: function(text) {
             var me = this, span;
-
+    
             text = _.defaultTo(text, '');
 
             span = Graph.$('<tspan/>');
@@ -105,7 +98,7 @@
                 size = this.props.fontSize,
                 line = this.props.lineHeight,
                 bbox = this.bbox().toJson();
-
+            
             if (rows.length) {
                 for (var i = 0, ii = rows.length; i < ii; i++) {
                     if (i) {
@@ -139,6 +132,7 @@
             var word, span;
 
             this.empty();
+            this.rows = [];
 
             span = this.addSpan();
             span.attr({
@@ -167,7 +161,7 @@
         center: function(target) {
             if (target) {
                 var targetBox = target.bbox().toJson(),
-                    matrix = this.graph.matrix.data();
+                    rotate = this.matrix().rotate();
 
                 var textBox, dx, dy, cx, cy;
 
@@ -180,8 +174,8 @@
                 cx = textBox.x + textBox.width / 2;
                 cy = textBox.y + textBox.height / 2;
 
-                if (matrix.rotate) {
-                    this.translate(dx, dy).rotate(matrix.rotate).commit();
+                if (rotate.deg) {
+                    this.translate(dx, dy).rotate(rotate.deg).commit();
                 } else {
                     this.translate(dx, dy).commit();
                 }

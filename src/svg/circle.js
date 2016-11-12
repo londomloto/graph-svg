@@ -2,14 +2,6 @@
 (function(){
 
     Graph.svg.Circle = Graph.extend(Graph.svg.Vector, {
-
-        attrs: {
-            // 'stroke': '#696B8A',
-            // 'stroke-width': 1,
-            // 'fill': '#ffffff',
-            'style': '',
-            'class': Graph.string.CLS_VECTOR_CIRCLE
-        },
         
         constructor: function(cx, cy, r) {
             var me = this;

@@ -18,7 +18,9 @@
                         ? self 
                         : Function('return this')());
 
-    var DOCUMENT = document;
+    var DOCUMENT  = document;
+    var LOCATION  = location;
+    var NAVIGATOR = navigator;
 
     /**
      * Size for cached result
@@ -51,7 +53,8 @@
     Graph.cached = {};
 
     Graph.config = {
-        base: './',
+        base: '../',
+        locale: 'id',
         svg: {
             version: '1.1'
         },
@@ -75,40 +78,80 @@
         }
     };
 
-    /*
-    Graph.toString = function() {
-        return 'SVG Library presented by ' + Graph.AUTHOR;
-    }
-    */
+    // Graph.toString = function() {
+    //     return 'SVG Library presented by ' + Graph.AUTHOR;
+    // }
+    
 
     /**
      * String params
      */
     Graph.string = {
         ID_VECTOR: 'graph-vector-id',
+        ID_SHAPE: 'graph-shape-id',
         ID_LINK: 'graph-link-id',
-        ID_PORT: 'graph-port-id',
-
-        CLS_VECTOR_SVG: 'graph-paper',
-        CLS_VECTOR_RECT: 'graph-elem graph-elem-rect',
-        CLS_VECTOR_PATH: 'graph-elem graph-elem-path',
-        CLS_VECTOR_TEXT: 'graph-elem graph-elem-text',
-        CLS_VECTOR_LINE: 'graph-elem graph-elem-line',
-        CLS_VECTOR_GROUP: 'graph-elem graph-elem-group',
-        CLS_VECTOR_IMAGE: 'graph-elem graph-elem-image',
-        CLS_VECTOR_CIRCLE: 'graph-elem graph-elem-circle',
-        CLS_VECTOR_ELLIPSE: 'graph-elem graph-elem-ellipse',
-        CLS_VECTOR_POLYGON: 'graph-elem graph-elem-polygon',
-        CLS_VECTOR_POLYLINE: 'graph-elem graph-elem-polyline',
-        CLS_VECTOR_VIEWPORT: 'graph-viewport',
-
-        CLS_LINK_HEAD: 'graph-link-head',
-        CLS_LINK_TAIL: 'graph-link-tail'
+        ID_PORT: 'graph-port-id'
     };
+
+    /**
+     * Style params
+     */
+    Graph.styles = {
+        VECTOR: 'graph-elem',
+        PAPER: 'graph-paper',
+        VIEWPORT: 'graph-viewport',
+
+        SHAPE: 'graph-shape',
+        SHAPE_BLOCK: 'comp-block',
+        SHAPE_LABEL: 'comp-label',
+        SHAPE_HEADER: 'comp-header',
+        SHAPE_CHILD: 'comp-child',
+        SHAPE_DRAG: 'shape-draggable',
+
+        LINK_HEAD: 'graph-link-head',
+        LINK_TAIL: 'graph-link-tail'
+    };
+
+    /**
+     * Icon params
+     */
+    Graph.icons = {
+        ZOOM_IN: 'ion-android-add',
+        ZOOM_OUT: 'ion-android-remove',
+        ZOOM_RESET: 'ion-pinpoint',
+
+        SHAPE: 'bpmn-icon-start-event-none',
+        SHAPE_LANE: 'bpmn-icon-participant',
+        SHAPE_LINK: 'ion-ios-shuffle-strong',
+        SHAPE_ACTION: 'bpmn-icon-task',
+        SHAPE_ROUTER: 'bpmn-icon-gateway-none',
+
+        LANE_ABOVE: 'bpmn-icon-lane-insert-above',
+        LANE_BELOW: 'bpmn-icon-lane-insert-below',
+
+        CONFIG: 'bpmn-icon-screw-wrench',
+        LINK: 'bpmn-icon-connection-multi',
+        TRASH: 'bpmn-icon-trash',
+
+        SEND_TO_BACK: 'font-icon-send-back',
+        SEND_TO_FRONT: 'font-icon-bring-front',
+
+        MOVE_UP: 'ion-android-arrow-up',
+        MOVE_DOWN: 'ion-android-arrow-down'
+    };
+
+    Graph.doc = function() {
+        
+    };
+
+    Graph.global = function() {
+        
+    };  
 
     /**
      * Language & Core helper
      */
+    
     Graph.isHTML = function(obj) {
         return obj instanceof HTMLElement;
     };
@@ -122,7 +165,7 @@
     };
 
     Graph.isMac = function() {
-        return (/mac/i).test(navigator.platform);    
+        return (/mac/i).test(NAVIGATOR.platform);    
     };
 
     Graph.ns = function(namespace) {
@@ -288,17 +331,6 @@
     Graph.when = $.when;
 
     /**
-     * Expand namespaces
-     */
-    Graph.ns('Graph.lang');
-    Graph.ns('Graph.collection');
-    Graph.ns('Graph.registry');
-    Graph.ns('Graph.data');
-    Graph.ns('Graph.diagram');
-    Graph.ns('Graph.popup');
-    
-
-    /**
      * Vector
      */
     Graph.paper = function(width, height, options) {
@@ -327,8 +359,6 @@
         return shape;
     };
 
-    Graph.ns('Graph.shape.activity');
-
     /**
      * Layout
      */
@@ -356,15 +386,28 @@
     Graph.plugin = function(proto) {
 
     };
+
+    /**
+     * Diagram
+     */
+    Graph.diagram = function() {
+
+    };
+
+    /**
+     * Pallet
+     */
+    Graph.pallet = function(type, options) {
+        var clazz;
+        clazz = Graph.pallet[_.capitalize(type)];
+        return Graph.factory(clazz, [options]);
+    };
     
     /**
      * Topic
      */
     Graph.topic = {
         subscribers: {
-
-        },
-        topics: {
 
         },
         publish: function(topic, message, scope) {
@@ -434,6 +477,46 @@
         }
     };
 
+    ///////////////////////////// LOAD CONFIG /////////////////////////////
+    
+    if (GLOBAL.graphConfig) {
+        Graph.setup(GLOBAL.graphConfig);
+    }
+
+    /////////////////////////// CORE NAMESPACES ////////////////////////////
+    
+    Graph.ns('Graph.lang');
+    Graph.ns('Graph.collection');
+    Graph.ns('Graph.registry');
+    Graph.ns('Graph.data');
+    Graph.ns('Graph.popup');
+    Graph.ns('Graph.shape.activity');
+
+    ///////////////////////// HOOK DOCUMENT CLICK /////////////////////////
+    
+    Graph(function(){
+        var doc = $(DOCUMENT);
+
+        doc.on('mousedown', function(e){
+            var target = $(e.target),
+                vector = target.data(Graph.string.ID_VECTOR);
+
+            var paper;
+
+            if (vector) {
+                vector = Graph.registry.vector.get(vector);
+                paper = vector.paper();
+                Graph.cached.paper = paper ? paper.guid() : null;
+            } else {
+                Graph.cached.paper = null;
+            }
+
+            vector = paper = null;
+        });
+
+        doc = null;
+    });
+
     ///////////////////////// LISTEN DOCUMENT READY ////////////////////////
     
     (function(doc, evt){
@@ -470,7 +553,7 @@
 
         inspect();
         
-    }(document, 'DOMContentLoaded'));
+    }(DOCUMENT, 'DOMContentLoaded'));
 
     ///////////////////////////////////////////////////////////////////////
     

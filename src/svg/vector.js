@@ -30,16 +30,14 @@
         },
 
         attrs: {
-            'stroke': '#4A4D6E',
-            'stroke-width': 1,
-            'fill': 'none',
-            'style': '',
-            'class': ''
+            'style': null,
+            'class': null
         },
 
         plugins: {
             transformer: null,
             collector: null,
+            definer: null,
             animator: null,
             resizer: null,
             reactor: null,
@@ -50,15 +48,13 @@
             sorter: null,
             panzoom: null,
             toolmgr: null,
+            toolpad: null,
+            snapper: null,
             editor: null
         },
 
         utils: {
-            collector: null,
-            hinter: null,
-            spotlight: null,
-            definer: null,
-            toolpad: null
+            
         },
 
         graph: {
@@ -76,29 +72,30 @@
         elem: null,
 
         constructor: function(type, attrs) {
-            var me = this;
+            var me = this, guid;
 
             me.graph.matrix = Graph.matrix();
             me.tree.children = new Graph.collection.Vector();
             
-            me.tree.children.on({
-                push:    _.bind(me.onAppendChild, me),
-                pull:    _.bind(me.onRemoveChild, me),
-                unshift: _.bind(me.onPrependChild, me)
-            });
-
-            attrs = _.extend({
-                id: 'graph-vector-' + (++Vector.guid)
-            }, me.attrs, attrs || {});
+            guid  = 'graph-elem-' + (++Vector.guid);
+            attrs = _.extend({ id: guid }, me.attrs, attrs || {});
 
             me.elem = Graph.$(document.createElementNS(Graph.config.xmlns.svg, type));
             
+            if (attrs['class']) {
+                attrs['class'] = Graph.styles.VECTOR + ' ' + attrs['class'];
+            } else {
+                attrs['class'] = Graph.styles.VECTOR;
+            }
+
             // apply initial attributes
             me.attr(attrs);
 
-            me.props.guid = me.props.id = me.attrs.id; // Graph.uuid();
+            me.props.guid = me.props.id = guid; // Graph.uuid();
             me.props.type = type;
             
+            guid = null;
+
             me.elem.data(Graph.string.ID_VECTOR, me.props.guid);
 
             // me.plugins.history = new Graph.plugin.History(me);
@@ -116,23 +113,26 @@
             Graph.registry.vector.register(this);
         },
 
-        matrix: function(global) {
-            var matrix, ctm;
+        matrix: function() {
+            return this.graph.matrix;
+        },
 
-            global = _.defaultTo(global, false);
+        globalMatrix: function() {
+            var native = this.node().getCTM();
+            var matrix;
 
-            if (global) {
-                ctm = this.node().getCTM();
-                matrix = ctm ? Graph.matrix(
-                    ctm.a,
-                    ctm.b,
-                    ctm.c,
-                    ctm.d,
-                    ctm.e,
-                    ctm.f
-                ) : this.graph.matrix;
+            if (native) {
+                matrix = new Graph.lang.Matrix(
+                    native.a,
+                    native.b,
+                    native.c,
+                    native.d,
+                    native.e,
+                    native.f
+                );
+                native = null;
             } else {
-                matrix = this.graph.matrix;
+                matrix = this.matrix().clone();
             }
 
             return matrix;
@@ -308,9 +308,9 @@
         /**
          * Get or set sortable plugin
          */
-        sortable: function(config) {
+        sortable: function(options) {
             if ( ! this.plugins.sorter) {
-                this.plugins.sorter = new Graph.plugin.Sorter(this, config);
+                this.plugins.sorter = new Graph.plugin.Sorter(this, options);
             }
             return this.plugins.sorter;
         },
@@ -318,9 +318,11 @@
         /**
          * Get or set network plugin
          */
-        connectable: function(config) {
+        connectable: function(options) {
             if ( ! this.plugins.network) {
-                this.plugins.network = new Graph.plugin.Network(this, config);
+                this.plugins.network = new Graph.plugin.Network(this, options);
+            } else if (options) {
+                this.plugins.network.options(options);
             }
             return this.plugins.network;
         },
@@ -379,18 +381,16 @@
 
         snappable: function(options) {
             var me = this;
-            var enabled;
+            var enabled, snapper;
 
             if (_.isBoolean(options)) {
                 options = {
-                    vector: me,
-                    shield: me,
+                    context: me,
                     enabled: options
                 };
             } else {
                 options = _.extend({
-                    vector: me,
-                    shield: me,
+                    context: me,
                     enabled: true
                 }, options || {});
             }
@@ -398,13 +398,15 @@
             me.props.snappable = options.enabled;
 
             if (me.props.rendered) {
-                me.paper().snapping(options);
+                snapper = me.paper().plugins.snapper;
+                snapper.setup(me, options);
             } else {
                 me.on('render', function(){
-                    me.paper().snapping(options);
+                    snapper = me.paper().plugins.snapper;
+                    snapper.setup(me, options);
                 });
             }
-            
+
             return me;
         },
 
@@ -468,12 +470,14 @@
 
             me.attrs[name] = value;
 
-            if (name.substring(0, 6) == 'xlink:') {
-                node.setAttributeNS(Graph.config.xmlns.xlink, name.substring(6), _.toString(value));
-            } else if (name == 'class') {
-                node.className.baseVal = _.toString(value);
-            } else {
-                node.setAttribute(name, _.toString(value));
+            if (value !== null) {
+                if (name.substring(0, 6) == 'xlink:') {
+                    node.setAttributeNS(Graph.config.xmlns.xlink, name.substring(6), _.toString(value));
+                } else if (name == 'class') {
+                    node.className.baseVal = _.toString(value);
+                } else {
+                    node.setAttribute(name, _.toString(value));
+                }    
             }
 
             return me;
@@ -539,16 +543,12 @@
             return new Graph.lang.Path([]);
         },
 
-        vertices: function() {
-            return [];
-        },
-
-        dots: function(absolute) {
+        vertices: function(absolute) {
             var ma, pa, ps, dt;
 
             absolute = _.defaultTo(absolute, false);
 
-            ma = this.matrix(absolute);
+            ma = absolute ? this.globalMatrix() : this.matrix(),
             pa = this.pathinfo().transform(ma);
             ps = pa.segments;
             dt = [];
@@ -563,14 +563,6 @@
             });
 
             return dt;
-        },
-
-        dotval: function(x, y) {
-            var mat = this.graph.matrix;
-            return {
-                x: mat.x(x, y), 
-                y: mat.y(x, y)
-            };
         },
 
         dimension: function() {
@@ -669,43 +661,14 @@
 
             return new Graph.collection.Vector(vectors);
         },
-
-        holder: function() {
-            return this.isPaper()
-                ? Graph.$(this.node().parentNode) 
-                : Graph.$(this.paper().node().parentNode);
-        },
         
-        append: function(vector) {
-            var me = this;
-
-            if (_.isArray(vector)) {
-                _.forEach(vector, function(v){
-                    me.append(v);
-                });
-                return me;
-            }
-
-            if (_.isString(vector)) {
-                var clazz = Graph.svg[_.capitalize(vector)];
-                vector = Graph.factory(clazz, []);
-            }
-
-            vector.render(this, 'append');
-
-            return me;
-        },
-
-        prepend: function(vector) {
-            vector.render(this, 'prepend');
-            return vector;
-        },
-
-        render: function(container, method) {
+        render: function(container, method, sibling) {
             var me = this,
                 guid = me.guid(),
                 traversable = me.props.traversable;
             
+            var offset;
+
             if (me.props.rendered) {
                 return me;
             }
@@ -726,8 +689,38 @@
                 }
 
                 switch(method) {
+                    case 'before':
+
+                        if ( ! sibling) {
+                            throw Graph.error('vector.render(): Sibling vector is undefined')
+                        }
+
+                        sibling.elem.query.before(me.elem.query);
+
+                        if (traversable) {
+                            offset = container.children().index(sibling);
+                            container.children().insert(me, offset);
+                        }
+
+                        break;
+
+                    case 'after':
+
+                        if ( ! sibling) {
+                            throw Graph.error('vector.render(): Sibling vector is undefined')
+                        }
+
+                        sibling.elem.query.after(me.elem.query);
+
+                        if (traversable) {
+                            offset = container.children().index(sibling);
+                            container.children().insert(me, offset + 1);
+                        }
+
+                        break;
+
                     case 'append':
-                        container.elem.append(me.elem);
+                        container.elem.query.append(me.elem.query);
                         
                         if (traversable) {
                             container.children().push(me);
@@ -736,7 +729,7 @@
                         break;
 
                     case 'prepend':
-                        container.elem.prepend(me.elem);
+                        container.elem.query.prepend(me.elem.query);
 
                         if (traversable) {
                             container.children().unshift(me);
@@ -747,6 +740,7 @@
 
                 // broadcast
                 if (container.props.rendered) {
+                    
                     me.props.rendered = true;
                     me.fire('render');
 
@@ -777,23 +771,78 @@
             return this.tree.children;
         },
 
-        ancestors: function() {
-            var me = this, ancestors = [], papa;
-            
-            while((papa = me.parent()) && ! papa.isPaper()) {
-                ancestors.push(papa);
-                papa = papa.parent();
+        attach: function(vector, method) {
+            if ( ! this.isContainer()) {
+                return this;
             }
+
+            method = _.defaultTo(method, 'append');
+
+            if ( ! vector.isRendered()) {
+                vector.render(this, method);
+            } else {
+                var container = this.isPaper() ? this.viewport() : this,
+                    traversable = vector.isTraversable();
+
+                if (traversable) {
+                    var parent = vector.parent();
+
+                    if (parent) {
+                        parent.children().pull(vector);
+                        vector.tree.parent = null;
+                    }
+                }
+
+                container.elem[method](vector.elem);
+
+                if (traversable) {
+                    switch(method) {
+                        case 'append':
+                            container.children().push(vector);
+                            break;
+                        case 'prepend':
+                            container.children().unshift(vector);
+                            break;
+                    }
+                    
+                    vector.tree.parent = this.guid();
+                }
+            }
+
+            return this;
+        },
+
+        detach: function() {
+            this.elem.detach();
+            return this;
+        },
+
+        append: function(vector) {
+            return this.attach(vector, 'append');
+        },
+
+        prepend: function(vector) {
+            return this.attach(vector, 'prepend');
+        },
+        
+        ancestors: function() {
+            var ancestors = [], guid = this.guid();
+
+            this.bubble(function(curr){
+                if (curr.guid() != guid) {
+                    ancestors.push(curr);
+                }
+            });
 
             return new Graph.collection.Vector(ancestors);
         },
 
         descendants: function() {
-            var me = this, descendants = [];
-            
-            me.cascade(function(v){
-                if (v !== me) {
-                    descendants.push(v);
+            var descendants = [], guid = this.guid();
+
+            this.cascade(function(curr){
+                if (curr.guid() != guid) {
+                    descendants.push(curr);
                 }
             });
 
@@ -831,8 +880,8 @@
         remove: function() {
             var parent = this.parent();
 
-            if (this.$collector) {
-                this.$collector.decollect(this);
+            if (this.lasso) {
+                this.lasso.decollect(this);
             }
 
             // destroy plugins
@@ -854,15 +903,18 @@
             
             Graph.registry.vector.unregister(this);
             
+            // last chance
             this.fire('remove');
+            
+            this.listeners = null;
         },
 
         empty: function() {
-            var me = this;
+            var guid = this.guid();
 
-            me.cascade(function(c){
-                if (c !== me) {
-                    Graph.registry.vector.unregister(c);    
+            this.cascade(function(curr){
+                if (curr.guid() != guid) {
+                    Graph.registry.vector.unregister(curr);
                 }
             });
 
@@ -872,36 +924,31 @@
             return this;
         },
 
-        select: function() {
+        select: function(batch) {
             this.addClass('graph-selected');
             this.props.selected = true;
-            this.fire('select');
 
-            // invoke core plugins to increase performance
-            if (this.plugins.resizer) {
-                this.plugins.resizer.resume();
+            batch = _.defaultTo(batch, false);
+            this.fire('select', {batch: batch});
+
+            if ( ! batch) {
+                if (this.plugins.resizer) {
+                    this.plugins.resizer.resume();
+                }
             }
-
-            // publish
-            Graph.topic.publish('vector/select', {vector: this});
 
             return this;
         },
 
-        deselect: function() {
+        deselect: function(batch) {
             this.removeClass('graph-selected');
             this.props.selected = false;
-            this.fire('deselect');
 
-            // invoke core plugins to increase performance
+            batch = _.defaultTo(batch, false);
+            this.fire('deselect', {batch: batch});
+
             if (this.plugins.resizer) {
-                if ( ! this.plugins.resizer.props.suspended) {
-                    this.plugins.resizer.suspend();
-                }
-            }
-
-            if ( ! this.$collector) {
-                Graph.topic.publish('vector/deselect', {vector: this});
+                this.plugins.resizer.suspend();
             }
 
             return this;
@@ -917,7 +964,7 @@
 
         scale: function(sx, sy, cx, cy) {
             if (sx === undefined) {
-                return this.matrix(true).scale();
+                return this.globalMatrix().scale();
             }
             return this.plugins.transformer.scale(sx, sy, cx, cy);
         },
@@ -939,28 +986,7 @@
             return this;
         },
 
-        /**
-         * Difference matrix between local and global
-         */
-        deltaMatrix: function() {
-            
-        },
-
-        backward: function() {
-            var papa = this.parent();
-            if (papa) {
-                papa.elem.prepend(this.elem);
-            }
-        },
-
-        forward: function() {
-            var papa = this.parent();
-            if (papa) {
-                papa.elem.append(this.elem);
-            }
-        },
-
-        front: function() {
+        sendToFront: function() {
             if ( ! this.tree.paper) {
                 return this;
             }
@@ -968,7 +994,7 @@
             return this;
         },  
 
-        back: function() {
+        sendToBack: function() {
             if ( ! this.tree.paper) {
                 return this;
             }
@@ -976,20 +1002,13 @@
             return this;
         },
 
-        focus: function(state) {
-            var paper = this.paper(), timer;
-            if (paper && paper.utils.spotlight) {
-                state = _.defaultTo(state, true);
-                timer = _.delay(function(vector, state){
-                    clearTimeout(timer);
-                    paper.utils.spotlight.focus(vector, state);
-                }, 0, this, state);
-            }
-        },
-
         resize: function(sx, sy, cx, cy, dx, dy) {
             return this;
         },
+
+        isContainer: function() {
+            return this.isGroup() || this.isPaper();
+        },  
 
         isGroup: function() {
             return this.props.type == 'g';
@@ -1056,8 +1075,8 @@
             // forward event
             this.fire(e);
 
-            if (this.$collector) {
-                this.$collector.syncDragStart(this, e);
+            if (this.lasso) {
+                this.lasso.syncDragStart(this, e);
             }
 
             // invoke core plugins
@@ -1074,8 +1093,8 @@
             // forward event
             this.fire(e);
 
-            if (this.$collector) {
-                this.$collector.syncDragMove(this, e);
+            if (this.lasso) {
+                this.lasso.syncDragMove(this, e);
             }
         },
 
@@ -1087,11 +1106,6 @@
             // publish
             Graph.topic.publish('vector/dragend', e);
 
-            if (this.$collector) {
-                this.$collector.syncDragEnd(this, e);
-            }
-
-            // invoke plugins
             if (this.plugins.resizer) {
                 this.plugins.resizer.resume();
                 if ( ! this.props.selected) {
@@ -1099,6 +1113,9 @@
                 }
             }
 
+            if (this.lasso) {
+                this.lasso.syncDragEnd(this, e);
+            }
         },
 
         onDropperEnter: function(e) {
@@ -1117,7 +1134,7 @@
 
             // invoke core plugins
             if (this.plugins.dragger) {
-                var rotate = this.matrix(true).rotate();
+                var rotate = this.globalMatrix().rotate();
                 this.plugins.dragger.rotate(rotate.deg);
             }
         },
@@ -1135,7 +1152,7 @@
             this.fire('scale', {sx: e.sx, sy: e.sy});
 
             if (this.plugins.dragger) {
-                var scale = this.matrix(true).scale();
+                var scale = this.globalMatrix().scale();
                 this.plugins.dragger.scale(scale.x, scale.y);
             }
         },
@@ -1148,21 +1165,6 @@
         onDeactivateTool: function(e) {
             var data = e.originalData
             this.fire('deactivatetool', data);
-        },
-
-        onAppendChild: function(e) {
-            // forward
-            this.fire('appendchild', {child: e.vector});
-        },
-
-        onRemoveChild: function(e) {
-            // forward
-            this.fire('removechild', {child: e.vector});
-        },
-
-        onPrependChild: function(e) {
-            // forwad
-            this.fire('prependchild', {child: e.vector});
         }
 
     });
@@ -1184,13 +1186,15 @@
     
     function cascade(vector, handler) {
         var child = vector.children().toArray();
+        var result; 
 
-        handler.call(vector, vector);
-        
-        if (child.length) {
-            _.forEach(child, function(c){
-                cascade(c, handler);
-            });    
+        result = handler.call(vector, vector);
+        result = _.defaultTo(result, true);
+
+        if (result && child.length) {
+            _.forEach(child, function(curr){
+                cascade(curr, handler);
+            });
         }
     }
 
@@ -1202,7 +1206,7 @@
         result = _.defaultTo(result, true);
         
         if (result && parent) {
-            return bubble(parent, handler);
+            bubble(parent, handler);
         }
     }
 

@@ -4,7 +4,7 @@
     Graph.plugin.Resizer = Graph.extend(Graph.plugin.Plugin, {
         
         props: {
-            shield: null,
+            context: null,
             vector: null,
             enabled: true,
             suspended: true,
@@ -42,10 +42,10 @@
             
             options = options || {};
 
-            if (options.shield) {
-                options.shield = options.shield.guid();
+            if (options.context) {
+                options.context = options.context.guid();
             } else {
-                options.shield = guid;
+                options.context = guid;
             }
 
             _.assign(me.props, options);
@@ -53,7 +53,6 @@
             vector.addClass('graph-resizable');
 
             me.props.handleImage = Graph.config.base + 'img/resize-control.png';
-
             me.props.vector = guid;
 
             me.cached.snapping = null;
@@ -178,7 +177,7 @@
                 // get original bounding
                 var path = vector.pathinfo(),
                     bbox = path.bbox().toJson(),
-                    rotate = vector.matrix(true).rotate();
+                    rotate = vector.globalMatrix().rotate();
 
                 var ro, cx, cy, ox, oy, hs, hw, hh;
 
@@ -201,7 +200,7 @@
                     path = path.transform(rmatrix);
                     bbox = path.bbox().toJson();
                 } else {
-                    if ( ! this.hasShield()) {
+                    if (this.props.context != this.props.vector) {
                         path = me.pathinfo();
                         bbox = path.bbox().toJson();
                     }

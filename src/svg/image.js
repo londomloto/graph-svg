@@ -4,8 +4,7 @@
     Graph.svg.Image = Graph.extend(Graph.svg.Vector, {
 
         attrs: {
-            preserveAspectRatio: 'none',
-            class: Graph.string.CLS_VECTOR_IMAGE
+            preserveAspectRatio: 'none'
         },
 
         constructor: function(src, x, y, width, height) {
@@ -102,7 +101,7 @@
         
         resize: function(sx, sy, cx, cy, dx, dy) {
             var ms = this.graph.matrix.clone().scale(sx, sy, cx, cy),
-                ro = this.graph.matrix.data().rotate;
+                ro = this.graph.matrix.rotate();
 
             this.reset();
 

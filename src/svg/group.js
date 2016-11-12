@@ -4,7 +4,11 @@
     Graph.svg.Group = Graph.extend(Graph.svg.Vector, {
 
         attrs: {
-            // 'class': '' // Graph.string.CLS_VECTOR_GROUP
+            'stroke': null,
+            'stroke-width': null,
+            'class': null,
+            'fill': null,
+            'style': null
         },
         
         constructor: function(x, y) {
@@ -13,13 +17,13 @@
 
             if (x !== undefined && y !== undefined) {
                 this.graph.matrix.translate(x, y);
-                this.attr('transform', this.graph.matrix.toString());
+                this.attr('transform', this.graph.matrix.toValue());
             }
         },
 
         pathinfo: function() {
             var size = this.dimension();
-
+            
             return new Graph.lang.Path([
                 ['M', size.x, size.y], 
                 ['l', size.width, 0], 

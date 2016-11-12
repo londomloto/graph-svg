@@ -161,7 +161,7 @@
             }
             
             vector.graph.matrix = mat;
-            vector.attr('transform', mat);
+            vector.attr('transform', mat.toValue());
 
             if (events.translate) {
                 events.translate = {

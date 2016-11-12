@@ -12,8 +12,13 @@
             smooth = this.props.smooth;
             
             if (convex) {
-                
-                routes = this.router.waypoints().slice();
+                var points = this.router.waypoints();
+
+                if ( ! points) {
+                    return;
+                }
+
+                routes = points.slice();
                 maxlen = routes.length - 1;
 
                 segments = [];
@@ -87,17 +92,19 @@
                 
             }
 
-            this.component('coat').attr('d', command).dirty(true);
-            this.component('path').attr('d', command);
-            
-            this.invalidate();
-            
-            if ( ! silent) {
+            if (command) {
+                this.component('coat').attr('d', command).dirty(true);
+                this.component('path').attr('d', command);
                 
-                this.redraw();
+                this.invalidate();
                 
-                this.fire('update');
-                Graph.topic.publish('link/update');
+                if ( ! silent) {
+                    
+                    this.redraw();
+                    
+                    this.fire('update');
+                    Graph.topic.publish('link/update');
+                }
             }
         },
         
@@ -129,7 +136,7 @@
                 ));
                 
                 control.selectable(false);
-                control.removeClass(Graph.string.CLS_VECTOR_IMAGE);
+                control.removeClass(Graph.styles.VECTOR);
                 control.elem.group('graph-link');
                 control.elem.data(Graph.string.ID_LINK, linkid);
                 
@@ -138,10 +145,10 @@
                 cursor = 'default';
                 
                 if (i === 0) {
-                    control.addClass(Graph.string.CLS_LINK_TAIL);
+                    control.addClass(Graph.styles.LINK_TAIL);
                     control.elem.data('pole', 'tail');
                 } else if (i === maxlen) {
-                    control.addClass(Graph.string.CLS_LINK_HEAD);
+                    control.addClass(Graph.styles.LINK_HEAD);
                     control.elem.data('pole', 'head');
                 } else {
                     align  = Graph.util.pointAlign(dot.start, dot.end);
@@ -203,6 +210,13 @@
             this.component('coat').cursor(context.cursor);
             this.router.initTrans(context);
             
+            if (context.trans == 'CONNECT') {
+                var paper = this.component().paper();
+                if (paper) {
+                    paper.addClass('linking');
+                }
+            }
+
             // snapping
             var snaphor = context.snap.hor,
                 snapver = context.snap.ver;
@@ -266,6 +280,14 @@
         onControlEnd: function(e, context, control) {
             this.component('coat').cursor('pointer');
             this.router.stopTrans(context);
+
+            if (context.trans == 'CONNECT') {
+                var paper = this.component().paper();
+                if (paper) {
+                    paper.removeClass('linking');
+                }
+            }
+
             this.update(this.router.command());
             this.invalidate();
             this.resumeControl();
@@ -276,5 +298,11 @@
         }
 
     });
+
+    ///////// STATICS /////////
+    
+    Graph.link.Orthogonal.toString = function() {
+        return 'function(router, options)';
+    };
     
 }());

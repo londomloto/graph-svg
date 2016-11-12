@@ -11,6 +11,11 @@
             top: 0
         }, 
 
+        metadata: {
+            name: 'activity.final',
+            style: 'graph-shape-activity-final'
+        },
+
         initComponent: function() {
             var me = this, 
                 comp = me.components;
@@ -18,20 +23,19 @@
             var shape, block, inner, label;
 
             shape = (new Graph.svg.Group(me.props.left, me.props.top))
-                .addClass('graph-shape-activity-final')
                 .selectable(false);
 
             var cx = me.props.width / 2,
                 cy = me.props.height / 2;
 
             block = (new Graph.svg.Ellipse(cx, cy, cx, cy))
-                .addClass('block')
+                .addClass('comp-block')
                 .data('text', me.props.label)
                 .render(shape);
 
             block.draggable({ghost: true});
-            block.connectable({shield: shape});
-            block.resizable({shield: shape});
+            block.connectable();
+            block.resizable();
             block.editable();
 
             block.on('edit',    _.bind(me.onLabelEdit, me));
@@ -40,13 +44,13 @@
             block.on('remove',  _.bind(me.onRemove, me));
 
             inner = (new Graph.svg.Ellipse(cx, cy, cx - 6, cy - 6))
-                .addClass('inner')
+                .addClass('comp-inner')
                 .clickable(false)
                 .selectable(false)
                 .render(shape);
 
             label = (new Graph.svg.Text(cx, cy, me.props.label))
-                .addClass('label')
+                .addClass('comp-label')
                 .selectable(false)
                 .clickable(false)
                 .render(shape);
@@ -71,7 +75,7 @@
             matrix = Graph.matrix().translate(bound.x, bound.y);
             
             shape.matrix().multiply(matrix);
-            shape.attr('transform', shape.matrix().toString());
+            shape.attr('transform', shape.matrix().toValue());
 
             cx = bound.width / 2,
             cy = bound.height / 2;
@@ -96,6 +100,16 @@
                 cy: cy,
                 rx: cx - 6,
                 ry: cy - 6
+            });
+
+            // update props
+            matrix = shape.matrix();
+            
+            this.data({
+                left: matrix.props.e,
+                top: matrix.props.f,
+                width: bound.width,
+                height: bound.height
             });
             
             bound  = null;
@@ -124,5 +138,11 @@
         }
 
     });
+
+    ///////// STATIC /////////
+    
+    Graph.shape.activity.Final.toString = function() {
+        return 'function(options)';
+    };
 
 }());

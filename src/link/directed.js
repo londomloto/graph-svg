@@ -32,13 +32,13 @@
                 ));
                 
                 control.selectable(false);
-                control.removeClass(Graph.string.CLS_VECTOR_IMAGE);
+                control.removeClass(Graph.styles.VECTOR);
                 
                 if (i === 0) {
-                    control.addClass(Graph.string.CLS_LINK_TAIL);
+                    control.addClass(Graph.styles.LINK_TAIL);
                     control.elem.data('pole', 'tail');
                 } else if (i === maxlen) {
-                    control.addClass(Graph.string.CLS_LINK_HEAD);
+                    control.addClass(Graph.styles.LINK_HEAD);
                     control.elem.data('pole', 'head');
                 }
                 
@@ -89,6 +89,13 @@
         onControlStart: function(e, context, control) {
             this.router.initTrans(context);
             
+            if (context.trans == 'CONNECT') {
+                var paper = this.component().paper();
+                if (paper) {
+                    paper.addClass('linking');
+                }
+            }
+
             var snaphor = context.snap.hor,
                 snapver = context.snap.ver;
             
@@ -146,11 +153,25 @@
         
         onControlEnd: function(e, context, control) {
             this.router.stopTrans(context);
+
+            if (context.trans == 'CONNECT') {
+                var paper = this.component().paper();
+                if (paper) {
+                    paper.removeClass('linking');
+                }
+            }
+
             this.update(this.router.command());
             this.invalidate();
             this.resumeControl();
         }
 
     });
+
+    ///////// STATICS /////////
+    
+    Graph.link.Directed.toString = function() {
+        return 'function(router, options)';
+    };
 
 }());

@@ -4,90 +4,75 @@
     Graph.popup.Dialog = Graph.extend({
 
         props: {
-            opened: false,
-            content: null,
-            buttons: null,
-            baseClass: ''
+            opened: false
         },
 
         components: {
-            popup: null,
-            container: null,
+            element: null,
             backdrop: null
         },
 
         handlers: {
-            backdropClick: null
+            backdrop_click: null
         },
 
-        constructor: function(container, options) {
-            if (_.isPlainObject(container)) {
-                options = container;
-                container = Graph.$('body');
-            }
+        constructor: function(element, options) {
+            var me = this, 
+                comp = me.components,
+                handlers = me.handlers;
 
-            _.assign(this.props, options || {});
+            comp.element = Graph.$(element);
 
-            this.components.container = container || Graph.$('body');
-            this.initComponent();
-        },
+            if (options.buttons) {
+                _.forEach(options.buttons, function(button, index){
+                    var element = Graph.$(button.element, comp.element);
+                    if (element.length()) {
+                        var name = 'button' + index,
+                            func = name + '_click';
 
-        initComponent: function() {
-            var me = this;
+                        comp[name] = element;
 
-            var popup = Graph.$('<div class="graph-popup-dialog"/>');
-            popup.addClass(this.props.baseClass);
-            console.log(this.props.baseClass);
-            me.components.popup = popup;
-        },
-
-        component: function() {
-            return this.components.popup;
-        },
-
-        content: function(content) {
-            var me = this;
-
-            if (content === undefined) {
-                return me.props.content;
-            }
-
-            if (_.isFunction(content)) {
-                Graph.when(content()).then(function(data){
-                    me.props.content = data;
-                    me.components.popup.html(data);
+                        if (_.isFunction(button.onclick)) {
+                            handlers[func] = _.bind(function(e){
+                                button.onclick.call(me, e);
+                            }, me);
+                            element.on('click', handlers[func]);
+                        }
+                        name = func = null;
+                    }
+                    element = null;
                 });
-            } else {
-                me.props.content = content;
-                me.components.popup.html(content);
             }
+        },
 
-            return this;
+        element: function() {
+            return this.components.element;
         },
 
         open: function() {
-            if (this.opened) {
+            if (this.props.opened) {
                 return;
             }
 
-            this.components.container.append(this.components.popup);
+            this.element().addClass('open');
             this.props.opened = true;
 
             this.center();
             this.backdrop();
-
-            return this;
         },
 
         close: function() {
-            var backdrop = this.components.backdrop;
+            var me = this,
+                comp = this.components,
+                handlers = this.handlers,
+                backdrop = comp.backdrop;
 
-            this.components.popup.detach();
+            this.element().removeClass('open');
             this.props.opened = false;
 
-            if (this.handlers.backdropClick) {
-                backdrop.off('click', this.handlers.backdropClick);
-                this.handlers.backdropClick = null;
+            if (handlers.backdrop_click) {
+                backdrop.off('click', handlers.backdrop_click);
+                handlers.backdrop_click = null;
 
                 var backdropUser = +backdrop.data('user');
 
@@ -101,15 +86,28 @@
                 backdrop.data('user', backdropUser);
             }
 
+            _.forOwn(handlers, function(handler, name){
+                var tmp = _.split(name, '_'),
+                    key = tmp[0],
+                    evt = tmp[1];
+
+                if (handler && comp[key] && evt) {
+                    comp[key].off(evt, handler);
+                    handlers[name] = null;
+                }
+                
+                tmp = key = evt = null;
+            });
+
             this.fire('close');
         },
 
         center: _.debounce(function() {
-            var popup = this.components.popup,
-                width = popup.width(),
-                height = popup.height();
+            var element = this.element(),
+                width = element.width(),
+                height = element.height();
 
-            popup.css({
+            element.css({
                 'top': '50%',
                 'left': '50%',
                 'margin-top': -height / 2,
@@ -119,37 +117,51 @@
 
         backdrop: function() {
             var me = this,
-                backdrop = Graph.$('.graph-popup-backdrop');
+                backdrop = Graph.$('.graph-dialog-backdrop');
 
             if ( ! backdrop.length()) {
-                backdrop = Graph.$('<div class="graph-popup-backdrop"/>');
+                backdrop = Graph.$('<div class="graph-dialog-backdrop"/>');
                 backdrop.data('user', 0);
                 backdrop.on('click', function(e){
                     e.stopPropagation();
                 });
             }
 
-            me.handlers.backdropClick = function() {
+            me.handlers.backdrop_click = function() {
                 me.close();
             };
 
-            backdrop.on('click', me.handlers.backdropClick);
+            backdrop.on('click', me.handlers.backdrop_click);
 
             var backdropUser = +backdrop.data('user');
 
             backdropUser++;
             backdrop.data('user', backdropUser);
 
-            me.components.popup.before(backdrop);
+            me.components.element.before(backdrop);
             me.components.backdrop = backdrop;
         },
 
+        toString: function() {
+            return 'Graph.popup.Dialog';
+        },
+
         destroy: function() {
-            this.components.popup.remove();
-            this.components.popup = null;
-            this.components.container = null;
+            this.components.element = null;
         }
 
     });
+
+    ///////// STATICS /////////
+    
+    Graph.popup.Dialog.toString = function() {
+        return 'function(element, options)';
+    };
+
+    ///////// SHORTCUT /////////
+    
+    Graph.dialog = function(element, options){
+        return new Graph.popup.Dialog(element, options);
+    };
 
 }());

@@ -36,6 +36,10 @@
             return Graph.registry.vector.get(this.props.view);
         },
 
+        paper: function() {
+            return this.view().paper();
+        },
+
         offset: function() {
             var offset = this.cached.offset;
             var view, node;
@@ -50,24 +54,70 @@
             return offset;
         },
 
-        invalidate: function() {
-            this.cached.offset = null;
+        center: function() {
+            var center = this.cached.center;
+
+            if ( ! center) {
+                var offset = this.offset();
+
+                center = {
+                    x: offset.width / 2,
+                    y: offset.height / 2
+                };
+
+                this.cached.center = _.extend({}, center);
+            }
+
+            return center;
+        },
+
+        scale: function() {
+            return this.view().matrix().scale();
         },
 
         width: function() {
+            var view, bbox, width;
 
+            view = this.view();
+
+            if (view.isViewport()) {
+                width = this.paper().width();
+            } else {
+                bbox  = view.bbox();
+                width = bbox.width();
+            }
+
+            view = bbox = null;
+            return width;
         },
 
         height: function() {
-            
+            var view, bbox, height;
+
+            view = this.view();
+
+            if (view.isViewport()) {
+                height = this.paper().height();
+            } else {
+                bbox   = view.bbox();
+                height = bbox.height();
+            }
+
+            view = bbox = null;
+            return height;
         },
-
-        fit: function() {
-
+        
+        invalidate: function() {
+            this.cached.offset = null;
+            this.cached.center = null;
         },
 
         grabVector: function(event) {
             return Graph.registry.vector.get(event.target);
+        },
+
+        grabLink: function(event) {
+            return Graph.registry.link.get(event.target);
         },
 
         grabLocation: function(event) {
@@ -88,10 +138,6 @@
             matrix = invert = null;
 
             return location;
-        },
-
-        currentScale: function() {
-            return this.view().matrix().scale();
         },
 
         dragSnapping: function() {

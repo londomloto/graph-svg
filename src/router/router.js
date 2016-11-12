@@ -182,6 +182,11 @@
         repair: function(component, port) {
             
         },
+
+        reset: function() {
+            this.invalidate();
+            this.values.waypoints = null;
+        },
         
         relocate: function(dx, dy) {
             _.forEach(this.values.waypoints, function(p){
@@ -192,6 +197,8 @@
             this.commit();
             return this;
         },
+
+
 
         ///////// ROUTER TRANS /////////
 
@@ -216,14 +223,16 @@
         },
 
         destroy: function() {
-            for (var key in this.cached) {
-                this.cached[key] = null;
-            }
+            this.reset();
         }
         
     });
     
-    ///////// HELPERS /////////
+    ///////// STATICS /////////
+    
+    Router.toString = function() {
+        return 'function(domain, source, target, options)';
+    };
     
     Router.portCentering = function(port, center, axis) {
         if (axis == 'x') {

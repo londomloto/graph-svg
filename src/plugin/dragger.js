@@ -4,8 +4,9 @@
     Graph.plugin.Dragger = Graph.extend(Graph.plugin.Plugin, {
         
         props: {
+            ready: false,
             manual: false,
-            single: true,
+            
             ghost: false,
             vector: null,
             enabled: true,
@@ -13,12 +14,14 @@
             suspended: true,
             inertia: false,
             bound: false,
-            // grid: [1, 1],
             grid: null,
             axis: false,
-            hint: false,
             cursor: 'move',
-            snappable: false
+
+            dragClass: '',
+
+            // batching operation
+            batchSync: true
         },
 
         rotation: {
@@ -56,7 +59,7 @@
                 inertia: false
             }, options || {});
 
-            _.forEach(['axis', 'grid', 'bbox', 'ghost', 'hint'], function(name){
+            _.forEach(['axis', 'grid', 'bbox', 'ghost'], function(name){
                 if (options[name] !== undefined) {
                     me.props[name] = options[name];
                 }
@@ -65,6 +68,8 @@
             _.assign(me.props, options);
 
             me.cached.snapping = null;
+            me.cached.origin = null;
+
             me.initComponent();
 
             vector.on('render.dragger', _.bind(me.onVectorRender, me));
@@ -93,13 +98,19 @@
                     .traversable(false)
                     .selectable(false);
 
+                var style = 'graph-dragger-helper' + (me.props.dragClass ? ' ' + me.props.dragClass : '');
+
                 helper = (new Graph.svg.Rect(0, 0, 0, 0, 0))
-                    .addClass('graph-dragger-helper')
+                    .addClass(style)
                     .removeClass('graph-elem graph-elem-rect')
                     .traversable(false)
                     .selectable(false)
                     .clickable(false)
                     .render(holder);
+
+                style = null;
+
+                helper.elem.data(Graph.string.ID_VECTOR, this.vector().guid());
 
                 comp.holder = holder.guid();
                 comp.helper = helper.guid();
@@ -110,24 +121,16 @@
         },
 
         setup: function() {
-            var me = this, 
-                vector = me.vector(),
-                paper = vector.paper(),
-                options = {};
+            var me, vector, vendor, paper, options;
 
-            if (me.plugin) {
+            if (this.props.ready) {
                 return;
             }
 
-            if (paper.utils.scroller) {
-                // options.autoScroll = {
-                //     container: paper.utils.scroller.node()
-                // };
-            }
-
-            if (me.props.hint && paper.utils.hinter) {
-                paper.utils.hinter.register(me.vector);
-            }
+            me = this;
+            vector = me.vector();
+            paper = vector.paper();
+            options = {};
 
             _.extend(options, {
                 manualStart: true,
@@ -136,20 +139,23 @@
                 onend: _.bind(me.onDragEnd, me)
             });
 
-            var vendor = vector.interactable().vendor();
-            
+            vendor = vector.interactable().vendor();
             vendor.draggable(options);
             vendor.styleCursor(false);
+
+            me.cached.origin   = vendor.origin();
+            me.cached.snapping = [];
             
-            vendor.on('down', function(e){
+            vendor.on('down', function draggerDown(e){
                 e.preventDefault();
+                // e.stopPropagation();
             });
 
-            if (me.props.single) {
+            if ( ! me.props.manual) {
                 vendor.on('move', _.bind(me.onPointerMove, me, _, vector));    
             }
             
-            var matrix = vector.matrix(true),
+            var matrix = vector.globalMatrix(),
                 rotate = matrix.rotate(),
                 scale  = matrix.scale();
 
@@ -163,6 +169,8 @@
                     y: me.props.grid[1]
                 });
             }
+
+            me.props.ready = true;
         },
 
         enable: function() {
@@ -245,6 +253,20 @@
             this.scaling.y = sy;
         },
 
+        origin: function(origin) {
+            if (origin === undefined) {
+                return this.cached.origin;
+            }
+
+            this.cached.origin = origin;
+
+            var vendor = this.vector().interactable().vendor();
+
+            if (vendor) {
+                vendor.origin(origin);
+            }
+        },
+
         snap: function(snap, end) {
 
             if (snap === undefined) {
@@ -276,12 +298,6 @@
                     endOnly: end
                 });
             }
-
-            // if (this.plugin) {
-            //     this.plugin.setOptions('snap', {
-            //         targets: snaps
-            //     });
-            // }
 
             /////////
             
@@ -318,37 +334,14 @@
         },
 
         bound: function(bound) {
-            /*if ( ! this.plugin) {
-                return;
-            }
-
-            if (_.isBoolean(bound) && bound === false) {
-                this.props.bound = false;
-                this.plugin.setOptions('restrict', null);
-                return;
-            }
-
-            bound = _.extend({
-                top: Infinity,
-                right: Infinity,
-                bottom: Infinity,
-                left: Infinity
-            }, bound || {});
             
-            this.props.bound = _.extend({}, bound);
-
-            this.plugin.setOptions('restrict', {
-                restriction: bound
-            });
-
-            return;*/
         },
 
         onVectorRender: function() {
             this.setup();
         },
 
-        onPointerMove: function(e, vector) {
+        onPointerMove: function draggerMove(e, vector) {
             var i = e.interaction;
 
             if (this.props.enabled) {
@@ -407,16 +400,17 @@
 
             this.trans.dx = 0;
             this.trans.dy = 0;
+            this.trans.hx = 0;
+            this.trans.hy = 0;
 
             var edata = {
+                x: e.clientX,
+                y: e.clientY,
                 dx: 0,
                 dy: 0,
-                ghost: this.props.ghost
+                ghost: this.props.ghost,
+                batch: false
             };
-
-            if (this.props.hint && paper.utils.hinter) {
-                paper.utils.hinter.activate(vector);
-            }
 
             this.fire('dragstart', edata);
         },
@@ -435,7 +429,7 @@
                 scaleY = this.scaling.y;
 
             // check current scaling
-            var scaling = vector.matrix(true).scale();
+            var scaling = vector.globalMatrix().scale();
             
             if (scaling.x !== scaleX || scaling.y !== scaleY) {
                 this.scale(scaling.x, scaling.y);
@@ -445,7 +439,7 @@
             
             var edx = _.defaultTo(e.dx, 0),
                 edy = _.defaultTo(e.dy, 0);
-                
+            
             var dx, dy, hx, hy, tx, ty;
             
             dx = dy = hx = hy = tx = ty = 0;
@@ -475,21 +469,23 @@
 
             this.trans.dx += tx;
             this.trans.dy += ty;
+
+            this.trans.hx += hx;
+            this.trans.hy += hy;
             
             var pageX = _.defaultTo(e.pageX, e.x0),
                 pageX = _.defaultTo(e.pageY, e.y0);
 
             pageX /= scaleX;
             pageX /= scaleY;
-
-            if (this.props.hint && paper.utils.hinter) {
-                paper.utils.hinter.watch(dx, dy);
-            }
             
             var event = {
                 pageX: pageX,
                 pageY: pageX,
                 
+                ex: edx,
+                ey: edy,
+
                 dx: dx,
                 dy: dy,
                 
@@ -499,7 +495,8 @@
                 ox: hx,
                 oy: hy,
                 
-                ghost: this.props.ghost
+                ghost: this.props.ghost,
+                batch: false
             };
 
             this.fire('dragmove', event);
@@ -517,11 +514,9 @@
                 vector = trans.vector,
                 helper = trans.helper,
                 dx = trans.dx,
-                dy = trans.dy;
-                
-            if (this.props.hint && paper.utils.hinter) {
-                paper.utils.hinter.deactivate();
-            }
+                dy = trans.dy,
+                hx = trans.hx,
+                hy = trans.hy;
 
             if (helper) {
                 vector.translate(dx, dy).commit();
@@ -535,7 +530,8 @@
             var edata = {
                 dx: dx,
                 dy: dy,
-                ghost: this.props.ghost
+                ghost: this.props.ghost,
+                batch: false
             };
             
             this.fire('dragend', edata);
@@ -543,8 +539,11 @@
             this.trans.vector = null;
             this.trans.paper = null;
             this.trans.helper = null;
+
             this.trans.dx = 0;
             this.trans.dy = 0;
+            this.trans.hx = 0;
+            this.trans.hy = 0;
 
         },
 

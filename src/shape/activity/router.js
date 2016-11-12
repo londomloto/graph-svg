@@ -11,6 +11,12 @@
             top: 0
         },
 
+        metadata: {
+            name: 'activity.router',
+            icon: Graph.icons.SHAPE_ROUTER,
+            style: 'graph-shape-activity-router'
+        },
+
         initComponent: function() {
             var me = this, comp = me.components;
             var shape, block, label;
@@ -32,15 +38,21 @@
                 .data('text', me.props.label)
                 .render(shape);
 
-            block.draggable({ghost: true});
-            block.resizable({shield: shape});
+            block.elem.data(Graph.string.ID_SHAPE, me.guid());
+
+            block.draggable({ghost: true, dragClass: 'shape-draggable'});
+            block.resizable();
             block.editable();
-            block.connectable({shield: shape});
+            block.connectable({wiring: 'h:v'});
+            block.snappable();
 
             block.on('edit', _.bind(me.onLabelEdit, me));
+            block.on('dragstart', _.bind(me.onDragStart, me));
             block.on('dragend', _.bind(me.onDragEnd, me));
             block.on('resize', _.bind(me.onResize, me));
             block.on('remove',  _.bind(me.onRemove, me));
+            block.on('select.shape',  _.bind(me.onSelect, me));
+            block.on('deselect.shape',  _.bind(me.onDeselect, me));
 
             label = (new Graph.svg.Text(cx, cy, me.props.label))
                 .clickable(false)
@@ -65,7 +77,7 @@
             matrix = Graph.matrix().translate(bound.x, bound.y);
 
             shape.matrix().multiply(matrix);
-            shape.attr('transform', shape.matrix().toString());
+            shape.attr('transform', shape.matrix().toValue());
 
             var points = [
                 bound.width / 2, 0,
@@ -88,10 +100,27 @@
 
             label.wrap(bound.width - 10);
 
+            // update props
+            
+            matrix = shape.matrix();
+            
+            this.data({
+                left: matrix.props.e,
+                top: matrix.props.f,
+                width: bound.width,
+                height: bound.height
+            });
+
             matrix = null;
             bound  = null;
         }
 
     });
+
+    ///////// STATIC /////////
+    
+    Graph.shape.activity.Router.toString = function() {
+        return 'function(options)';
+    };
 
 }());

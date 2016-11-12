@@ -5,6 +5,13 @@
     // var inherit = /xyz/.test(function(){ xyz; }) ? /\$super/ : /.*/;
     var Class = Graph.lang.Class = function() {};
 
+    Class.prototype.constructor = Class;
+    Class.prototype.toString = function() {
+        return 'Graph.lang.Class';
+    };
+
+    Class.defaults = {};
+
     Class.extend = function (config) {
         var $super, proto, name, value, defaults;
         
@@ -100,8 +107,8 @@
         clazz.prototype = proto;
         clazz.prototype.constructor = clazz;
         clazz.prototype.superclass = $super.constructor;
-
-        // `$super()` implementation, replace John Resigh implementation
+        
+        // `$super()` non-strict-mode
         clazz.prototype.$super = function () {
             var func = clazz.prototype.$super,
                 ctor = this.constructor;
@@ -117,7 +124,7 @@
             fsup = fcal.$super;
 
             if ( ! fsup) {
-                near = Class.closest(fcal, ctor);
+                near = bubbling(fcal, ctor);
                     
                 if (near) {
                     var pro = near.proto, 
@@ -131,10 +138,6 @@
             return fsup ? fsup.apply(this, arguments) : undefined;
         };
 
-        /**
-         * Enable eventbus
-         */
-        
         clazz.prototype.on = function(type, handler, once) {
             var me = this, data;
 
@@ -262,7 +265,7 @@
 
             part = _.split(type, '.');
             fire = part.shift();
-            lsnr = this.listeners[fire] || [];
+            lsnr = (this.listeners[fire] || []).slice();
 
             var cached = Graph.lookup('Regex.event', type);
 
@@ -301,14 +304,16 @@
                 });
             }
 
-            rgex = null;
+            rgex = lsnr = null;
             return event;
         };
 
         return clazz;
     };
 
-    Class.closest = function(method, clazz) {
+    ///////// HELPER /////////
+    
+    function bubbling(method, clazz) {
         var proto = clazz.prototype, inherited;
 
         if (method === clazz.init) {
@@ -331,10 +336,11 @@
         }
 
         if (proto.superclass) {
-            return Class.closest(method, proto.superclass);
+            return bubbling(method, proto.superclass);
         } else {
             return null;
         }
-    };
+    }
+    
 
 }());

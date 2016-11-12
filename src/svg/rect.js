@@ -2,16 +2,7 @@
 (function(){
 
     Graph.svg.Rect = Graph.extend(Graph.svg.Vector, {
-
-        attrs: {
-            // 'stroke': '#333333',
-            // 'stroke-width': 1,
-            // 'fill': '#ffffff',
-            'style': '',
-            // 'shape-rendering': 'crispEdges',
-            'class': Graph.string.CLS_VECTOR_RECT
-        },
-
+        
         constructor: function(x, y, width, height, r) {
             var me = this;
             r = _.defaultTo(r, 6);

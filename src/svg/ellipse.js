@@ -2,14 +2,7 @@
 (function(){
 
     Graph.svg.Ellipse = Graph.extend(Graph.svg.Vector, {
-        attrs: {
-            // 'stroke': '#696B8A',
-            // 'stroke-width': 1,
-            // 'fill': '#ffffff',
-            // 'style': '',
-            'class': Graph.string.CLS_VECTOR_ELLIPSE
-        },
-
+        
         constructor: function(cx, cy, rx, ry) {
             
             // this.$super('ellipse', {

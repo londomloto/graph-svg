@@ -1,68 +1,81 @@
 
-/** --------------------------------CONFIG---------------------------------- */
-
-Graph.setup({
-    base: '../'
-});
-
-/** --------------------------------START---------------------------------- */
-
 Graph(function(){
 
-    /** --------------------------------STENCIL--------------------------------- */
+    ///////////////////////////////////////////
+    /// pallet
+    ///////////////////////////////////////////
     
-    $('.e-stencil-item').on('click', function(e){
-        var shape = $(e.currentTarget).data('shape');
-        if (shape) {
-            shape = paper.draw(shape);
+    var pallet = Graph.pallet('activity');
+    pallet.render('#pallet');
+
+    pallet.on({
+        shapeclick: function(e) {
+            console.log(e);
         }
     });
 
-    /** --------------------------------CANVAS--------------------------------- */
+    ///////////////////////////////////////////
+    /// CANVAS
+    ///////////////////////////////////////////
 
     var paper = Graph.paper(2000, 2000);
+    paper.addPallet(pallet);
 
     paper.on({
         activatetool: function(e) {
-            $('[data-tool=' + e.name + ']').addClass('active');
+            $('[data-tool=' + e.name + ']', '.e-toolbar').addClass('active');
         },
         deactivatetool: function(e) {
-            $('[data-tool=' + e.name + ']').removeClass('active');
+            $('[data-tool=' + e.name + ']', '.e-toolbar').removeClass('active');
         }
     });
 
-    paper.render('#page0');
+    paper.render('#page');
 
     var s1 = Graph.shape('activity.action', {left: 300, top: 100});
     var s2 = Graph.shape('activity.action', {left: 100, top: 300});
     var s3 = Graph.shape('activity.action', {left: 300, top: 400});
     var s4 = Graph.shape('activity.action', {left: 500, top: 100});
+    var s5 = Graph.shape('activity.start', {left: 600, top: 300});
+    var s6 = Graph.shape('activity.lane', {left: 100, top: 100});
+    var s7 = Graph.shape('activity.router', {left: 500, top: 400});
 
     s1.render(paper);
     s2.render(paper);
     s3.render(paper);
     s4.render(paper);
+    s5.render(paper);
+    s6.render(paper);
+    s7.render(paper);
 
-    var L1 = paper.connect(s1, s2);
+    /*var L1 = paper.connect(s1, s2);
     var L2 = paper.connect(s1, s3);
     var L3 = paper.connect(s2, s4);
 
-    L1.label('indonesia');
+    L1.label('indonesia');*/
 
     var v1 = paper.rect(700, 100, 100, 100);
+    v1.rotate(45).commit();
     v1.draggable({ghost: true});
     v1.resizable();
     v1.snappable();
-    v1.animable();
-    // v1.rotate(45).commit();
-    
-    /** -----------------------------EXAMPLE DATA------------------------------ */
+    v1.connectable();
 
+    var v2 = paper.rect(700, 300, 100, 100);
+    
+    v2.draggable({ghost: true});
+    v2.resizable();
+    v2.snappable();
+
+    v2.connectable();
+    
+    // paper.connect(v1, v2);
     
 
-    /**
-     * Comming from database
-     */
+    ///////////////////////////////////////////
+    /// EXAMPLE DATA
+    ///////////////////////////////////////////
+
     var data = {
 
         flow: 'NBWO Flow',
@@ -103,22 +116,28 @@ Graph(function(){
         ]
     };
 
-
     // paper.parse(data);
 
-    /** -----------------------EASYFLOW SKELETON----------------------- */
+    ///////////////////////////////////////////
+    /// JQUERY EASYFLOW
+    ///////////////////////////////////////////
     
-    $('[data-tool]').on('click', function(e){
+    $('[data-tool]', '.e-toolbar').on('click', function(e){
         e.preventDefault();
         var tool = $(this).data('tool');
         tool && paper.tool().toggle(tool);
     });
 
-    $('[data-util]').on('click', function(e){
+    $('[data-util]', '.e-toolbar').on('click', function(e){
         e.preventDefault();
         var util = $(this).data('util');
 
         switch(util) {
+            case 'trash':
+                
+                paper.removeSelection();
+
+                break;
             case 'export':
 
                 paper.saveAsImage('example.png');
@@ -127,20 +146,34 @@ Graph(function(){
 
             case 'diagram':
 
-                var popup = new Graph.popup.Dialog({
-                    baseClass: 'e-dialog'
+                var popup = Graph.dialog('#create-dialog', {
+                    buttons: [
+                        {
+                            element: '.btn-save',
+                            onclick: function(e) {
+                                // var data = {};
+                                
+                                // popup.element().find('input').each(function(index, input){
+                                //     input = Graph.$(input);
+                                //     data[input.attr('name')] = input.val();
+                                //     input = null;
+                                // });
+                            }
+                        },
+                        {
+                            element: '.btn-close',
+                            onclick: function(e) {
+                                popup.close();
+                            }
+                        }
+                    ]
                 });
-                
-                popup.content(Graph.$('#create-dialog').html()).open();
-                
-                popup.on('close', function(e){
-                    popup.destroy();
+
+                popup.on('close', function(){
                     popup = null;
                 });
 
-                popup.component().on('click', function(e){
-                    console.log(e);
-                });
+                popup.open();
 
                 break;
 

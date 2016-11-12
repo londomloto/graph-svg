@@ -84,6 +84,16 @@
             return storage[key];
         },
 
+        collect: function(scope) {
+            var vectors = [];
+            for (var id in context) {
+                if (context[id] == scope && storage[id]) {
+                    vectors.push(storage[id]);
+                }
+            }
+            return vectors;
+        },
+
         wipe: function(paper) {
             var pid = paper.guid();
 

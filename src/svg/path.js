@@ -3,25 +3,17 @@
 
     Graph.svg.Path = Graph.extend(Graph.svg.Vector, {
 
-        attrs: {
-            // 'stroke': '#696B8A',
-            // 'stroke-width': 1,
-            // 'fill': 'none',
-            'style': '',
-            'class': Graph.string.CLS_VECTOR_PATH
-        },
-
         constructor: function(d) {
             if ( ! d) {
                 d = [['M', 0, 0]];
             }
 
             if (_.isArray(d)) {
-                d = Graph.path(Graph.util.segments2path(d)).absolute().toString();
+                d = Graph.path(Graph.util.segments2path(d)).absolute().toValue();
             } else if (d instanceof Graph.lang.Path) {
-                d = d.toString();
+                d = d.toValue();
             } else {
-                d = Graph.path(d).absolute().toString();
+                d = Graph.path(d).absolute().toValue();
             }
 
             this.superclass.prototype.constructor.call(this, 'path', {
