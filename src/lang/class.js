@@ -12,7 +12,7 @@
 
     Class.defaults = {};
 
-    Class.extend = function (config) {
+    Class.extend = function(config) {
         var $super, proto, name, value, defaults;
         
         $super = this.prototype;
@@ -59,8 +59,9 @@
             init = proto.constructor;
             delete proto.constructor;
         }
-        
+
         clazz = function() {
+
             var me = this;
             var prop, value;
 
@@ -93,13 +94,12 @@
 
             inherits = superdef = classdef = null;
             
-            if ( ! initializing) {
-                init && init.apply(me, arguments);
-            }
+            // if ( ! initializing && init) {
+            init && init.apply(me, arguments);
+            // }
         };
 
         // statics
-        clazz.init = init;
         clazz.extend = Class.extend;
         clazz.defaults = defaults;
 
@@ -108,36 +108,6 @@
         clazz.prototype.constructor = clazz;
         clazz.prototype.superclass = $super.constructor;
         
-        // `$super()` non-strict-mode
-        clazz.prototype.$super = function () {
-            var func = clazz.prototype.$super,
-                ctor = this.constructor;
-                
-            var fcal, fsup, near;
-            
-            fcal = (func && func.caller) ? func.caller : arguments.callee.caller;
-
-            if ( ! fcal) {
-                return undefined;
-            }
-
-            fsup = fcal.$super;
-
-            if ( ! fsup) {
-                near = bubbling(fcal, ctor);
-                    
-                if (near) {
-                    var pro = near.proto, 
-                        key = near.key;
-
-                    fsup = pro.superclass.prototype[key];
-                    fcal.$super = fsup;
-                }
-            }
-
-            return fsup ? fsup.apply(this, arguments) : undefined;
-        };
-
         clazz.prototype.on = function(type, handler, once) {
             var me = this, data;
 
@@ -310,37 +280,5 @@
 
         return clazz;
     };
-
-    ///////// HELPER /////////
-    
-    function bubbling(method, clazz) {
-        var proto = clazz.prototype, inherited;
-
-        if (method === clazz.init) {
-            inherited = proto.superclass ? method === proto.superclass.init : false;
-
-            if ( ! inherited) {
-                return { proto: proto, key: 'constructor' };
-            }
-        } else {
-            for (var key in proto) {
-                if (proto[key] === method) {
-
-                    inherited = proto.superclass ? proto[key] === proto.superclass.prototype[key]  : false;
-
-                    if ( ! inherited) {
-                        return { proto: proto, key: key };
-                    }
-                }
-            }
-        }
-
-        if (proto.superclass) {
-            return bubbling(method, proto.superclass);
-        } else {
-            return null;
-        }
-    }
-    
 
 }());

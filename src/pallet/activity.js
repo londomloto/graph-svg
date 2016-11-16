@@ -4,7 +4,8 @@
     Graph.pallet.Activity = Graph.extend({
         
         props: {
-            
+            guid: null,
+            paper: null
         },
         
         components: {
@@ -15,26 +16,27 @@
             
         },
         
-        papers: {
-            
-        },
-    
         constructor: function(options) {
             _.assign(this.props, options || {});
+            this.props.guid = 'pallet-' + (++Graph.pallet.Activity.guid);
             this.initComponent();
         },
 
+        guid: function() {
+            return this.props.guid;
+        },
+
+        paper: function() {
+            return Graph.registry.vector.get(this.props.paper);
+        },
+
         bindPaper: function(paper) {
-            var papers = this.papers;
-            papers[paper.guid()] = true;
-            
+            this.props.paper = paper.guid();
         },
         
-        unbindPaper: function(papers) {
-            var papers = this.papers;
-            delete papers[paper.guid()];
+        unbindPaper: function(paper) {
+            this.props.paper = null;
         },
-        
 
         initComponent: function() {
             var template, pallet;
@@ -105,7 +107,20 @@
                     me.cached.matrix = Graph.factory(Graph.lang.Matrix, transform);
 
                     target.addClass('grabbing');
+
+                    var paper = me.paper();
+                    if (paper) {
+                        var diagram = paper.diagram();
+                        console.log(diagram);
+                    }
+
+                    /*var paper = me.paper(),
+                        shape = Graph.shape(target.data('shape'));
+
+                    console.log(shape);*/
+
                     transform = target = null;
+                    
                 },
                 onmove: function(e) {
                     me.cached.matrix.translate(e.dx, e.dy);
@@ -151,8 +166,14 @@
             // var namespace = Graph.$(e.currentTarget).data('shape');
             // var shape = Graph.shape(namespace, {});
             // console.log(shape);
+        },
+
+        toString: function() {
+            return 'Graph.pallet.Activity';
         }
 
     });
+
+    Graph.pallet.Activity.guid = 0;
 
 }());

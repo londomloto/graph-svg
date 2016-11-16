@@ -24,17 +24,27 @@
             </aside>
             <section>
                 <div class="e-toolbar">
+                    <a href="javascript:;" data-ng-if="user" data-ng-click="createDiagram()" title="New diagram"><i class="ion-android-add"></i></a>
+                    <a href="javascript:;" data-ng-if="user" data-ng-click="updateDiagram()" title="Save diagram"><i class="ion-android-done"></i></a>
+                </div>
+                <div class="e-toolbar">
                     <a href="#" data-tool="panzoom" title="Activate hand tool"><i class="bpmn-icon-hand-tool"></i></a>
                     <a href="#" data-tool="collector" title="Activate lasso tool"><i class="bpmn-icon-lasso-tool"></i></a>
                     <a href="#" data-tool="linker" title="Activate link tool"><i class="bpmn-icon-connection-multi"></i></a>
                     <a href="#" data-util="trash" title="Delete selection"><i class="bpmn-icon-trash"></i></a>
-                    <a href="#" title="Add annotation"><i class="bpmn-icon-text-annotation"></i></a>
-                    <a href="#" data-util="export" title="Save as Image"><i class="ion-image"></i></a>
-                    <a href="#" data-util="diagram" title="New workspace"><i class="bpmn-icon-data-object"></i></a>
-                    <a href="#" title="Open database"><i class="bpmn-icon-data-store"></i></a>
-                    <a href="#" title="Save workspace"><i class="ion-android-checkbox-outline"></i></a>
-                    <a href="#" title="Use Case Config"><i class="ion-android-settings"></i></a>
+                    
+                    <!-- 
+                    <a href="#" data-util="export" title="Save as Image"><i class="ion-android-print"></i></a>
+                    <a href="#" data-util="create" title="New diagram"><i class="ion-android-add"></i></a>
+                    <a href="#" data-util="save" title="Save diagram"><i class="ion-android-done"></i></a>
+                    <a href="#" data-util="config" title="Editor config"><i class="ion-android-options"></i></a> 
+                    -->
+                    
+                    <a href="#" data-util="export" title="Save as Image"><i class="ion-ios-printer-outline"></i></a>
+                    <a href="javascript:;" data-util="config" title="Editor config"><i class="ion-ios-gear-outline"></i></a>
                 </div>
+
+                <div class="e-clearfix"></div>
             </section>
         </header>
         <section>
@@ -182,10 +192,7 @@
     <script src="../src/pallet/activity.js"></script>
 
     <script src="../src/diagram/diagram.js"></script>
-    <script src="../src/diagram/command.js"></script>
-    <script src="../src/diagram/modeler.js"></script>
-    <script src="../src/diagram/parser.js"></script>
-    <script src="../src/diagram/rules.js"></script>
+    <script src="../src/diagram/activity.js"></script>
     
     <script src="../src/popup/dialog.js"></script>
     

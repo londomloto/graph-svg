@@ -76,6 +76,23 @@
         });
     };
 
+    Exporter.prototype.exportBlob = function(callback) {
+        var options = _.extend({}, this.options);
+        
+        options.encoder = 'image/jpeg';
+        options.compression = 1;
+        options.background = '#ffffff';
+
+        exportImage(this.element, options, function(result){
+            if (result) {
+                var blob = createBlob(result);
+                callback && callback(blob);
+            } else {
+                callback && callback(false);
+            }
+        });
+    };
+
     ///////// HELPERS /////////
     
     function repair(data) {
@@ -137,6 +154,12 @@
             canvas.height = image.height;
             
             context = canvas.getContext('2d');
+
+            if (options.background) {
+                context.fillStyle = options.background;
+                context.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
             context.drawImage(image, 0, 0);
             
             try {

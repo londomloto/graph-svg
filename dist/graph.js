@@ -102,15 +102,24 @@
     
     /**
      *  Bisector
+     *  https://github.com/d3/d3-array/blob/master/src/bisector.js
      */
-    _.bisector = function(f) {
+    function ascending(a, b) {
+        return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
+    }
+
+    function descending(a, b) {
+        return b < a ? -1 : b > a ? 1 : b >= a ? 0 : NaN;
+    }
+
+    function bisector(compare) {
         return {
             left: function(a, x, lo, hi) {
                 if (arguments.length < 3) lo = 0;
                 if (arguments.length < 4) hi = a.length;
                 while (lo < hi) {
                     var mid = lo + hi >>> 1;
-                    if (f.call(a, a[mid], mid) < x) lo = mid + 1; else hi = mid;
+                    if (compare(a[mid], x) < 0) lo = mid + 1; else hi = mid;
                 }
                 return lo;
             },
@@ -119,15 +128,22 @@
                 if (arguments.length < 4) hi = a.length;
                 while (lo < hi) {
                     var mid = lo + hi >>> 1;
-                    if (x < f.call(a, a[mid], mid)) hi = mid; else lo = mid + 1;
+                    if (compare(a[mid], x) > 0) hi = mid; else lo = mid + 1;
                 }
                 return lo;
             }
         };
+    }
+
+    _.bisector = function(f) {
+        return bisector(f.length === 1 ? function(d, x){
+            return ascending(f(d), x);
+        } : f);
     };
     
     /** 
      *  Sorter
+     *  https://github.com/gka/d3-jetpack/blob/master/d3-jetpack.js
      */
     _.ascendingKey = function(key) {
         return typeof key == 'function' ? function (a, b) {
@@ -169,7 +185,9 @@
                         ? self 
                         : Function('return this')());
 
-    var DOCUMENT = document;
+    var DOCUMENT  = document;
+    var LOCATION  = location;
+    var NAVIGATOR = navigator;
 
     /**
      * Size for cached result
@@ -202,7 +220,8 @@
     Graph.cached = {};
 
     Graph.config = {
-        base: './',
+        base: '../',
+        locale: 'id',
         svg: {
             version: '1.1'
         },
@@ -226,40 +245,80 @@
         }
     };
 
-    /*
-    Graph.toString = function() {
-        return 'SVG Library presented by ' + Graph.AUTHOR;
-    }
-    */
+    // Graph.toString = function() {
+    //     return 'SVG Library presented by ' + Graph.AUTHOR;
+    // }
+    
 
     /**
      * String params
      */
     Graph.string = {
         ID_VECTOR: 'graph-vector-id',
+        ID_SHAPE: 'graph-shape-id',
         ID_LINK: 'graph-link-id',
-        ID_PORT: 'graph-port-id',
-
-        CLS_VECTOR_SVG: 'graph-paper',
-        CLS_VECTOR_RECT: 'graph-elem graph-elem-rect',
-        CLS_VECTOR_PATH: 'graph-elem graph-elem-path',
-        CLS_VECTOR_TEXT: 'graph-elem graph-elem-text',
-        CLS_VECTOR_LINE: 'graph-elem graph-elem-line',
-        CLS_VECTOR_GROUP: 'graph-elem graph-elem-group',
-        CLS_VECTOR_IMAGE: 'graph-elem graph-elem-image',
-        CLS_VECTOR_CIRCLE: 'graph-elem graph-elem-circle',
-        CLS_VECTOR_ELLIPSE: 'graph-elem graph-elem-ellipse',
-        CLS_VECTOR_POLYGON: 'graph-elem graph-elem-polygon',
-        CLS_VECTOR_POLYLINE: 'graph-elem graph-elem-polyline',
-        CLS_VECTOR_VIEWPORT: 'graph-viewport',
-
-        CLS_LINK_HEAD: 'graph-link-head',
-        CLS_LINK_TAIL: 'graph-link-tail'
+        ID_PORT: 'graph-port-id'
     };
+
+    /**
+     * Style params
+     */
+    Graph.styles = {
+        VECTOR: 'graph-elem',
+        PAPER: 'graph-paper',
+        VIEWPORT: 'graph-viewport',
+
+        SHAPE: 'graph-shape',
+        SHAPE_BLOCK: 'comp-block',
+        SHAPE_LABEL: 'comp-label',
+        SHAPE_HEADER: 'comp-header',
+        SHAPE_CHILD: 'comp-child',
+        SHAPE_DRAG: 'shape-draggable',
+
+        LINK_HEAD: 'graph-link-head',
+        LINK_TAIL: 'graph-link-tail'
+    };
+
+    /**
+     * Icon params
+     */
+    Graph.icons = {
+        ZOOM_IN: 'ion-android-add',
+        ZOOM_OUT: 'ion-android-remove',
+        ZOOM_RESET: 'ion-pinpoint',
+
+        SHAPE: 'bpmn-icon-start-event-none',
+        SHAPE_LANE: 'bpmn-icon-participant',
+        SHAPE_LINK: 'ion-ios-shuffle-strong',
+        SHAPE_ACTION: 'bpmn-icon-task',
+        SHAPE_ROUTER: 'bpmn-icon-gateway-none',
+
+        LANE_ABOVE: 'bpmn-icon-lane-insert-above',
+        LANE_BELOW: 'bpmn-icon-lane-insert-below',
+
+        CONFIG: 'bpmn-icon-screw-wrench',
+        LINK: 'bpmn-icon-connection-multi',
+        TRASH: 'bpmn-icon-trash',
+
+        SEND_TO_BACK: 'font-icon-send-back',
+        SEND_TO_FRONT: 'font-icon-bring-front',
+
+        MOVE_UP: 'ion-android-arrow-up',
+        MOVE_DOWN: 'ion-android-arrow-down'
+    };
+
+    Graph.doc = function() {
+        
+    };
+
+    Graph.global = function() {
+        
+    };  
 
     /**
      * Language & Core helper
      */
+    
     Graph.isHTML = function(obj) {
         return obj instanceof HTMLElement;
     };
@@ -273,7 +332,7 @@
     };
 
     Graph.isMac = function() {
-        return (/mac/i).test(navigator.platform);    
+        return (/mac/i).test(NAVIGATOR.platform);    
     };
 
     Graph.ns = function(namespace) {
@@ -439,17 +498,6 @@
     Graph.when = $.when;
 
     /**
-     * Expand namespaces
-     */
-    Graph.ns('Graph.lang');
-    Graph.ns('Graph.collection');
-    Graph.ns('Graph.registry');
-    Graph.ns('Graph.data');
-    Graph.ns('Graph.diagram');
-    Graph.ns('Graph.popup');
-    
-
-    /**
      * Vector
      */
     Graph.paper = function(width, height, options) {
@@ -478,8 +526,6 @@
         return shape;
     };
 
-    Graph.ns('Graph.shape.activity');
-
     /**
      * Layout
      */
@@ -507,15 +553,31 @@
     Graph.plugin = function(proto) {
 
     };
+
+    /**
+     * Diagram
+     */
+    Graph.diagram = function(name, options) {
+        var clazz, diagram;
+        clazz = Graph.diagram[_.capitalize(name)];
+        diagram = Graph.factory(clazz, [options]);
+        console.log(diagram);
+    };
+
+    /**
+     * Pallet
+     */
+    Graph.pallet = function(type, options) {
+        var clazz;
+        clazz = Graph.pallet[_.capitalize(type)];
+        return Graph.factory(clazz, [options]);
+    };
     
     /**
      * Topic
      */
     Graph.topic = {
         subscribers: {
-
-        },
-        topics: {
 
         },
         publish: function(topic, message, scope) {
@@ -585,6 +647,46 @@
         }
     };
 
+    ///////////////////////////// LOAD CONFIG /////////////////////////////
+    
+    if (GLOBAL.graphConfig) {
+        Graph.setup(GLOBAL.graphConfig);
+    }
+
+    /////////////////////////// CORE NAMESPACES ////////////////////////////
+    
+    Graph.ns('Graph.lang');
+    Graph.ns('Graph.collection');
+    Graph.ns('Graph.registry');
+    Graph.ns('Graph.data');
+    Graph.ns('Graph.popup');
+    Graph.ns('Graph.shape.activity');
+
+    ///////////////////////// HOOK DOCUMENT CLICK /////////////////////////
+    
+    Graph(function(){
+        var doc = $(DOCUMENT);
+
+        doc.on('mousedown', function(e){
+            var target = $(e.target),
+                vector = target.data(Graph.string.ID_VECTOR);
+
+            var paper;
+
+            if (vector) {
+                vector = Graph.registry.vector.get(vector);
+                paper = vector.paper();
+                Graph.cached.paper = paper ? paper.guid() : null;
+            } else {
+                Graph.cached.paper = null;
+            }
+
+            vector = paper = null;
+        });
+
+        doc = null;
+    });
+
     ///////////////////////// LISTEN DOCUMENT READY ////////////////////////
     
     (function(doc, evt){
@@ -621,7 +723,7 @@
 
         inspect();
         
-    }(document, 'DOMContentLoaded'));
+    }(DOCUMENT, 'DOMContentLoaded'));
 
     ///////////////////////////////////////////////////////////////////////
     
@@ -1467,138 +1569,54 @@
 
 (function(){
 
-    var E = Graph.lang.Error = function(message) {
-        this.message = message;
+    var isLocal = /file/.test(location.protocol);
+    var i18n;
 
-        var err = new Error();
-        this.stack = err.stack;
+    if (isLocal) {
+        i18n = {
+            translate: function(message) {
+                return {
+                    fetch: function() {
+                        return message;
+                    }
+                };
+            }
+        };
+    } else {
+        
+        $.ajax({
+            url: Graph.config.base + 'i18n/languages/' + Graph.config.locale + '.json',
+            type: 'GET',
+            dataType: 'json',
+            async: false
+        })
+        .done(function(json){
+            var data = {
+                graph: {
+                    '': {
+                        domain: 'graph',
+                        lang: Graph.config.locale,
+                        plural_forms: 'nplurals=2; plural=(n != 1)'
+                    }
+                }
+            };
 
-        err = null;
-    };
-    
-    Object.setPrototypeOf(E, Error);
+            _.assign(data.graph, json);
+            
+            i18n = new Jed({
+                domain: 'graph',
+                locale_data: data
+            });
+            
+        });
+        
+    }
 
-    E.prototype = Object.create(Error.prototype);
-    E.prototype.name = "Graph.lang.Error";
-    E.prototype.message = "";
-    E.prototype.constructor = E;
-
-    ///////// SHORTCUT /////////
-    
-    Graph.error = function(message) {
-        return new Graph.lang.Error(message);
+    Graph._ = function(message) {
+        return i18n.translate(message).fetch();
     };
 
 }());
-
-(function(_, $){
-
-    var E = Graph.lang.Event = function(type, data){
-        this.type = type;
-        this.init(data);
-    };
-
-    E.toString = function() {
-        return 'function(type, data)';
-    };
-
-    _.extend(E.prototype, {
-        
-        cancelBubble: false,
-        defaultPrevented: false,
-
-        // sync with `interactjs`
-        propagationStopped: false,
-        immediatePropagationStopped: false,
-
-        originalData: null,
-        
-        init: function(data) {
-            if (data) {
-                this.originalData = data;    
-                _.assign(this, data || {});
-            }
-        },
-
-        stopPropagation: function() {
-            this.cancelBubble = this.propagationStopped = true;
-        },
-
-        stopImmediatePropagation: function() {
-            this.immediatePropagationStopped = this.propagationStopped = true;
-        },
-
-        preventDefault: function() {
-            this.defaultPrevented = true;
-        },
-
-        toString: function() {
-            return 'Graph.lang.Event';
-        }
-    });
-
-    ///////// SHORTCUT /////////
-    
-    Graph.event = function(type, data) {
-        return new Graph.lang.Event(type, data);
-    };
-    
-    _.extend(Graph.event, {
-
-        ESC: 27,
-        ENTER: 13,
-        DELETE: 46,
-        SHIFT: 16,
-
-        fix: function(event) {
-            return $.event.fix(event);
-        },
-
-        original: function(event) {
-            return event.originalEvent || event;
-        },
-
-        position: function(event) {
-            return {
-                x: event.clientX,
-                y: event.clientY
-            };
-        },
-        
-        relative: function(event, vector) {
-
-            var position = Graph.event.position(event),
-                matrix = vector.matrix().clone().invert(),
-                relative = {
-                    x: matrix.x(position.x, position.y),
-                    y: matrix.y(position.x, position.y)
-                };
-
-            matrix = null;
-
-            return relative;
-        },
-
-        isPrimaryButton: function(event) {
-            var original = Graph.event.original(event);
-            return ! original.button;
-        },
-
-        hasPrimaryModifier: function(event) {
-            if ( ! Graph.event.isPrimaryButton(event)) {
-                return false;
-            }
-            var original = Graph.event.original(event);
-            return Graph.isMac() ? original.metaKey : original.ctrlKey;
-        },
-
-        hasSecondaryModifier: function(event) {
-            var original = Graph.event.original(event);
-            return Graph.event.isPrimaryButton(event) && original.shiftKey;
-        }
-    });
-    
-}(_, jQuery));
 
 (function(){
     
@@ -1606,7 +1624,14 @@
     // var inherit = /xyz/.test(function(){ xyz; }) ? /\$super/ : /.*/;
     var Class = Graph.lang.Class = function() {};
 
-    Class.extend = function (config) {
+    Class.prototype.constructor = Class;
+    Class.prototype.toString = function() {
+        return 'Graph.lang.Class';
+    };
+
+    Class.defaults = {};
+
+    Class.extend = function(config) {
         var $super, proto, name, value, defaults;
         
         $super = this.prototype;
@@ -1653,8 +1678,9 @@
             init = proto.constructor;
             delete proto.constructor;
         }
-        
+
         clazz = function() {
+
             var me = this;
             var prop, value;
 
@@ -1687,13 +1713,12 @@
 
             inherits = superdef = classdef = null;
             
-            if ( ! initializing) {
-                init && init.apply(me, arguments);
-            }
+            // if ( ! initializing && init) {
+            init && init.apply(me, arguments);
+            // }
         };
 
         // statics
-        clazz.init = init;
         clazz.extend = Class.extend;
         clazz.defaults = defaults;
 
@@ -1701,40 +1726,6 @@
         clazz.prototype = proto;
         clazz.prototype.constructor = clazz;
         clazz.prototype.superclass = $super.constructor;
-
-        // `$super()` implementation, replace John Resigh implementation
-        clazz.prototype.$super = function () {
-            var func = clazz.prototype.$super,
-                ctor = this.constructor;
-                
-            var fcal, fsup, near;
-            
-            fcal = (func && func.caller) ? func.caller : arguments.callee.caller;
-
-            if ( ! fcal) {
-                return undefined;
-            }
-
-            fsup = fcal.$super;
-
-            if ( ! fsup) {
-                near = Class.closest(fcal, ctor);
-                    
-                if (near) {
-                    var pro = near.proto, 
-                        key = near.key;
-
-                    fsup = pro.superclass.prototype[key];
-                    fcal.$super = fsup;
-                }
-            }
-
-            return fsup ? fsup.apply(this, arguments) : undefined;
-        };
-
-        /**
-         * Enable eventbus
-         */
         
         clazz.prototype.on = function(type, handler, once) {
             var me = this, data;
@@ -1863,7 +1854,7 @@
 
             part = _.split(type, '.');
             fire = part.shift();
-            lsnr = this.listeners[fire] || [];
+            lsnr = (this.listeners[fire] || []).slice();
 
             var cached = Graph.lookup('Regex.event', type);
 
@@ -1902,250 +1893,373 @@
                 });
             }
 
-            rgex = null;
+            rgex = lsnr = null;
             return event;
         };
 
         return clazz;
     };
 
-    Class.closest = function(method, clazz) {
-        var proto = clazz.prototype, inherited;
-
-        if (method === clazz.init) {
-            inherited = proto.superclass ? method === proto.superclass.init : false;
-
-            if ( ! inherited) {
-                return { proto: proto, key: 'constructor' };
-            }
-        } else {
-            for (var key in proto) {
-                if (proto[key] === method) {
-
-                    inherited = proto.superclass ? proto[key] === proto.superclass.prototype[key]  : false;
-
-                    if ( ! inherited) {
-                        return { proto: proto, key: key };
-                    }
-                }
-            }
-        }
-
-        if (proto.superclass) {
-            return Class.closest(method, proto.superclass);
-        } else {
-            return null;
-        }
-    };
-
 }());
 
 (function(){
 
-    var Point = Graph.lang.Point = Graph.extend({
+    var Err = Graph.lang.Error = function(message) {
+        this.message = message;
 
+        var err = new Error();
+        this.stack = err.stack;
+
+        err = null;
+    };
+
+    Err.defaults = {
+        message: ''
+    };
+    Err.extend = Graph.lang.Class.extend;
+
+    Err.prototype = Object.create(Error.prototype);
+    Err.prototype.constructor = Err;
+    Err.prototype.name = "Graph.lang.Error";
+    Err.prototype.message = "";
+
+    ///////// SHORTCUT /////////
+    
+    Graph.error = function(message) {
+        return new Graph.lang.Error(message);
+    };
+
+    Graph.isError = function(obj) {
+        return obj instanceof Graph.lang.Error;
+    };
+
+}());
+
+(function(_, $){
+
+    var Evt = Graph.lang.Event = function(type, data){
+        this.type = type;
+        this.originalData = null;
+        this.cancelBubble = false;
+        this.defaultPrevented = false;
+        this.propagationStopped = false;
+        this.immediatePropagationStopped = false;
+
+        this.init(data);
+    };
+    
+    Evt.defaults = {
+        type: null,
+        originalData: null,
+        cancelBubble: false,
+        defaultPrevented: false,
+        propagationStopped: false,
+        immediatePropagationStopped: false
+    };
+
+    Evt.extend = Graph.lang.Class.extend;
+
+    Evt.prototype.constructor = Evt;
+    
+    Evt.prototype.init = function(data) {
+        if (data) {
+            this.originalData = data;    
+            _.assign(this, data || {});
+        }
+    };
+
+    Evt.prototype.stopPropagation = function() {
+        this.cancelBubble = this.propagationStopped = true;
+    };
+
+    Evt.prototype.stopImmediatePropagation = function() {
+        this.immediatePropagationStopped = this.propagationStopped = true;
+    };
+
+    Evt.prototype.preventDefault = function() {
+        this.defaultPrevented = true;
+    };
+
+    Evt.prototype.toString = function() {
+        return 'Graph.lang.Event';
+    };
+
+    ///////// SHORTCUT /////////
+    
+    Graph.event = function(type, data) {
+        return new Graph.lang.Event(type, data);
+    };
+
+    Graph.isEvent = function(obj) {
+        return obj instanceof Graph.lang.Event;
+    };
+    
+    ///////// STATIC /////////
+    
+    Graph.event.ESC = 27;
+    Graph.event.ENTER = 13;
+    Graph.event.DELETE = 46;
+    Graph.event.SHIFT = 16;
+
+    Graph.event.fix = function(event) {
+        return $.event.fix(event);
+    };
+
+    Graph.event.original = function(event) {
+        return event.originalEvent || event;
+    };
+
+    Graph.event.position = function(event) {
+        return {
+            x: event.clientX,
+            y: event.clientY
+        };
+    };
+    
+    Graph.event.relative = function(event, vector) {
+        var position = Graph.event.position(event),
+            matrix = vector.matrix().clone().invert(),
+            relative = {
+                x: matrix.x(position.x, position.y),
+                y: matrix.y(position.x, position.y)
+            };
+
+        matrix = null;
+
+        return relative;
+    };
+
+    Graph.event.isPrimaryButton = function(event) {
+        var original = Graph.event.original(event);
+        return ! original.button;
+    };
+
+    Graph.event.hasPrimaryModifier = function(event) {
+        if ( ! Graph.event.isPrimaryButton(event)) {
+            return false;
+        }
+        var original = Graph.event.original(event);
+        return Graph.isMac() ? original.metaKey : original.ctrlKey;
+    };
+
+    Graph.event.hasSecondaryModifier = function(event) {
+        var original = Graph.event.original(event);
+        return Graph.event.isPrimaryButton(event) && original.shiftKey;
+    };
+    
+}(_, jQuery));
+
+(function(){
+
+    var Point = Graph.lang.Point = function(x, y) {
+        var tmp;
+
+        this.props = {
+            x: 0,
+            y: 0
+        };
+
+        if (_.isPlainObject(x)) {
+            tmp = x;
+            x = tmp.x;
+            y = tmp.y;
+        } else if (_.isString(x)) {
+            tmp = _.split(_.trim(x), ',');
+            x = _.toNumber(tmp[0]);
+            y = _.toNumber(tmp[1]);
+        }
+
+        this.props.x = x;
+        this.props.y = y;
+    };
+
+    Point.defaults = {
         props: {
             x: 0,
             y: 0
-        },
-
-        constructor: function(x, y) {
-            var tmp;
-
-            if (_.isPlainObject(x)) {
-                tmp = x;
-                x = tmp.x;
-                y = tmp.y;
-            } else if (_.isString(x)) {
-                tmp = _.split(_.trim(x), ',');
-                x = _.toNumber(tmp[0]);
-                y = _.toNumber(tmp[1]);
-            }
-
-            this.props.x = x;
-            this.props.y = y;
-        },
-
-        x: function(x) {
-            if (_.isUndefined(x)) {
-                return this.props.x;
-            }
-            this.props.x = x;
-            return this;
-        },
-
-        y: function(y) {
-            if (_.isUndefined(y)) {
-                return this.props.y;
-            }
-            this.props.y = y;
-            return this;
-        },
-
-        distance: function(b) {
-            var dx = this.props.x - b.props.x,
-                dy = this.props.y - b.props.y;
-
-            return Math.sqrt(Math.pow(dy, 2) + Math.pow(dx, 2));
-        },
-
-        /**
-         * Manhattan (taxi-cab) distance
-         */
-        manhattan: function(p) {
-            return Math.abs(p.props.x - this.props.x) + Math.abs(p.props.y - this.props.y);
-        },
-
-        angle: function(b) {
-            return Graph.util.angle(a.toJson(), b.toJson());
-        },
-        
-        triangle: function(b, c) {
-            return this.angle(c) - b.angle(c);
-        },
-
-        theta: function(p) {
-            return Graph.util.theta(this.toJson(), p.toJson());
-        },
-
-        difference: function(p) {
-            return new Graph.lang.Point(this.props.x - p.props.x, this.props.y - p.props.y);
-        },
-
-        alignment: function(p) {
-            return Graph.util.pointAlign(this.toJson(), p.toJson());
-        },
-
-        bbox: function() {
-            var x = this.props.x,
-                y = this.props.y;
-                
-            return Graph.bbox({
-                x: x,
-                y: y,
-                x2: x,
-                y2: y,
-                width: 0,
-                height: 0
-            });
-        },
-
-        bearing: function(p) {
-            var line = new Graph.lang.Line(this, p),
-                bear = line.bearing();
-            line = null;
-            return bear;
-        },
-
-        /**
-         * Snap to grid
-         */
-        snap: function(x, y) {
-            y = _.defaultTo(y, x);
-
-            this.props.x = snap(this.props.x, x);
-            this.props.y = snap(this.props.y, y);
-
-            return this;
-        },
-
-        move: function(to, distance) {
-            var rad = Graph.util.rad(to.theta(this));
-            this.expand(Math.cos(rad) * distance, -Math.sin(rad) * distance);
-            return this;
-        },
-
-        expand: function(dx, dy) {
-            this.props.x += dx;
-            this.props.y += dy;
-
-            return this;
-        },
-
-        round: function(dec) {
-            this.props.x = dec ? this.props.x.toFixed(dec) : Math.round(this.props.x);
-            this.props.y = dec ? this.props.y.toFixed(dec) : Math.round(this.props.y);
-            return this;
-        },
-
-        equals: function(p) {
-            return this.props.x == p.props.x && this.props.y == p.props.y;
-        },
-
-        rotate: function(angle, origin) {
-            var rd = Graph.util.rad(angle), 
-                dx = this.props.x - (origin ? origin.props.x : 0),
-                dy = this.props.y - (origin ? origin.props.y : 0),
-                si = Math.sin(rd),
-                co = Math.cos(rd);
-
-            var rx = dx *  co + dy * si,
-                ry = dx * -si + dy * co;
-
-            this.props.x = this.props.x + rx;
-            this.props.y = this.props.y + ry;
-
-            return this;
-        },
-
-        transform: function(matrix) {
-            var x = this.props.x,
-                y = this.props.y;
-
-            this.props.x = matrix.x(x, y);
-            this.props.y = matrix.y(x, y);
-
-            return this;
-        },
-
-        comply: function(bbox) {
-
-        },  
-
-        /**
-         * Export to polar
-         */
-        polar: function() {
-
-        },
-
-        adhereToBox: function(box) {
-            if (box.contains(this)) {
-                return this;
-            }
-
-            this.props.x = Math.min(Math.max(this.props.x, box.props.x), box.props.x + box.props.width);
-            this.props.y = Math.min(Math.max(this.props.y, box.props.y), box.props.y + box.props.height);
-            
-            return this;
-        },
-
-        stringify: function(sep) {
-            sep = _.defaultTo(sep, ',');
-            return this.props.x + sep + this.props.y;
-        },
-
-        toString: function() {
-            return this.stringify();
-        },
-
-        toJson: function() {
-            return {
-                x: this.props.x, 
-                y: this.props.y
-            };
-        },
-
-        clone: function(){
-            return new Point(this.props.x, this.props.y);
         }
-    });
-
-    ///////// STATIC /////////
-    Graph.lang.Point.toString = function() {
-        return 'function(x, y)';
     };
 
+    Point.extend = Graph.lang.Class.extend;
+
+    Point.prototype = Object.create(Graph.lang.Class.prototype);
+    Point.prototype.constructor = Point;
+    Point.prototype.superclass = Graph.lang.Class;
+
+    Point.prototype.x = function(x) {
+        if (_.isUndefined(x)) {
+            return this.props.x;
+        }
+        this.props.x = x;
+        return this;
+    };
+
+    Point.prototype.y = function(y) {
+        if (_.isUndefined(y)) {
+            return this.props.y;
+        }
+        this.props.y = y;
+        return this;
+    };
+
+    Point.prototype.distance = function(b) {
+        var dx = this.props.x - b.props.x,
+            dy = this.props.y - b.props.y;
+
+        return Math.sqrt(Math.pow(dy, 2) + Math.pow(dx, 2));
+    };
+
+    /**
+     * Manhattan (taxi-cab) distance
+     */
+    Point.prototype.manhattan = function(p) {
+        return Math.abs(p.props.x - this.props.x) + Math.abs(p.props.y - this.props.y);
+    };
+
+    Point.prototype.angle = function(b) {
+        return Graph.util.angle(a.toJson(), b.toJson());
+    };
+    
+    Point.prototype.triangle = function(b, c) {
+        return this.angle(c) - b.angle(c);
+    };
+
+    Point.prototype.theta = function(p) {
+        return Graph.util.theta(this.toJson(), p.toJson());
+    };
+
+    Point.prototype.difference = function(p) {
+        return new Graph.lang.Point(this.props.x - p.props.x, this.props.y - p.props.y);
+    };
+
+    Point.prototype.alignment = function(p) {
+        return Graph.util.pointAlign(this.toJson(), p.toJson());
+    };
+
+    Point.prototype.bbox = function() {
+        var x = this.props.x,
+            y = this.props.y;
+            
+        return Graph.bbox({
+            x: x,
+            y: y,
+            x2: x,
+            y2: y,
+            width: 0,
+            height: 0
+        });
+    };
+
+    Point.prototype.bearing = function(p) {
+        var line = new Graph.lang.Line(this, p),
+            bear = line.bearing();
+        line = null;
+        return bear;
+    };
+
+    /**
+     * Snap to grid
+     */
+    Point.prototype.snap = function(x, y) {
+        y = _.defaultTo(y, x);
+
+        this.props.x = snap(this.props.x, x);
+        this.props.y = snap(this.props.y, y);
+
+        return this;
+    };
+
+    Point.prototype.move = function(to, distance) {
+        var rad = Graph.util.rad(to.theta(this));
+        this.expand(Math.cos(rad) * distance, -Math.sin(rad) * distance);
+        return this;
+    };
+
+    Point.prototype.expand = function(dx, dy) {
+        this.props.x += dx;
+        this.props.y += dy;
+
+        return this;
+    };
+
+    Point.prototype.round = function(dec) {
+        this.props.x = dec ? this.props.x.toFixed(dec) : Math.round(this.props.x);
+        this.props.y = dec ? this.props.y.toFixed(dec) : Math.round(this.props.y);
+        return this;
+    };
+
+    Point.prototype.equals = function(p) {
+        return this.props.x == p.props.x && this.props.y == p.props.y;
+    };
+
+    Point.prototype.rotate = function(angle, origin) {
+        var rd = Graph.util.rad(angle), 
+            dx = this.props.x - (origin ? origin.props.x : 0),
+            dy = this.props.y - (origin ? origin.props.y : 0),
+            si = Math.sin(rd),
+            co = Math.cos(rd);
+
+        var rx = dx *  co + dy * si,
+            ry = dx * -si + dy * co;
+
+        this.props.x = this.props.x + rx;
+        this.props.y = this.props.y + ry;
+
+        return this;
+    };
+
+    Point.prototype.transform = function(matrix) {
+        var x = this.props.x,
+            y = this.props.y;
+
+        this.props.x = matrix.x(x, y);
+        this.props.y = matrix.y(x, y);
+
+        return this;
+    };
+
+    /**
+     * Export to polar
+     */
+    Point.prototype.polar = function() {
+
+    };
+
+    Point.prototype.adhereToBox = function(box) {
+        if (box.contains(this)) {
+            return this;
+        }
+
+        this.props.x = Math.min(Math.max(this.props.x, box.props.x), box.props.x + box.props.width);
+        this.props.y = Math.min(Math.max(this.props.y, box.props.y), box.props.y + box.props.height);
+        
+        return this;
+    };
+
+    Point.prototype.stringify = function(sep) {
+        sep = _.defaultTo(sep, ',');
+        return this.props.x + sep + this.props.y;
+    };
+
+    Point.prototype.toString = function() {
+        return 'Graph.lang.Point';
+    };
+
+    Point.prototype.toValue = function() {
+        return this.stringify();
+    };
+
+    Point.prototype.toJson = function() {
+        return {
+            x: this.props.x, 
+            y: this.props.y
+        };
+    };
+
+    Point.prototype.clone = function(){
+        return new Point(this.props.x, this.props.y);
+    };
+    
     ///////// HELPER /////////
     
     function snap(value, size) {
@@ -2166,8 +2280,37 @@
 
 (function(){
 
-    Graph.lang.Line = Graph.extend({
+    var Line = Graph.lang.Line = function(start, end) {
+        var args = _.toArray(arguments);
 
+        this.props = {
+            start: {
+                x: 0,
+                y: 0
+            },
+            end: {
+                x: 0,
+                y: 0
+            }
+        };
+
+        if (args.length === 4) {
+            _.assign(this.props.start, {
+                x: args[0],
+                y: args[1]
+            })
+
+            _.assign(this.props.end, {
+                x: args[2],
+                y: args[3]
+            });
+        } else {
+            this.props.start = args[0].toJson();
+            this.props.end = args[1].toJson();
+        }
+    };
+
+    Line.defaults = {
         props: {
             start: {
                 x: 0,
@@ -2177,99 +2320,71 @@
                 x: 0,
                 y: 0
             }
-        },
+        }
+    };
 
-        constructor: function() {
-            var args = _.toArray(arguments), start, end;
+    Line.extend = Graph.lang.Class.extend;
 
-            if (args.length === 4) {
-                _.assign(this.props.start, {
-                    x: args[0],
-                    y: args[1]
-                })
+    Line.prototype.constructor = Line;
 
-                _.assign(this.props.end, {
-                    x: args[2],
-                    y: args[3]
-                });
+    Line.prototype.start = function() {
+        return Graph.point(this.props.start.x, this.props.start.y);
+    };
 
-                start = Graph.point(args[0], args[1]);
-                end = Graph.point(args[2], args[3]);
-            } else {
-                this.props.start = args[0].toJson();
-                this.props.end = args[1].toJson();
-                
-                start = args[0];
-                end = args[1];
-            }
-        },
+    Line.prototype.end = function() {
+        return Graph.point(this.props.end.x, this.props.end.y);
+    };
 
-        start: function() {
-            return Graph.point(this.props.start.x, this.props.start.y);
-        },
+    Line.prototype.bearing = function() {
+        var data = ['NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'N'];
 
-        end: function() {
-            return Graph.point(this.props.end.x, this.props.end.y);
-        },
+        var x1 = this.props.start.x,
+            y1 = this.props.start.y,
+            x2 = this.props.end.x,
+            y2 = this.props.end.y,
+            lat1 = Graph.util.rad(y1),
+            lat2 = Graph.util.rad(y2),
+            lon1 = x1,
+            lon2 = x2,
+            deltaLon = Graph.util.rad(lon2 - lon1),
+            dy = Math.sin(deltaLon) * Math.cos(lat2),
+            dx = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLon);
+            index = Graph.util.deg(Math.atan2(dy, dx)) - 22.5;
 
-        bearing: function() {
-            var data = ['NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'N'];
-
-            var x1 = this.props.start.x,
-                y1 = this.props.start.y,
-                x2 = this.props.end.x,
-                y2 = this.props.end.y,
-                lat1 = Graph.util.rad(y1),
-                lat2 = Graph.util.rad(y2),
-                lon1 = x1,
-                lon2 = x2,
-                deltaLon = Graph.util.rad(lon2 - lon1),
-                dy = Math.sin(deltaLon) * Math.cos(lat2),
-                dx = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLon);
-                index = Graph.util.deg(Math.atan2(dy, dx)) - 22.5;
-
-            if (index < 0) {
-                index += 360;
-            }
-
-            index = parseInt(index / 45);
-            return data[index];
-        },
-
-        intersect: function(line) {
-            return this.intersection(line) !== null;
-        },
-
-        intersection: function(line, dots) {
-            var x1 = this.props.start.x,
-                y1 = this.props.start.y,
-                x2 = this.props.end.x,
-                y2 = this.props.end.y,
-                x3 = line.props.start.x,
-                y3 = line.props.start.y,
-                x4 = line.props.end.x,
-                y4 = line.props.end.y;
-
-            var result = Graph.util.lineIntersection(x1, y1, x2, y2, x3, y3, x4, y4);
-
-            if (result) {
-                return dots ? result : Graph.point(result.x, result.y);
-            }
-
-            return result;
-        },
-
-        toString: function() {
-            return 'Graph.lang.Line';
+        if (index < 0) {
+            index += 360;
         }
 
-    });
+        index = parseInt(index / 45);
+        return data[index];
+    };
 
-    ///////// STATIC /////////
-    
-    Graph.lang.Line.toString = function() {
-        return "function(from, to)";
-    };  
+    Line.prototype.intersect = function(line) {
+        return this.intersection(line) !== null;
+    };
+
+    Line.prototype.intersection = function(line, dots) {
+        var x1 = this.props.start.x,
+            y1 = this.props.start.y,
+            x2 = this.props.end.x,
+            y2 = this.props.end.y,
+            x3 = line.props.start.x,
+            y3 = line.props.start.y,
+            x4 = line.props.end.x,
+            y4 = line.props.end.y;
+
+        var result = Graph.util.lineIntersection(x1, y1, x2, y2, x3, y3, x4, y4);
+
+        if (result) {
+            return dots ? result : Graph.point(result.x, result.y);
+        }
+
+        return result;
+    };
+
+    Line.prototype.toString = function() {
+        return 'Graph.lang.Line';
+    };
 
     ///////// SHORTCUT /////////
     
@@ -2278,108 +2393,116 @@
         return Graph.factory(Graph.lang.Line, args);
     };
 
+    Graph.isLine = function(obj) {
+        return obj instanceof Graph.lang.Line;
+    };
+
 }());
 
 (function(){
     
-    Graph.lang.Curve = Graph.extend({
-        segments: [],
-        
-        constructor: function(command) {
-            this.segments = _.isString(command) ? Graph.util.path2segments(command) : _.cloneDeep(command);
+    var Curve = Graph.lang.Curve = function(command) {
+        this.segments = _.isString(command) ? Graph.util.path2segments(command) : _.cloneDeep(command);
             
-            if (this.segments[0][0] != 'M') {
-                this.segments.unshift(
-                    ['M', this.segments[0][1], this.segments[0][2]]
-                );
-            }
-
-            if (this.segments.length === 1 && this.segments[0][0] === 'M') {
-                var x = this.segments[0][1],
-                    y = this.segments[0][2];
-                this.segments.push(['C', x, y, x, y, x, y]);
-            }
-        },
-
-        x: function() {
-            return this.segments[1][5];
-        },
-
-        y: function() {
-            return this.segments[1][6];
-        },
-
-        length: function(t) {
-            var params = this.segments[0].slice(1).concat(this.segments[1].slice(1)).concat([t]);
-            return Graph.util.curveLength.apply(null, params);
-        },
-
-        t: function(length) {
-            var params = this.segments[0].slice(1).concat(this.segments[1].slice(1)).concat([length]);
-            return Graph.util.curveInterval.apply(null, params);
-        },
-
-        pointAt: function(t, json) {
-            var params = this.segments[0].slice(1).concat(this.segments[1].slice(1)).concat([t]),
-                result = Graph.util.pointAtInterval.apply(null, params);
-
-            if (json) {
-                return result;
-            } else {
-                var point = Graph.point(result.x, result.y);
-                result.x = result.y = undefined;
-                return _.extend(point, result);
-            }
-        },
-
-        intersection: function(curve, json) {
-            var a = this.segments[0].slice(1).concat(this.segments[1].slice(1)),
-                b = curve.segments[0].slice(1).concat(curve.segments[1].slice(1)),
-                i = Graph.util.curveIntersection(a, b);
-
-            if (json) {
-                return i;
-            } else {
-                var points = _.map(i, function(p){ return Graph.point(p.x, p.y); });
-                return points;
-            }
-        },
-
-        intersectnum: function(curve) {
-            var a = this.segments[0].slice(1).concat(this.segments[1].slice(1)),
-                b = curve.segments[0].slice(1).concat(curve.segments[1].slice(1));
-
-            return Graph.util.curveIntersection(a, b, true);
-        },
-
-        bbox: function() {
-            var args = [this.segments[0][1], this.segments[0][2]].concat(this.segments[1].slice(1)),
-                bbox = Graph.util.curvebox.apply(null, args);
-            return Graph.bbox({
-                x: bbox.min.x,
-                y: bbox.min.y,
-                x2: bbox.max.x,
-                y2: bbox.max.y,
-                width: bbox.max.x - bbox.min.x,
-                height: bbox.max.y - bbox.min.y
-            });
-        },
-
-        clone: function() {
-            var segments = _.cloneDeep(this.segments);
-            return new Graph.lang.Curve(segments);
-        },
-
-        toString: function() {
-            return Graph.util.segments2path(this.segments);
+        if (this.segments[0][0] != 'M') {
+            this.segments.unshift(
+                ['M', this.segments[0][1], this.segments[0][2]]
+            );
         }
-    });
+        
+        if (this.segments.length === 1 && this.segments[0][0] === 'M') {
+            var x = this.segments[0][1],
+                y = this.segments[0][2];
+            this.segments.push(['C', x, y, x, y, x, y]);
+        }
+    };
+
+    Curve.defaults = {
+        segments: []
+    };
+
+    Curve.extend = Graph.lang.Class.extend;
     
-    ///////// STATIC /////////
-    
-    Graph.lang.Curve.toString = function() {
-        return "function(command)";
-    };  
+    Curve.prototype.constructor = Curve;
+
+    Curve.prototype.segments = [];
+
+    Curve.prototype.x = function() {
+        return this.segments[1][5];
+    };
+
+    Curve.prototype.y = function() {
+        return this.segments[1][6];
+    };
+
+    Curve.prototype.length = function(t) {
+        var params = this.segments[0].slice(1).concat(this.segments[1].slice(1)).concat([t]);
+        return Graph.util.curveLength.apply(null, params);
+    };
+
+    Curve.prototype.t = function(length) {
+        var params = this.segments[0].slice(1).concat(this.segments[1].slice(1)).concat([length]);
+        return Graph.util.curveInterval.apply(null, params);
+    };
+
+    Curve.prototype.pointAt = function(t, json) {
+        var params = this.segments[0].slice(1).concat(this.segments[1].slice(1)).concat([t]),
+            result = Graph.util.pointAtInterval.apply(null, params);
+
+        if (json) {
+            return result;
+        } else {
+            var point = Graph.point(result.x, result.y);
+            result.x = result.y = undefined;
+            return _.extend(point, result);
+        }
+    };
+
+    Curve.prototype.intersection = function(curve, json) {
+        var a = this.segments[0].slice(1).concat(this.segments[1].slice(1)),
+            b = curve.segments[0].slice(1).concat(curve.segments[1].slice(1)),
+            i = Graph.util.curveIntersection(a, b);
+
+        if (json) {
+            return i;
+        } else {
+            var points = _.map(i, function(p){ return Graph.point(p.x, p.y); });
+            return points;
+        }
+    };
+
+    Curve.prototype.intersectnum = function(curve) {
+        var a = this.segments[0].slice(1).concat(this.segments[1].slice(1)),
+            b = curve.segments[0].slice(1).concat(curve.segments[1].slice(1));
+
+        return Graph.util.curveIntersection(a, b, true);
+    };
+
+    Curve.prototype.bbox = function() {
+        var args = [this.segments[0][1], this.segments[0][2]].concat(this.segments[1].slice(1)),
+            bbox = Graph.util.curvebox.apply(null, args);
+        return Graph.bbox({
+            x: bbox.min.x,
+            y: bbox.min.y,
+            x2: bbox.max.x,
+            y2: bbox.max.y,
+            width: bbox.max.x - bbox.min.x,
+            height: bbox.max.y - bbox.min.y
+        });
+    };
+
+    Curve.prototype.clone = function() {
+        var segments = _.cloneDeep(this.segments);
+        return new Graph.lang.Curve(segments);
+    };
+
+    Curve.prototype.toValue = function() {
+        return Graph.util.segments2path(this.segments);
+    };
+
+    Curve.prototype.toString = function() {
+        return 'Graph.lang.Curve';
+    };
 
     ///////// SHORTCUT /////////
     
@@ -2387,249 +2510,263 @@
         return new Graph.lang.Curve(command);
     };
 
+    Graph.isCurve = function(obj) {
+        return obj instanceof Graph.lang.Curve;
+    };
+
 }());
 
 (function(){
     
-    var BBox = Graph.lang.BBox = Graph.extend({
-        
+    var BBox = Graph.lang.BBox = function(bounds) {
+        this.props = _.extend({x: 0, y: 0, x2: 0, y2: 0, width: 0, height: 0}, bounds || {});
+    };
+
+    BBox.defaults = {
         props: {
-            // origin
             x: 0,
             y: 0,
-
-            // corner
             x2: 0,
             y2: 0,
-
-            // dimension
             width: 0,
             height: 0
-        },
-
-        constructor: function(bbox) {
-            this.props = _.cloneDeep(bbox);
-        },
-        
-        data: function(name, value) {
-            if (name === undefined && value === undefined) {
-                return this.props;
-            }
-
-            if (value === undefined) {
-                return this.props[name];
-            }
-
-            return null;
-        },
-
-        pathinfo: function() {
-            var a = this.props;
-
-            return new Graph.lang.Path([
-                ['M', a.x, a.y], 
-                ['l', a.width, 0], 
-                ['l', 0, a.height], 
-                ['l', -a.width, 0], 
-                ['z']
-            ]);
-        },
-
-        origin: function() {
-            var x = this.props.x, 
-                y = this.props.y;
-
-            return Graph.point(x, y);
-        },
-
-        center: function(dots) {
-            var x = this.props.x + this.props.width / 2,
-                y = this.props.y + this.props.height / 2;
-
-            return dots ? {x: x, y: y} : Graph.point(x, y);
-        },
-
-        corner: function() {
-            var x = this.props.x + this.props.width,
-                y = this.props.y + this.props.height;
-
-            return Graph.point(x, y);
-        },
-        
-        width: function() {
-            return this.props.width;
-        },
-        
-        height: function() {
-            return this.props.height;
-        },
-        
-        clone: function() {
-            var props = _.extend({}, this.props);
-            return new BBox(props);
-        },
-
-        contains: function(obj) {
-            var contain = true,
-                bbox = this.props,
-                dots = [];
-
-            var vbox, papa, mat, dot;
-
-            if (Graph.isPoint(obj)) {
-                dots = [
-                    [obj.props.x, obj.props.y]
-                ];
-            } else if (Graph.isVector(obj)) {
-                dots = obj.dots(true);
-            } else if (Graph.isBBox(obj)) {
-                dots = [
-                    [obj.props.x, obj.props.y],
-                    [obj.props.x2, obj.props.y2]
-                ];
-            } else {
-                var args = _.toArray(arguments);
-                if (args.length === 2) {
-                    dots = [args];
-                }
-            }
-
-            if (dots.length) {
-                var l = dots.length;
-                while(l--) {
-                    dot = dots[l];
-                    contain = dot[0] >= bbox.x  && 
-                              dot[0] <= bbox.x2 && 
-                              dot[1] >= bbox.y  && 
-                              dot[1] <= bbox.y2;
-                    if ( ! contain) {
-                        break;
-                    }
-                }
-            }
-
-            return contain;
-        },
-
-        expand: function(dx, dy, dw, dh) {
-            var ax, ay;
-            if (_.isUndefined(dy)) {
-                ax = Math.abs(dx);
-                
-                dx = -ax;
-                dy = -ax;
-                dw = 2 * ax;
-                dh = 2 * ax;
-            } else {
-                ax = Math.abs(dx);
-                ay = Math.abs(dy);
-
-                dx = -ax;
-                dy = -ay;
-                dw = 2 * ax;
-                dh = 2 * ay;
-            }
-            
-            this.props.x += dx;
-            this.props.y += dy;
-            this.props.width  += dw;
-            this.props.height += dh;
-
-            return this;
-        },
-
-        transform: function(matrix) {
-            var x = this.props.x,
-                y = this.props.y;
-
-            this.props.x = matrix.x(x, y);
-            this.props.y = matrix.y(x, y);
-
-            x = this.props.x2;
-            y = this.props.y2;
-
-            this.props.x2 = matrix.x(x, y);
-            this.props.y2 = matrix.y(x, y);
-
-            var scale = matrix.scale();
-
-            this.props.width  *= scale.x;
-            this.props.height *= scale.y;
-
-            return this;
-        },
-
-        intersect: function(tbox) {
-            var me = this,
-                bdat = me.props,
-                tdat = tbox.toJson();
-
-            return tbox.contains(bdat.x, bdat.y)
-                || tbox.contains(bdat.x2, bdat.y)
-                || tbox.contains(bdat.x, bdat.y2)
-                || tbox.contains(bdat.x2, bdat.y2)
-                || me.contains(tdat.x, tdat.y)
-                || me.contains(tdat.x2, tdat.y)
-                || me.contains(tdat.x, tdat.y2)
-                || me.contains(tdat.x2, tdat.y2)
-                || (bdat.x < tdat.x2 && bdat.x > tdat.x || tdat.x < bdat.x2 && tdat.x > bdat.x)
-                && (bdat.y < tdat.y2 && bdat.y > tdat.y || tdat.y < bdat.y2 && tdat.y > bdat.y);
-        },
-
-        sideNearestPoint: function(point) {
-            var px = point.props.x,
-                py = point.props.y,
-                tx = this.props.x,
-                ty = this.props.y,
-                tw = this.props.width,
-                th = this.props.height;
-
-            var distToLeft = px - tx;
-            var distToRight = (tx + tw) - px;
-            var distToTop = py - ty;
-            var distToBottom = (ty + th) - py;
-            var closest = distToLeft;
-            var side = 'left';
-
-            if (distToRight < closest) {
-                closest = distToRight;
-                side = 'right';
-            }
-
-            if (distToTop < closest) {
-                closest = distToTop;
-                side = 'top';
-            }
-            if (distToBottom < closest) {
-                closest = distToBottom;
-                side = 'bottom';
-            }
-
-            return side;
-        },
-
-        pointNearestPoint: function(point) {
-            if (this.contains(point)) {
-                var side = this.sideNearestPoint(point);
-                switch (side){
-                    case 'right': return Graph.point(this.props.x + this.props.width, point.props.y);
-                    case 'left': return Graph.point(this.props.x, point.props.y);
-                    case 'bottom': return Graph.point(point.props.x, this.props.y + this.props.height);
-                    case 'top': return Graph.point(point.props.x, this.props.y);
-                }
-            }
-            return point.clone().adhereToBox(this);
-        },
-
-        toJson: function() {
-            return this.props;
         }
-    });
-
-    ///////// STATICS /////////
+    };
     
-    Graph.lang.BBox.toString = function() {
-        return 'function(bounds)';
+    BBox.extend = Graph.lang.Class.extend;
+
+    BBox.prototype = Object.create(Graph.lang.Class.prototype);
+    BBox.prototype.constructor = BBox;
+    BBox.prototype.superclass = Graph.lang.Class;
+
+    BBox.prototype.pathinfo = function() {
+        var prop = this.props;
+
+        return new Graph.lang.Path([
+            ['M', prop.x, prop.y], 
+            ['l', prop.width, 0], 
+            ['l', 0, prop.height], 
+            ['l', -prop.width, 0], 
+            ['z']
+        ]);
+    };
+
+    BBox.prototype.origin = function(simple) {
+        simple = _.defaultTo(simple, false);
+
+        var x = this.props.x,
+            y = this.props.y;
+
+        return simple ? {x: x, y: y} : Graph.point(x, y);
+    };
+
+    BBox.prototype.center = function(simple) {
+        simple = _.defaultTo(simple, false);
+
+        var x = this.props.x + this.props.width  / 2,
+            y = this.props.y + this.props.height / 2;
+
+        return simple ? {x: x, y: y} : Graph.point(x, y);
+    };
+
+    BBox.prototype.corner = function(simple) {
+        simple = _.defaultTo(simple, false);
+
+        var x = this.props.x + this.props.width,
+            y = this.props.y + this.props.height;
+
+        return simple ? {x: x, y: y} : Graph.point(x, y);
+    };
+
+    BBox.prototype.width = function() {
+        return this.props.width;
+    };
+
+    BBox.prototype.height = function() {
+        return this.props.height;
+    };
+
+    BBox.prototype.clone = function() {
+        var props = _.extend({}, this.props);
+        return new BBox(props);
+    };
+
+    BBox.prototype.contains = function(obj) {
+        var contain = true,
+            bbox = this.props,
+            dots = [];
+
+        var vbox, papa, mat, dot;
+
+        if (Graph.isPoint(obj)) {
+            dots = [
+                [obj.props.x, obj.props.y]
+            ];
+        } else if (Graph.isVector(obj)) {
+            dots = obj.vertices(true);
+        } else if (Graph.isBBox(obj)) {
+            dots = [
+                [obj.props.x, obj.props.y],
+                [obj.props.x2, obj.props.y2]
+            ];
+        } else {
+            var args = _.toArray(arguments);
+            if (args.length === 2) {
+                dots = [args];
+            }
+        }
+
+        if (dots.length) {
+            var l = dots.length;
+            while(l--) {
+                dot = dots[l];
+                contain = dot[0] >= bbox.x  && 
+                          dot[0] <= bbox.x2 && 
+                          dot[1] >= bbox.y  && 
+                          dot[1] <= bbox.y2;
+                if ( ! contain) {
+                    break;
+                }
+            }
+        }
+
+        return contain;
+    };
+
+    BBox.prototype.expand = function(dx, dy, dw, dh) {
+        var ax, ay;
+        if (_.isUndefined(dy)) {
+            ax = Math.abs(dx);
+            
+            dx = -ax;
+            dy = -ax;
+            dw = 2 * ax;
+            dh = 2 * ax;
+        } else {
+            ax = Math.abs(dx);
+            ay = Math.abs(dy);
+
+            dx = -ax;
+            dy = -ay;
+            dw = 2 * ax;
+            dh = 2 * ay;
+        }
+        
+        this.props.x += dx;
+        this.props.y += dy;
+        this.props.width  += dw;
+        this.props.height += dh;
+
+        return this;
+    };
+
+    BBox.prototype.translate = function(dx, dy) {
+        this.props.x  += dx;
+        this.props.y  += dy;
+        this.props.x2 += dx;
+        this.props.y2 += dy;
+        
+        return this;
+    };
+
+    BBox.prototype.transform = function(matrix) {
+        var x = this.props.x,
+            y = this.props.y;
+
+        this.props.x = matrix.x(x, y);
+        this.props.y = matrix.y(x, y);
+
+        x = this.props.x2;
+        y = this.props.y2;
+
+        this.props.x2 = matrix.x(x, y);
+        this.props.y2 = matrix.y(x, y);
+        
+        this.props.width  = this.props.x2 - this.props.x;
+        this.props.height = this.props.y2 - this.props.y;
+
+        return this;
+    };
+
+    BBox.prototype.intersect = function(tbox) {
+        var me = this,
+            bdat = me.props,
+            tdat = tbox.toJson();
+
+        return tbox.contains(bdat.x, bdat.y)
+            || tbox.contains(bdat.x2, bdat.y)
+            || tbox.contains(bdat.x, bdat.y2)
+            || tbox.contains(bdat.x2, bdat.y2)
+            || me.contains(tdat.x, tdat.y)
+            || me.contains(tdat.x2, tdat.y)
+            || me.contains(tdat.x, tdat.y2)
+            || me.contains(tdat.x2, tdat.y2)
+            || (bdat.x < tdat.x2 && bdat.x > tdat.x || tdat.x < bdat.x2 && tdat.x > bdat.x)
+            && (bdat.y < tdat.y2 && bdat.y > tdat.y || tdat.y < bdat.y2 && tdat.y > bdat.y);
+    };
+
+    BBox.prototype.sideNearestPoint = function(point) {
+        var px = point.props.x,
+            py = point.props.y,
+            tx = this.props.x,
+            ty = this.props.y,
+            tw = this.props.width,
+            th = this.props.height;
+
+        var distToLeft = px - tx;
+        var distToRight = (tx + tw) - px;
+        var distToTop = py - ty;
+        var distToBottom = (ty + th) - py;
+        var closest = distToLeft;
+        var side = 'left';
+
+        if (distToRight < closest) {
+            closest = distToRight;
+            side = 'right';
+        }
+
+        if (distToTop < closest) {
+            closest = distToTop;
+            side = 'top';
+        }
+        if (distToBottom < closest) {
+            closest = distToBottom;
+            side = 'bottom';
+        }
+
+        return side;
+    };
+
+    BBox.prototype.pointNearestPoint = function(point) {
+        if (this.contains(point)) {
+            var side = this.sideNearestPoint(point);
+            switch (side){
+                case 'right': return Graph.point(this.props.x + this.props.width, point.props.y);
+                case 'left': return Graph.point(this.props.x, point.props.y);
+                case 'bottom': return Graph.point(point.props.x, this.props.y + this.props.height);
+                case 'top': return Graph.point(point.props.x, this.props.y);
+            }
+        }
+        return point.clone().adhereToBox(this);
+    };
+    
+    BBox.prototype.toJson = function() {
+        return _.clone(this.props);
+    };
+
+    BBox.prototype.toString = function() {
+        return 'Graph.lang.BBox';
+    };
+
+    BBox.prototype.toValue = function() {
+        var p = this.props;
+        return _.format(
+            '{0},{1} {2},{3} {4},{5} {6},{7}',
+            p.x, p.y,
+            p.x + p.width, p.y,
+            p.x + p.width, p.y + p.height,
+            p.x, p.y + p.height
+        );
     };
 
     ///////// EXTENSION /////////
@@ -2645,841 +2782,845 @@
 }());
 (function(){
 
-    var Path = Graph.lang.Path = Graph.extend({
+    var Path = Graph.lang.Path = function(command) {
+        var segments = [];
+            
+        if (Graph.isPath(command)) {
+            segments = _.cloneDeep(command.segments);
+        } else if (_.isArray(command)) {
+            segments = _.cloneDeep(command);
+        } else {
+            segments = _.cloneDeep(Graph.util.path2segments(command));
+        }
 
-        __CLASS__: 'Graph.lang.Path',
+        this.segments = segments;
+    };
+
+    Path.defaults = {
+        segments: []
+    };
+
+    Path.extend = Graph.lang.Class.extend;
+
+    Path.prototype.constructor = Path;
+
+    Path.prototype.command = function() {
+        return Graph.util.segments2path(this.segments);
+    };
+
+    Path.prototype.absolute = function() {
+        if ( ! this.segments.length) {
+            return new Path([['M', 0, 0]]);
+        }
+
+        var cached = Graph.lookup(this.toString(), 'absolute', this.toValue()),
+            segments = this.segments;
+
+        if (cached.absolute) {
+            return cached.absolute;
+        }
+
+        var result = [],
+            x = 0,
+            y = 0,
+            mx = 0,
+            my = 0,
+            start = 0;
+
+        if (segments[0][0] == 'M') {
+            x = +segments[0][1];
+            y = +segments[0][2];
+            mx = x;
+            my = y;
+            start++;
+            result[0] = ['M', x, y];
+        }
+
+        var z = segments.length == 3 && 
+                segments[0][0] == 'M' && 
+                segments[1][0].toUpperCase() == 'R' && 
+                segments[2][0].toUpperCase() == 'Z';
         
-        segments: [],
+        for (var dots, seg, itm, i = start, ii = segments.length; i < ii; i++) {
+            result.push(seg = []);
+            itm = segments[i];
 
-        constructor: function(command) {
-            var segments = [];
-            
-            if (Graph.isPath(command)) {
-                segments = _.cloneDeep(command.segments);
-            } else if (_.isArray(command)) {
-                segments = _.cloneDeep(command);
-            } else {
-                segments = _.cloneDeep(Graph.util.path2segments(command));
-            }
+            if (itm[0] != _.toUpper(itm[0])) {
+                seg[0] = _.toUpper(itm[0]);
 
-            this.segments = segments;
-        },
-
-        command: function() {
-            return Graph.util.segments2path(this.segments);
-        },
-
-        absolute: function() {
-            if ( ! this.segments.length) {
-                return new Path([['M', 0, 0]]);
-            }
-
-            var cached = Graph.lookup(this.__CLASS__, 'absolute', this.toString()),
-                segments = this.segments;
-
-            if (cached.absolute) {
-                return cached.absolute;
-            }
-
-            var result = [],
-                x = 0,
-                y = 0,
-                mx = 0,
-                my = 0,
-                start = 0;
-
-            if (segments[0][0] == 'M') {
-                x = +segments[0][1];
-                y = +segments[0][2];
-                mx = x;
-                my = y;
-                start++;
-                result[0] = ['M', x, y];
-            }
-
-            var z = segments.length == 3 && 
-                    segments[0][0] == 'M' && 
-                    segments[1][0].toUpperCase() == 'R' && 
-                    segments[2][0].toUpperCase() == 'Z';
-            
-            for (var dots, seg, itm, i = start, ii = segments.length; i < ii; i++) {
-                result.push(seg = []);
-                itm = segments[i];
-
-                if (itm[0] != _.toUpper(itm[0])) {
-                    seg[0] = _.toUpper(itm[0]);
-
-                    switch(seg[0]) {
-                        case 'A':
-                            seg[1] = itm[1];
-                            seg[2] = itm[2];
-                            seg[3] = itm[3];
-                            seg[4] = itm[4];
-                            seg[5] = itm[5];
-                            seg[6] = +(itm[6] + x);
-                            seg[7] = +(itm[7] + y);
-                            break;
-                        case 'V':
-                            seg[1] = +itm[1] + y;
-                            break;
-                        case 'H':
-                            seg[1] = +itm[1] + x;
-                            break;
-                        case 'R':
-                            dots = _.concat([x, y], itm.slice(1));
-                            for (var j = 2, jj = dots.length; j < jj; j++) {
-                                dots[j] = +dots[j] + x;
-                                dots[++j] = +dots[j] + y;
-                            }
-                            result.pop();
-                            result = _.concat(result, [['C'].concat(cat2bezier(dots, z))])
-                            break;
-                        case 'M':
-                            mx = +itm[1] + x;
-                            my = +itm[2] + y;
-                        default:
-                            for (var k = 1, kk = itm.length; k < kk; k++) {
-                                seg[k] = +itm[k] + ((k % 2) ? x : y);
-                            }
-                    }
-
-                } else if (itm[0] == 'R') {
-                    dots = _.concat([x, y], itm.slice(1));
-                    result.pop();
-                    result = _.concat(result, [['C'].concat(cat2bezier(dots, z))]);
-                    seg = _.concat(['R'], itm.slice(-2));
-                } else {
-                    for (var l = 0, ll = itm.length; l < ll; l++) {
-                        seg[l] = itm[l];
-                    }
-                }
-
-                switch (seg[0]) {
-                    case 'Z':
-                        x = mx;
-                        y = my;
-                        break;
-                    case 'H':
-                        x = seg[1];
+                switch(seg[0]) {
+                    case 'A':
+                        seg[1] = itm[1];
+                        seg[2] = itm[2];
+                        seg[3] = itm[3];
+                        seg[4] = itm[4];
+                        seg[5] = itm[5];
+                        seg[6] = +(itm[6] + x);
+                        seg[7] = +(itm[7] + y);
                         break;
                     case 'V':
-                        y = seg[1];
+                        seg[1] = +itm[1] + y;
+                        break;
+                    case 'H':
+                        seg[1] = +itm[1] + x;
+                        break;
+                    case 'R':
+                        dots = _.concat([x, y], itm.slice(1));
+                        for (var j = 2, jj = dots.length; j < jj; j++) {
+                            dots[j] = +dots[j] + x;
+                            dots[++j] = +dots[j] + y;
+                        }
+                        result.pop();
+                        result = _.concat(result, [['C'].concat(cat2bezier(dots, z))])
                         break;
                     case 'M':
-                        mx = seg[seg.length - 2];
-                        my = seg[seg.length - 1];
+                        mx = +itm[1] + x;
+                        my = +itm[2] + y;
                     default:
-                        x = seg[seg.length - 2];
-                        y = seg[seg.length - 1];
-                }
-            }
-            
-            cached.absolute = result = new Path(result);
-            return result;
-        },
-
-        start: function() {
-            return this.pointAt(0);
-        },
-
-        end: function() {
-            return this.pointAt(this.length());
-        },
-
-        head: function() {
-
-        },
-
-        tail: function() {
-
-        },
-
-        relative: function() {
-            var cached = Graph.lookup(this.__CLASS__, 'relative', this.toString()),
-                segments = this.segments;
-
-            if (cached.relative) {
-                return cached.relative;
-            }
-
-            var result = [],
-                x = 0,
-                y = 0,
-                mx = 0,
-                my = 0,
-                start = 0;
-
-            if (segments[0][0] == 'M') {
-                x = segments[0][1];
-                y = segments[0][2];
-                mx = x;
-                my = y;
-                start++;
-                result.push(['M', x, y]);
-            }
-
-            for (var i = start, ii = segments.length; i < ii; i++) {
-                var seg = result[i] = [], itm = segments[i];
-
-                if (itm[0] != _.toLower(itm[0])) {
-                    seg[0] = _.toLower(itm[0]);
-
-                    switch (seg[0]) {
-                        case 'a':
-                            seg[1] = itm[1];
-                            seg[2] = itm[2];
-                            seg[3] = itm[3];
-                            seg[4] = itm[4];
-                            seg[5] = itm[5];
-                            seg[6] = +(itm[6] - x).toFixed(3);
-                            seg[7] = +(itm[7] - y).toFixed(3);
-                            break;
-                        case 'v':
-                            seg[1] = +(itm[1] - y).toFixed(3);
-                            break;
-                        case 'm':
-                            mx = itm[1];
-                            my = itm[2];
-                        default:
-                            for (var j = 1, jj = itm.length; j < jj; j++) {
-                                seg[j] = +(itm[j] - ((j % 2) ? x : y)).toFixed(3);
-                            }
-                    }
-                } else {
-                    seg = res[i] = [];
-                    if (itm[0] == 'm') {
-                        mx = itm[1] + x;
-                        my = itm[2] + y;
-                    }
-                    for (var k = 0, kk = itm.length; k < kk; k++) {
-                        res[i][k] = itm[k];
-                    }
+                        for (var k = 1, kk = itm.length; k < kk; k++) {
+                            seg[k] = +itm[k] + ((k % 2) ? x : y);
+                        }
                 }
 
-                var len = result[i].length;
+            } else if (itm[0] == 'R') {
+                dots = _.concat([x, y], itm.slice(1));
+                result.pop();
+                result = _.concat(result, [['C'].concat(cat2bezier(dots, z))]);
+                seg = _.concat(['R'], itm.slice(-2));
+            } else {
+                for (var l = 0, ll = itm.length; l < ll; l++) {
+                    seg[l] = itm[l];
+                }
+            }
 
-                switch (result[i][0]) {
-                    case 'z':
-                        x = mx;
-                        y = my;
-                        break;
-                    case 'h':
-                        x += +result[i][len - 1];
+            switch (seg[0]) {
+                case 'Z':
+                    x = mx;
+                    y = my;
+                    break;
+                case 'H':
+                    x = seg[1];
+                    break;
+                case 'V':
+                    y = seg[1];
+                    break;
+                case 'M':
+                    mx = seg[seg.length - 2];
+                    my = seg[seg.length - 1];
+                default:
+                    x = seg[seg.length - 2];
+                    y = seg[seg.length - 1];
+            }
+        }
+        
+        cached.absolute = result = new Path(result);
+        return result;
+    };
+
+    Path.prototype.start = function() {
+        return this.pointAt(0);
+    };
+
+    Path.prototype.end = function() {
+        return this.pointAt(this.length());
+    };
+
+    Path.prototype.head = function() {
+
+    };
+
+    Path.prototype.tail = function() {
+
+    };
+
+    Path.prototype.relative = function() {
+        var cached = Graph.lookup(this.toString(), 'relative', this.toValue()),
+            segments = this.segments;
+
+        if (cached.relative) {
+            return cached.relative;
+        }
+
+        var result = [],
+            x = 0,
+            y = 0,
+            mx = 0,
+            my = 0,
+            start = 0;
+
+        if (segments[0][0] == 'M') {
+            x = segments[0][1];
+            y = segments[0][2];
+            mx = x;
+            my = y;
+            start++;
+            result.push(['M', x, y]);
+        }
+
+        for (var i = start, ii = segments.length; i < ii; i++) {
+            var seg = result[i] = [], itm = segments[i];
+
+            if (itm[0] != _.toLower(itm[0])) {
+                seg[0] = _.toLower(itm[0]);
+
+                switch (seg[0]) {
+                    case 'a':
+                        seg[1] = itm[1];
+                        seg[2] = itm[2];
+                        seg[3] = itm[3];
+                        seg[4] = itm[4];
+                        seg[5] = itm[5];
+                        seg[6] = +(itm[6] - x).toFixed(3);
+                        seg[7] = +(itm[7] - y).toFixed(3);
                         break;
                     case 'v':
-                        y += +result[i][len - 1];
+                        seg[1] = +(itm[1] - y).toFixed(3);
                         break;
+                    case 'm':
+                        mx = itm[1];
+                        my = itm[2];
                     default:
-                        x += +result[i][len - 2];
-                        y += +result[i][len - 1];
+                        for (var j = 1, jj = itm.length; j < jj; j++) {
+                            seg[j] = +(itm[j] - ((j % 2) ? x : y)).toFixed(3);
+                        }
+                }
+            } else {
+                seg = res[i] = [];
+                if (itm[0] == 'm') {
+                    mx = itm[1] + x;
+                    my = itm[2] + y;
+                }
+                for (var k = 0, kk = itm.length; k < kk; k++) {
+                    res[i][k] = itm[k];
                 }
             }
 
-            cached.relative = result = new Path(result);
-            return result;
-        },
+            var len = result[i].length;
 
-        curve: function() {
-            var cached = Graph.lookup(this.__CLASS__, 'curve', this.toString());
-            
-            if (cached.curve) {
-                return cached.curve;
+            switch (result[i][0]) {
+                case 'z':
+                    x = mx;
+                    y = my;
+                    break;
+                case 'h':
+                    x += +result[i][len - 1];
+                    break;
+                case 'v':
+                    y += +result[i][len - 1];
+                    break;
+                default:
+                    x += +result[i][len - 2];
+                    y += +result[i][len - 1];
             }
+        }
 
-            var p = _.cloneDeep(this.absolute().segments),
-                a = {x: 0, y: 0, bx: 0, by: 0, X: 0, Y: 0, qx: null, qy: null},
-                com = [],
-                init = '',
-                prev = '';
+        cached.relative = result = new Path(result);
+        return result;
+    };
 
-            var fix;
-
-            for (var i = 0, ii = p.length; i < ii; i++) {
-                p[i] && (init = p[i][0]);
-                
-                if (init != 'C') {
-                    com[i] = init;
-                    i && (prev = com[i - 1]);
-                }
-                
-                p[i] = fixsegment(p[i], a, prev);
-
-                if (com[i] != 'A' && init == 'C') com[i] = 'C';
-
-                fixarc(p, i);
-
-                var s = p[i], l = s.length;
-
-                a.x = s[l - 2];
-                a.y = s[l - 1];
-                a.bx = _.float(s[l - 4]) || a.x;
-                a.by = _.float(s[l - 3]) || a.y;
-            }
-
-            cached.curve = new Path(p);
-            return cached.curve;
-
-            ///////// HELPER /////////
-            
-            function fixarc(segments, i) {
-                if (segments[i].length > 7) {
-                    segments[i].shift();
-
-                    var pi = segments[i];
-
-                    while (pi.length) {
-                        com[i] = 'A';
-                        segments.splice(i++, 0, ['C'].concat(pi.splice(0, 6)));
-                    }
-                    
-                    segments.splice(i, 1);
-                    ii = p.length;
-                }
-            }
-        },
-
-        curve2curve: function(to){
-            var p1 = _.cloneDeep(this.absolute().segments),
-                p2 = _.cloneDeep((new Path(to)).absolute().segments) ,
-                a1 = {x: 0, y: 0, bx: 0, by: 0, X: 0, Y: 0, qx: null, qy: null},
-                a2 = {x: 0, y: 0, bx: 0, by: 0, X: 0, Y: 0, qx: null, qy: null},
-                com1 = [],
-                com2 = [],
-                init = '',
-                prev = '';
-
-            for (var i = 0, ii = _.max([p1.length, p2.length]); i < ii; i++) {
-                // fix p1
-                p1[i] && (init = p1[i][0]);
-                
-                if (init != 'C') {
-                    com1[i] = init;
-                    i && (prev = com1[i - 1]);
-                }
-                
-                p1[i] = fixsegment(p1[i], a1, prev);
-                
-                if (com1[i] != 'A' && init == 'C') com1[i] = 'C';
-                
-                fixarc2(p1, i);
-
-                // fix p2
-                p2[i] && (init = p2[i][0]);
-
-                if (init != 'C') {
-                    com2[i] = init;
-                    i && (prev = com2[i - 1]);
-                }
-
-                p2[i] = fixsegment(p2[i], attrs2, pcom);
-                
-                if (com2[i] != 'A' && init == 'C') com2[i] = 'C';
-
-                // fix p1 & p2
-                fixArc2(p2, i);
-
-                fixmove2(p1, p2, a1, a2, i);
-                fixmove2(p2, p1, a2, a1, i);
-
-                var s1 = p1[i],
-                    s2 = p2[i],
-                    l1 = s1.length,
-                    l2 = s2.length;
-
-                a1.x = s1[l1 - 2];
-                a1.y = s1[l1 - 1];
-                a1.bx = _.float(s1[l1 - 4]) || a1.x;
-                a1.by = _.float(s1[l1 - 3]) || a1.y;
-
-                a2.bx = _.float(s2[l2 - 4]) || a2.x;
-                a2.by = _.float(s2[l2 - 3]) || a2.y;
-                a2.x = s2[l2 - 2];
-                a2.y = s2[l2 - 1];
-
-            }
-
-            return [new Path(p1), new Path(p2)];
-
-            ///////// HELPER /////////
-            
-            function fixarc2(segments, i) {
-                if (segments[i].length > 7) {
-                    segments[i].shift();
-                    var pi = segments[i];
-
-                    while (pi.length) {
-                        com1[i] = 'A';
-                        com2[i] = 'A';
-                        segments.splice(i++, 0, ['C'].concat(pi.splice(0, 6)));
-                    }
-                    
-                    segments.splice(i, 1);
-                    ii = _.max([p1.length, p2.length]);
-                }
-            }
-
-            function fixmove2(segments1, segments2, a1, a2, i) {
-                if (segments1 && segments2 && segments1[i][0] == 'M' && segments2[i][0] != 'M') {
-                    segments2.splice(i, 0, ['M', a2.x, a2.y]);
-                    a1.bx = 0;
-                    a1.by = 0;
-                    a1.x = segments1[i][1];
-                    a1.y = segments1[i][2];
-                    ii = _.max([p1.length, p2 && p2.length || 0]);
-                }
-            }
-
-        },
-
-        bbox: function(){
-            if ( ! this.segments.length) {
-                return Graph.bbox({x: 0, y: 0, width: 0, height: 0, x2: 0, y2: 0});
-            }
-
-            var cached = Graph.lookup(this.__CLASS__, 'bbox', this.toString());
-
-            if (cached.bbox) {
-                return cached.bbox;
-            }
-
-            var segments = this.curve().segments,
-                x = 0,
-                y = 0,
-                X = [],
-                Y = [],
-                p;
-
-            for (var i = 0, ii = segments.length; i < ii; i++) {
-                p = segments[i];
-                if (p[0] == 'M') {
-                    x = p[1];
-                    y = p[2];
-                    X.push(x);
-                    Y.push(y);
-                } else {
-                    var box = Graph.util.curvebox(x, y, p[1], p[2], p[3], p[4], p[5], p[6]);
-                    X = X.concat(box.min.x, box.max.x);
-                    Y = Y.concat(box.min.y, box.max.y);
-                    x = p[5];
-                    y = p[6];
-                }
-            }
-
-            var xmin = _.min(X),
-                ymin = _.min(Y),
-                xmax = _.max(X),
-                ymax = _.max(Y),
-                width = xmax - xmin,
-                height = ymax - ymin,
-                bounds = {
-                    x: xmin,
-                    y: ymin,
-                    x2: xmax,
-                    y2: ymax,
-                    width: width,
-                    height: height,
-                    cx: xmin + width / 2,
-                    cy: ymin + height / 2
-                };
-
-            cached.bbox = Graph.bbox(bounds);
-            return cached.bbox;
-        },
+    Path.prototype.curve = function() {
+        var cached = Graph.lookup(this.toString(), 'curve', this.toValue());
         
-        transform: function(matrix) {
-            if ( ! matrix) {
-                return;
-            }
+        if (cached.curve) {
+            return cached.curve;
+        }
 
-            var cached = Graph.lookup(this.__CLASS__, 'transform', this.toString(), matrix.toString());
+        var p = _.cloneDeep(this.absolute().segments),
+            a = {x: 0, y: 0, bx: 0, by: 0, X: 0, Y: 0, qx: null, qy: null},
+            com = [],
+            init = '',
+            prev = '';
 
-            if (cached.transform) {
-                return cached.transform;
-            }
+        var fix;
 
-            var segments = _.cloneDeep(this.curve().segments);
-            var x, y, i, ii, j, jj, seg;
+        for (var i = 0, ii = p.length; i < ii; i++) {
+            p[i] && (init = p[i][0]);
             
-            for (i = 0, ii = segments.length; i < ii; i++) {
-                seg = segments[i];
-                for (j = 1, jj = seg.length; j < jj; j += 2) {
-                    x = matrix.x(seg[j], seg[j + 1]);
-                    y = matrix.y(seg[j], seg[j + 1]);
-                    seg[j] = x;
-                    seg[j + 1] = y;
+            if (init != 'C') {
+                com[i] = init;
+                i && (prev = com[i - 1]);
+            }
+            
+            p[i] = fixsegment(p[i], a, prev);
+
+            if (com[i] != 'A' && init == 'C') com[i] = 'C';
+
+            fixarc(p, i);
+
+            var s = p[i], l = s.length;
+
+            a.x = s[l - 2];
+            a.y = s[l - 1];
+            a.bx = _.float(s[l - 4]) || a.x;
+            a.by = _.float(s[l - 3]) || a.y;
+        }
+
+        cached.curve = new Path(p);
+        return cached.curve;
+
+        ///////// HELPER /////////
+        
+        function fixarc(segments, i) {
+            if (segments[i].length > 7) {
+                segments[i].shift();
+
+                var pi = segments[i];
+
+                while (pi.length) {
+                    com[i] = 'A';
+                    segments.splice(i++, 0, ['C'].concat(pi.splice(0, 6)));
                 }
+                
+                segments.splice(i, 1);
+                ii = p.length;
+            }
+        }
+    };
+
+    Path.prototype.curve2curve = function(to){
+        var p1 = _.cloneDeep(this.absolute().segments),
+            p2 = _.cloneDeep((new Path(to)).absolute().segments) ,
+            a1 = {x: 0, y: 0, bx: 0, by: 0, X: 0, Y: 0, qx: null, qy: null},
+            a2 = {x: 0, y: 0, bx: 0, by: 0, X: 0, Y: 0, qx: null, qy: null},
+            com1 = [],
+            com2 = [],
+            init = '',
+            prev = '';
+
+        for (var i = 0, ii = _.max([p1.length, p2.length]); i < ii; i++) {
+            // fix p1
+            p1[i] && (init = p1[i][0]);
+            
+            if (init != 'C') {
+                com1[i] = init;
+                i && (prev = com1[i - 1]);
             }
             
-            cached.transform = new Path(segments);
+            p1[i] = fixsegment(p1[i], a1, prev);
+            
+            if (com1[i] != 'A' && init == 'C') com1[i] = 'C';
+            
+            fixarc2(p1, i);
+
+            // fix p2
+            p2[i] && (init = p2[i][0]);
+
+            if (init != 'C') {
+                com2[i] = init;
+                i && (prev = com2[i - 1]);
+            }
+
+            p2[i] = fixsegment(p2[i], attrs2, pcom);
+            
+            if (com2[i] != 'A' && init == 'C') com2[i] = 'C';
+
+            // fix p1 & p2
+            fixArc2(p2, i);
+
+            fixmove2(p1, p2, a1, a2, i);
+            fixmove2(p2, p1, a2, a1, i);
+
+            var s1 = p1[i],
+                s2 = p2[i],
+                l1 = s1.length,
+                l2 = s2.length;
+
+            a1.x = s1[l1 - 2];
+            a1.y = s1[l1 - 1];
+            a1.bx = _.float(s1[l1 - 4]) || a1.x;
+            a1.by = _.float(s1[l1 - 3]) || a1.y;
+
+            a2.bx = _.float(s2[l2 - 4]) || a2.x;
+            a2.by = _.float(s2[l2 - 3]) || a2.y;
+            a2.x = s2[l2 - 2];
+            a2.y = s2[l2 - 1];
+
+        }
+
+        return [new Path(p1), new Path(p2)];
+
+        ///////// HELPER /////////
+        
+        function fixarc2(segments, i) {
+            if (segments[i].length > 7) {
+                segments[i].shift();
+                var pi = segments[i];
+
+                while (pi.length) {
+                    com1[i] = 'A';
+                    com2[i] = 'A';
+                    segments.splice(i++, 0, ['C'].concat(pi.splice(0, 6)));
+                }
+                
+                segments.splice(i, 1);
+                ii = _.max([p1.length, p2.length]);
+            }
+        }
+
+        function fixmove2(segments1, segments2, a1, a2, i) {
+            if (segments1 && segments2 && segments1[i][0] == 'M' && segments2[i][0] != 'M') {
+                segments2.splice(i, 0, ['M', a2.x, a2.y]);
+                a1.bx = 0;
+                a1.by = 0;
+                a1.x = segments1[i][1];
+                a1.y = segments1[i][2];
+                ii = _.max([p1.length, p2 && p2.length || 0]);
+            }
+        }
+
+    };
+
+    Path.prototype.bbox = function(){
+        if ( ! this.segments.length) {
+            return Graph.bbox({x: 0, y: 0, width: 0, height: 0, x2: 0, y2: 0});
+        }
+
+        var cached = Graph.lookup(this.toString(), 'bbox', this.toValue());
+
+        if (cached.bbox) {
+            return cached.bbox;
+        }
+
+        var segments = this.curve().segments,
+            x = 0,
+            y = 0,
+            X = [],
+            Y = [],
+            p;
+
+        for (var i = 0, ii = segments.length; i < ii; i++) {
+            p = segments[i];
+            if (p[0] == 'M') {
+                x = p[1];
+                y = p[2];
+                X.push(x);
+                Y.push(y);
+            } else {
+                var box = Graph.util.curvebox(x, y, p[1], p[2], p[3], p[4], p[5], p[6]);
+                X = X.concat(box.min.x, box.max.x);
+                Y = Y.concat(box.min.y, box.max.y);
+                x = p[5];
+                y = p[6];
+            }
+        }
+
+        var xmin = _.min(X),
+            ymin = _.min(Y),
+            xmax = _.max(X),
+            ymax = _.max(Y),
+            width = xmax - xmin,
+            height = ymax - ymin,
+            bounds = {
+                x: xmin,
+                y: ymin,
+                x2: xmax,
+                y2: ymax,
+                width: width,
+                height: height,
+                cx: xmin + width / 2,
+                cy: ymin + height / 2
+            };
+
+        cached.bbox = Graph.bbox(bounds);
+        return cached.bbox;
+    };
+        
+    Path.prototype.transform = function(matrix) {
+        if ( ! matrix) {
+            return;
+        }
+
+        var cached = Graph.lookup(this.toString(), 'transform', this.toValue(), matrix.toValue());
+
+        if (cached.transform) {
             return cached.transform;
-        },
+        }
 
-        lengthAt: function(point) {
+        var segments = _.cloneDeep(this.curve().segments);
+        var x, y, i, ii, j, jj, seg;
+        
+        for (i = 0, ii = segments.length; i < ii; i++) {
+            seg = segments[i];
+            for (j = 1, jj = seg.length; j < jj; j += 2) {
+                x = matrix.x(seg[j], seg[j + 1]);
+                y = matrix.y(seg[j], seg[j + 1]);
+                seg[j] = x;
+                seg[j + 1] = y;
+            }
+        }
+        
+        cached.transform = new Path(segments);
+        return cached.transform;
+    };
 
-        },
+    Path.prototype.lengthAt = function(point) {
 
-        pointAt: function(length, dots) {
-            var ps = this.curve().segments;
-            var point, s, x, y, l, c, d;
+    };
 
-            dots = _.defaultTo(dots, false);
+    Path.prototype.pointAt = function(length, dots) {
+        var ps = this.curve().segments;
+        var point, s, x, y, l, c, d;
 
-            l = 0;
+        dots = _.defaultTo(dots, false);
 
-            for (var i = 0, ii = ps.length; i < ii; i++) {
-                s = ps[i];
+        l = 0;
+
+        for (var i = 0, ii = ps.length; i < ii; i++) {
+            s = ps[i];
+            if (s[0] == 'M') {
+                x = s[1];
+                y = s[2];
+            } else {
+                c = Graph.curve([['M', x, y], s]);
+                d = c.length();
+                if (l + d > length) {
+                    point = c.pointAt(c.t(length - l), dots);
+                    c = null;
+                    return point;
+                }
+
+                l += d;
+                x = s[5];
+                y = s[6];
+
+                c = null;
+            }
+        }
+
+        c = Graph.curve([['M', x, y], s]);
+        point = c.pointAt(1, dots);
+
+        c = null;
+        return point;
+    };
+
+    Path.prototype.segmentAt = function(length) {
+        var segments = this.curve().segments,
+            index = -1,
+            total = 0;
+        
+        var x, y, l, c;
+
+        _.forEach(segments, function(s, i){
+            if (s[0] == 'M') {
+                x = s[1];
+                y = s[2];
+            } else {
+                c = Graph.curve([['M', x, y], s]);
+                x = c.x();
+                y = c.y();
+                l = c.length();
+
+                if (l + total > length) {
+                    index = i;
+                    return false;
+                }
+
+                total += l;
+                c = null;
+            }
+        });
+
+        return index;
+    };
+
+    Path.prototype.length = function() {
+        var ps = this.curve().segments;
+        var point, s, x, y, l, c;
+
+        l = 0;
+
+        for (var i = 0, ii = ps.length; i < ii; i++) {
+            s = ps[i];
+            if (s[0] == 'M') {
+                x = s[1];
+                y = s[2];
+            } else {
+                c = Graph.curve([['M', x, y], s]);
+                l = l + c.length();
+                x = s[5];
+                y = s[6];
+                c = null;
+            }
+        }
+        return l;
+    };
+
+    Path.prototype.slice = function(from, to) {
+        var ps = this.curve().segments;
+        var sub = {};
+        var point, sp, s, x, y, l, c, d;
+
+        l = 0;
+        sp = '';
+
+        for (var i = 0, ii = ps.length; i < ii; i++) {
+            s = ps[i];
+            if (s[0] == 'M') {
+                x = s[1];
+                y = s[2];
+            } else {
+                c = Graph.curve([['M', x, y], s]);
+                d = c.length();
+                
+                if (l + d > length) {
+                    point = c.pointAt(c.t(length - l));
+                    sp += ['C' + point.start.x, point.start.y, point.m.x, point.m.y, point.props.x, point.props.y];
+                    sub.start = Graph.path(sp);
+                    sp = ['M' + point.props.x, point.props.y + 'C' + point.n.x, point.n.y, point.end.x, point.end.y, s[5], s[6]].join();
+                }
+
+                l += d;
+                x = s[5];
+                y = s[6];
+
+                c = null;
+            }
+            sp += s.shift() + s;
+        }
+
+        sub.end = Graph.path(sp);
+        return sub;
+    };
+
+    Path.prototype.vertices = function() {
+        var cached = Graph.lookup(this.toString(), 'vertices', this.toValue());
+        
+        if (cached.vertices) {
+            return cached.vertices;
+        }
+
+        var ps = this.segments,
+            vs = [];
+
+        _.forEach(ps, function(s){
+            var l = s.length, x, y;
+            if (s[0] != 'Z') {
                 if (s[0] == 'M') {
                     x = s[1];
                     y = s[2];
                 } else {
-                    c = Graph.curve([['M', x, y], s]);
-                    d = c.length();
-                    if (l + d > length) {
-                        point = c.pointAt(c.t(length - l), dots);
-                        c = null;
-                        return point;
+                    x = s[l - 2];
+                    y = s[l - 1];
+                }
+                vs.push(Graph.point(x, y));
+            }
+        });
+
+        cached.vertices = vs;
+        return cached.vertices;
+    };
+
+    Path.prototype.addVertext = function(vertext) {
+        var simple = this.isSimple(),
+            segments = simple ? _.cloneDeep(this.segments) : this.curve().segments,
+            index = -1,
+            vx = vertext.props.x,
+            vy = vertext.props.y,
+            l1 = 0,
+            l2 = 0;
+
+        var x, y, c1, c2;
+
+        _.forEach(segments, function(s, i){
+            if (s[0] != 'Z') {
+                if (s[0] == 'M') {
+                    x = s[1];
+                    y = s[2];
+                } else {
+                    if (s[0] == 'L') {
+                        c1 = Graph.curve([['M', x, y], ['C', x, y, x, y, s[1], s[2]]]);
+                        x = s[1];
+                        y = s[2];
+                    } else {
+                        c1 = Graph.curve([['M', x, y], s]);
+                        x = c1.x();
+                        y = c1.y();
                     }
 
-                    l += d;
-                    x = s[5];
-                    y = s[6];
+                    c2 = c1.clone();
+                    c2.segments[1][5] = vx;
+                    c2.segments[1][6] = vy;  
 
-                    c = null;
-                }
-            }
+                    l1 += c1.length();
+                    l2 += c2.length();
 
-            c = Graph.curve([['M', x, y], s]);
-            point = c.pointAt(1, dots);
-
-            c = null;
-            return point;
-        },
-
-        segmentAt: function(length) {
-            var segments = this.curve().segments,
-                index = -1,
-                total = 0;
-            
-            var x, y, l, c;
-
-            _.forEach(segments, function(s, i){
-                if (s[0] == 'M') {
-                    x = s[1];
-                    y = s[2];
-                } else {
-                    c = Graph.curve([['M', x, y], s]);
-                    x = c.x();
-                    y = c.y();
-                    l = c.length();
-
-                    if (l + total > length) {
+                    if (l2 <= l1) {
                         index = i;
                         return false;
                     }
-
-                    total += l;
-                    c = null;
-                }
-            });
-
-            return index;
-        },
-
-        length: function() {
-            var ps = this.curve().segments;
-            var point, s, x, y, l, c;
-
-            l = 0;
-
-            for (var i = 0, ii = ps.length; i < ii; i++) {
-                s = ps[i];
-                if (s[0] == 'M') {
-                    x = s[1];
-                    y = s[2];
-                } else {
-                    c = Graph.curve([['M', x, y], s]);
-                    l = l + c.length();
-                    x = s[5];
-                    y = s[6];
-                    c = null;
                 }
             }
-            return l;
-        },
+        });
 
-        slice: function(from, to) {
-            var ps = this.curve().segments;
-            var sub = {};
-            var point, sp, s, x, y, l, c, d;
-
-            l = 0;
-            sp = '';
-
-            for (var i = 0, ii = ps.length; i < ii; i++) {
-                s = ps[i];
-                if (s[0] == 'M') {
-                    x = s[1];
-                    y = s[2];
-                } else {
-                    c = Graph.curve([['M', x, y], s]);
-                    d = c.length();
-                    
-                    if (l + d > length) {
-                        point = c.pointAt(c.t(length - l));
-                        sp += ['C' + point.start.x, point.start.y, point.m.x, point.m.y, point.props.x, point.props.y];
-                        sub.start = Graph.path(sp);
-                        sp = ['M' + point.props.x, point.props.y + 'C' + point.n.x, point.n.y, point.end.x, point.end.y, s[5], s[6]].join();
-                    }
-
-                    l += d;
-                    x = s[5];
-                    y = s[6];
-
-                    c = null;
-                }
-                sp += s.shift() + s;
-            }
-
-            sub.end = Graph.path(sp);
-            return sub;
-        },
-
-        vertices: function() {
-            var cached = Graph.lookup(this.__CLASS__, 'vertices', this.toString());
-            
-            if (cached.vertices) {
-                return cached.vertices;
-            }
-
-            var ps = this.segments,
-                vs = [];
-
-            _.forEach(ps, function(s){
-                var l = s.length, x, y;
-                if (s[0] != 'Z') {
-                    if (s[0] == 'M') {
-                        x = s[1];
-                        y = s[2];
-                    } else {
-                        x = s[l - 2];
-                        y = s[l - 1];
-                    }
-                    vs.push(Graph.point(x, y));
-                }
-            });
-
-            cached.vertices = vs;
-            return cached.vertices;
-        },
-
-        addVertext: function(vertext) {
-            var simple = this.isSimple(),
-                segments = simple ? _.cloneDeep(this.segments) : this.curve().segments,
-                index = -1,
-                vx = vertext.props.x,
-                vy = vertext.props.y,
-                l1 = 0,
-                l2 = 0;
-
-            var x, y, c1, c2;
-
-            _.forEach(segments, function(s, i){
-                if (s[0] != 'Z') {
-                    if (s[0] == 'M') {
-                        x = s[1];
-                        y = s[2];
-                    } else {
-                        if (s[0] == 'L') {
-                            c1 = Graph.curve([['M', x, y], ['C', x, y, x, y, s[1], s[2]]]);
-                            x = s[1];
-                            y = s[2];
-                        } else {
-                            c1 = Graph.curve([['M', x, y], s]);
-                            x = c1.x();
-                            y = c1.y();
-                        }
-
-                        c2 = c1.clone();
-                        c2.segments[1][5] = vx;
-                        c2.segments[1][6] = vy;  
-
-                        l1 += c1.length();
-                        l2 += c2.length();
-
-                        if (l2 <= l1) {
-                            index = i;
-                            return false;
-                        }
-                    }
-                }
-            });
-
-            if (index > -1) {
-                if (simple) {
-                    segments.splice(index, 0, ['L', vx, vy]);
-                } else {
-                    segments.splice(index, 0, ['C', vx, vy, vx, vy, vx, vy]);    
-                }
-                this.segments = segments;
-            }
-
-            return this;
-        },
-
-        intersect: function(path) {
-            return intersection(this, path, true) > 0;
-        },
-
-        intersection: function(path, json) {
-            var result = intersection(this, path);
-            
-            return json ? result : _.map(result, function(d){
-                var p = Graph.point(d.x, d.y);
-                
-                p.segment1 = d.segment1;
-                p.segment2 = d.segment2;
-                p.bezier1  = d.bezier1;
-                p.bezier2  = d.bezier2;
-
-                return p;
-            });
-        },
-
-        intersectnum: function(path) {
-            return intersection(this, path, true);
-        },
-
-        alpha: function(point) {
-
-        },
-
-        contains: function(point) {
-            var b, p, d, x, y;
-
-            x = point.props.x;
-            y = point.props.y;
-            b = this.bbox();
-            d = b.toJson();
-            
-            p = new Path([['M', x, y], ['H', d.x2 + 10]]);
-
-            return b.contains(point) && this.intersectnum(p) % 2 == 1;
-        },
-
-        /**
-         * Get point on path that closest to target point
-         */
-        nearest: function(point) {
-            var length  = this.length(),
-                tolerance = 20,
-                bestdist = Infinity,
-                taxicab = Graph.util.taxicab;
-
-            var best, bestlen, currpoint, currdist, i;
-            
-            if (Graph.isPoint(point)) {
-                point = point.toJson();
-            }
-            
-            for (i = 0; i < length; i += tolerance) {
-                currpoint = this.pointAt(i, true);
-                currdist  = taxicab(currpoint, point);
-
-                if (currdist < bestdist) {
-                    bestdist = currdist;
-                    best = currpoint;
-                    bestlen = i;
-                }
-            }
-
-            tolerance /= 2;
-
-            var prev, next, prevlen, nextlen, prevdist, nextdist;
-            
-            while(tolerance > .5) {
-                if ((prevlen = bestlen - tolerance) >= 0 && (prevdist = taxicab((prev = this.pointAt(prevlen, true)), point)) < bestdist) {
-                    best = prev;
-                    bestlen = prevlen;
-                    bestdist = prevdist;
-                } else if ((nextlen = bestlen + tolerance) <= length && (nextdist = taxicab((next = this.pointAt(nextlen, true)), point)) < bestdist) {
-                    best = next;
-                    bestlen = nextlen;
-                    bestdist = nextdist;
-                } else {
-                    tolerance /= 2;
-                }
-            }
-
-            best.distance = bestlen;
-            return best;
-        },  
-
-        isSimple: function() {
-            var simple = true;
-
-            _.forEach(this.segments, function(s){
-                if ( ! /[MLZ]/i.test(s[0])) {
-                    simple = false;
-                    return false;
-                }
-            });
-
-            return simple;
-        },
-
-        moveTo: function(x, y) {
-            var segments = this.segments;
-            
-            if (segments.length) {
-                segments[0][0] = 'M';
-                segments[0][1] = x;
-                segments[0][2] = y;
+        if (index > -1) {
+            if (simple) {
+                segments.splice(index, 0, ['L', vx, vy]);
             } else {
-                segments = [['M', x, y]];
+                segments.splice(index, 0, ['C', vx, vy, vx, vy, vx, vy]);    
             }
-
-            return this;
-        },
-
-        lineTo: function(x, y, append) {
-            var segments = this.segments;
-                
-            append = _.defaultTo(append, true);
-
-            if (segments) {
-                var maxs = segments.length - 1;
-                
-                if (segments[maxs][0] == 'M' || append) {
-                    segments.push(['L', x, y]);
-                } else {
-                    segments[maxs][1] = x;
-                    segments[maxs][2] = y;
-                }
-            }
-
-            return this;
-        },
-
-        toString: function() {
-            return Graph.util.segments2path(this.segments);
-        },
-
-        toArray: function() {
-            return this.segments;
-        },
-
-        clone: function() {
-            var segments = _.cloneDeep(this.segments);
-            return new Path(segments);
+            this.segments = segments;
         }
-    });
-    
-    ///////// STATIC /////////
-    
-    Graph.lang.Path.toString = function() {
-        return "function(command)";
+
+        return this;
     };
 
+    Path.prototype.intersect = function(path) {
+        return intersection(this, path, true) > 0;
+    };
+
+    Path.prototype.intersection = function(path, json) {
+        var result = intersection(this, path);
+        
+        return json ? result : _.map(result, function(d){
+            var p = Graph.point(d.x, d.y);
+            
+            p.segment1 = d.segment1;
+            p.segment2 = d.segment2;
+            p.bezier1  = d.bezier1;
+            p.bezier2  = d.bezier2;
+
+            return p;
+        });
+    };
+
+    Path.prototype.intersectnum = function(path) {
+        return intersection(this, path, true);
+    };
+
+    Path.prototype.alpha = function(point) {
+
+    };
+
+    Path.prototype.contains = function(point) {
+        var b, p, d, x, y;
+
+        x = point.props.x;
+        y = point.props.y;
+        b = this.bbox();
+        d = b.toJson();
+        
+        p = new Path([['M', x, y], ['H', d.x2 + 10]]);
+
+        return b.contains(point) && this.intersectnum(p) % 2 == 1;
+    };
+
+    /**
+     * Get point on path that closest to target point
+     */
+    Path.prototype.nearest = function(point) {
+        var length  = this.length(),
+            tolerance = 20,
+            bestdist = Infinity,
+            taxicab = Graph.util.taxicab;
+
+        var best, bestlen, currpoint, currdist, i;
+        
+        if (Graph.isPoint(point)) {
+            point = point.toJson();
+        }
+        
+        for (i = 0; i < length; i += tolerance) {
+            currpoint = this.pointAt(i, true);
+            currdist  = taxicab(currpoint, point);
+
+            if (currdist < bestdist) {
+                bestdist = currdist;
+                best = currpoint;
+                bestlen = i;
+            }
+        }
+
+        tolerance /= 2;
+
+        var prev, next, prevlen, nextlen, prevdist, nextdist;
+        
+        while(tolerance > .5) {
+            if ((prevlen = bestlen - tolerance) >= 0 && (prevdist = taxicab((prev = this.pointAt(prevlen, true)), point)) < bestdist) {
+                best = prev;
+                bestlen = prevlen;
+                bestdist = prevdist;
+            } else if ((nextlen = bestlen + tolerance) <= length && (nextdist = taxicab((next = this.pointAt(nextlen, true)), point)) < bestdist) {
+                best = next;
+                bestlen = nextlen;
+                bestdist = nextdist;
+            } else {
+                tolerance /= 2;
+            }
+        }
+
+        best.distance = bestlen;
+        return best;
+    };
+
+    Path.prototype.isSimple = function() {
+        var simple = true;
+
+        _.forEach(this.segments, function(s){
+            if ( ! /[MLZ]/i.test(s[0])) {
+                simple = false;
+                return false;
+            }
+        });
+
+        return simple;
+    };
+
+    Path.prototype.moveTo = function(x, y) {
+        var segments = this.segments;
+        
+        if (segments.length) {
+            segments[0][0] = 'M';
+            segments[0][1] = x;
+            segments[0][2] = y;
+        } else {
+            segments = [['M', x, y]];
+        }
+
+        return this;
+    };
+
+    Path.prototype.lineTo = function(x, y, append) {
+        var segments = this.segments;
+            
+        append = _.defaultTo(append, true);
+
+        if (segments) {
+            var maxs = segments.length - 1;
+            
+            if (segments[maxs][0] == 'M' || append) {
+                segments.push(['L', x, y]);
+            } else {
+                segments[maxs][1] = x;
+                segments[maxs][2] = y;
+            }
+        }
+
+        return this;
+    };
+
+    Path.prototype.toString = function() {
+        return 'Graph.lang.Path';
+    };
+
+    Path.prototype.toValue = function() {
+        return Graph.util.segments2path(this.segments);
+    };
+
+    Path.prototype.toArray = function() {
+        return this.segments;
+    };
+
+    Path.prototype.clone = function() {
+        var segments = [];
+        
+        _.forEach(this.segments, function(seg){
+            segments.push(seg.slice());
+        });
+
+        return new Path(segments);
+    };
+    
     ///////// EXTENSION /////////
     
     Graph.isPath = function(obj) {
@@ -3779,279 +3920,277 @@
 
 (function(){
     
-    var Matrix = Graph.lang.Matrix = Graph.extend({
+    var Matrix = Graph.lang.Matrix = function(a, b, c, d, e, f) {
+        this.props = {};
 
+        this.props.a = _.defaultTo(a, 1);
+        this.props.b = _.defaultTo(b, 0);
+        this.props.c = _.defaultTo(c, 0);
+        this.props.d = _.defaultTo(d, 1);
+        this.props.e = _.defaultTo(e, 0);
+        this.props.f = _.defaultTo(f, 0);
+    };
+
+    Matrix.defaults = {
         props: {
             a: 1,
             b: 0,
             c: 0,
             d: 1,
             e: 0,
-            f: 0    
-        },
+            f: 0
+        }
+    };
 
-        constructor: function(a, b, c, d, e, f) {
-            this.props.a = _.defaultTo(a, 1);
-            this.props.b = _.defaultTo(b, 0);
-            this.props.c = _.defaultTo(c, 0);
-            this.props.d = _.defaultTo(d, 1);
-            this.props.e = _.defaultTo(e, 0);
-            this.props.f = _.defaultTo(f, 0);
-        },
+    Matrix.extend = Graph.lang.Class.extend;
 
-        x: function(x, y) {
-            return x * this.props.a + y * this.props.c + this.props.e;
-        },
+    Matrix.prototype.constructor = Matrix;
 
-        y: function(x, y) {
-            return x * this.props.b + y * this.props.d + this.props.f;
-        },
+    Matrix.prototype.x = function(x, y) {
+        return x * this.props.a + y * this.props.c + this.props.e;
+    };
+
+    Matrix.prototype.y = function(x, y) {
+        return x * this.props.b + y * this.props.d + this.props.f;
+    };
         
-        get: function(chr) {
-            return +this.props[chr].toFixed(4);
-        },
+    Matrix.prototype.get = function(chr) {
+        return +this.props[chr].toFixed(4);
+    };
 
-        multiply: function(a, b, c, d, e, f) {
-            var 
-                result = [[], [], []],
-                source = [
-                    [this.props.a, this.props.c, this.props.e], 
-                    [this.props.b, this.props.d, this.props.f], 
-                    [0, 0, 1]
-                ],
-                matrix = [
-                    [a, c, e], 
-                    [b, d, f], 
-                    [0, 0, 1]
-                ];
-
-            var x, y, z, tmp;
-
-            if (Graph.isMatrix(a)) {
-                matrix = [
-                    [a.props.a, a.props.c, a.props.e], 
-                    [a.props.b, a.props.d, a.props.f], 
-                    [0, 0, 1]
-                ];
-            }
-
-            for (x = 0; x < 3; x++) {
-                for (y = 0; y < 3; y++) {
-                    tmp = 0;
-                    for (z = 0; z < 3; z++) {
-                        tmp += source[x][z] * matrix[z][y];
-                    }
-                    result[x][y] = tmp;
-                }
-            }
-
-            this.props.a = result[0][0];
-            this.props.b = result[1][0];
-            this.props.c = result[0][1];
-            this.props.d = result[1][1];
-            this.props.e = result[0][2];
-            this.props.f = result[1][2];
-
-            return this;
-        },
-
-        invert: function(clone) {
-            var x = this.props.a * this.props.d - this.props.b * this.props.c;
-            var a, b, c, d, e, f;
-
-            clone = _.defaultTo(clone, false);
-
-            a =  this.props.d / x;
-            b = -this.props.b / x;
-            c = -this.props.c / x;
-            d =  this.props.a / x;
-            e = (this.props.c * this.props.f - this.props.d * this.props.e) / x;
-            f = (this.props.b * this.props.e - this.props.a * this.props.f) / x;
-
-            if (clone) {
-                return new Graph.matrix(a, b, c, d, e, f);
-            } else {
-                this.props.a = a;
-                this.props.b = b;
-                this.props.c = c;
-                this.props.d = d;
-                this.props.e = e;
-                this.props.f = f;    
-
-                return this;
-            }
-        },
-
-        translate: function(x, y) {
-            x = _.defaultTo(x, 0);
-            y = _.defaultTo(y, 0);
-            this.multiply(1, 0, 0, 1, x, y);
-
-            return this;
-        },
-
-        rotate: function(angle, cx, cy) {
-            if (angle === undefined) {
-                
-                var px = this.delta(0, 1),
-                    py = this.delta(1, 0),
-                    deg = 180 / Math.PI * Math.atan2(px.y, px.x) - 90,
-                    rad = Graph.util.rad(deg);
-
-                return {
-                    deg: deg,
-                    rad: rad
-                };
-            }
-
-            angle = Graph.util.rad(angle);
-            cx = _.defaultTo(cx, 0);
-            cy = _.defaultTo(cy, 0);
-
-            var cos = +Math.cos(angle).toFixed(9),
-                sin = +Math.sin(angle).toFixed(9);
-
-            this.multiply(cos, sin, -sin, cos, cx, cy);
-            this.multiply(1, 0, 0, 1, -cx, -cy);
-
-            return this;
-        },
-
-        scale: function(sx, sy, cx, cy) {
-            if (sx === undefined) {
-                var prop = this.props,
-                    sx = Graph.util.hypo(prop.a, prop.b),
-                    sy = Graph.util.hypo(prop.c, prop.d);
-
-                if (this.determinant() < 0) {
-                    sx = -sx;
-                }
-
-                return {
-                    x: sx,
-                    y: sy
-                };
-            }
-
-            sy = _.defaultTo(sy, sx);
-
-            if (cx || cy) {
-                cx = _.defaultTo(cx, 0);
-                cy = _.defaultTo(cy, 0);
-            }
-
-            (cx || cy) && this.multiply(1, 0, 0, 1, cx, cy);
-            this.multiply(sx, 0, 0, sy, 0, 0);
-            (cx || cy) && this.multiply(1, 0, 0, 1, -cx, -cy);
-            
-            return this;
-        },
-        
-        determinant: function() {
-            return this.props.a * this.props.d - this.props.b * this.props.c;
-        },
-
-        delta: function(x, y) {
-            return {
-                x: x * this.props.a + y * this.props.c + 0,
-                y: x * this.props.b + y * this.props.d + 0
-            };
-        },
-
-        data: function() {
-            var px = this.delta(0, 1),
-                py = this.delta(1, 0),
-                skewX = 180 / Math.PI * Math.atan2(px.y, px.x) - 90,
-                radSkewX = Graph.util.rad(skewX),
-                cosSkewX = Math.cos(radSkewX),
-                sinSkewX = Math.sin(radSkewX),
-                scaleX = Graph.util.hypo(this.props.a, this.props.b),
-                scaleY = Graph.util.hypo(this.props.c, this.props.d),
-                radian = Graph.util.rad(skewX);
-
-            if (this.determinant() < 0) {
-                scaleX = -scaleX;
-            }
-
-            return {
-                x: this.props.e,
-                y: this.props.f,
-                dx: (this.props.e * cosSkewX + this.props.f *  sinSkewX) / scaleX,
-                dy: (this.props.f * cosSkewX + this.props.e * -sinSkewX) / scaleY,
-                skewX: -skewX,
-                skewY: 180 / Math.PI * Math.atan2(py.y, py.x),
-                scaleX: scaleX,
-                scaleY: scaleY,
-                rotate: skewX,
-                rad: radian,
-                sin: Math.sin(radian),
-                cos: Math.cos(radian),
-                a: this.props.a,
-                b: this.props.b,
-                c: this.props.c,
-                d: this.props.d,
-                e: this.props.e,
-                f: this.props.f
-            };
-        },
-
-        /**
-         * Convert to `matrix(...)` toString
-         */
-        toString: function() {
-            var array = [
-                this.get('a'),
-                this.get('b'),
-                this.get('c'),
-                this.get('d'),
-                this.get('e'),
-                this.get('f')
-            ];
-
-            return 'matrix(' + _.join(array, ',') + ')';
-        },
-
-        toFilter: function() {
-            return "progid:DXImageTransform.Microsoft.Matrix(" + 
-               "M11=" + this.get('a') + ", " + 
-               "M12=" + this.get('c') + ", " + 
-               "M21=" + this.get('b') + ", " + 
-               "M22=" + this.get('d') + ", " + 
-               "Dx="  + this.get('e') + ", " + 
-               "Dy="  + this.get('f') + ", " + 
-               "sizingmethod='auto expand'"  + 
-            ")";
-        },
-
-        toArray: function() {
-            return [
-                [this.get('a'), this.get('c'), this.get('e')], 
-                [this.get('b'), this.get('d'), this.get('f')], 
+    Matrix.prototype.multiply = function(a, b, c, d, e, f) {
+        var 
+            result = [[], [], []],
+            source = [
+                [this.props.a, this.props.c, this.props.e], 
+                [this.props.b, this.props.d, this.props.f], 
+                [0, 0, 1]
+            ],
+            matrix = [
+                [a, c, e], 
+                [b, d, f], 
                 [0, 0, 1]
             ];
-        },
 
-        clone: function() {
-            return new Matrix(
-                this.props.a, 
-                this.props.b, 
-                this.props.c, 
-                this.props.d, 
-                this.props.e, 
-                this.props.f
-            );
+        var x, y, z, tmp;
+
+        if (Graph.isMatrix(a)) {
+            matrix = [
+                [a.props.a, a.props.c, a.props.e], 
+                [a.props.b, a.props.d, a.props.f], 
+                [0, 0, 1]
+            ];
         }
 
-    });
+        for (x = 0; x < 3; x++) {
+            for (y = 0; y < 3; y++) {
+                tmp = 0;
+                for (z = 0; z < 3; z++) {
+                    tmp += source[x][z] * matrix[z][y];
+                }
+                result[x][y] = tmp;
+            }
+        }
 
-    ///////// STATIC /////////
-    
-    Graph.lang.Matrix.toString = function() {
-        return "function(a, b, c, d, e, f)";
+        this.props.a = result[0][0];
+        this.props.b = result[1][0];
+        this.props.c = result[0][1];
+        this.props.d = result[1][1];
+        this.props.e = result[0][2];
+        this.props.f = result[1][2];
+
+        return this;
+    };
+
+    Matrix.prototype.invert = function(clone) {
+        var x = this.props.a * this.props.d - this.props.b * this.props.c;
+        var a, b, c, d, e, f;
+
+        clone = _.defaultTo(clone, false);
+
+        a =  this.props.d / x;
+        b = -this.props.b / x;
+        c = -this.props.c / x;
+        d =  this.props.a / x;
+        e = (this.props.c * this.props.f - this.props.d * this.props.e) / x;
+        f = (this.props.b * this.props.e - this.props.a * this.props.f) / x;
+
+        if (clone) {
+            return new Graph.matrix(a, b, c, d, e, f);
+        } else {
+            this.props.a = a;
+            this.props.b = b;
+            this.props.c = c;
+            this.props.d = d;
+            this.props.e = e;
+            this.props.f = f;    
+
+            return this;
+        }
+    };
+
+    Matrix.prototype.translate = function(x, y) {
+        x = _.defaultTo(x, 0);
+        y = _.defaultTo(y, 0);
+        this.multiply(1, 0, 0, 1, x, y);
+
+        return this;
+    };
+
+    Matrix.prototype.rotate = function(angle, cx, cy) {
+        if (angle === undefined) {
+            
+            var px = this.delta(0, 1),
+                py = this.delta(1, 0),
+                deg = 180 / Math.PI * Math.atan2(px.y, px.x) - 90,
+                rad = Graph.util.rad(deg);
+
+            return {
+                deg: deg,
+                rad: rad
+            };
+        }
+
+        angle = Graph.util.rad(angle);
+        cx = _.defaultTo(cx, 0);
+        cy = _.defaultTo(cy, 0);
+
+        var cos = +Math.cos(angle).toFixed(9),
+            sin = +Math.sin(angle).toFixed(9);
+
+        this.multiply(cos, sin, -sin, cos, cx, cy);
+        this.multiply(1, 0, 0, 1, -cx, -cy);
+
+        return this;
+    };
+
+    Matrix.prototype.scale = function(sx, sy, cx, cy) {
+        if (sx === undefined) {
+            var prop = this.props,
+                sx = Graph.util.hypo(prop.a, prop.b),
+                sy = Graph.util.hypo(prop.c, prop.d);
+
+            if (this.determinant() < 0) {
+                sx = -sx;
+            }
+
+            return {
+                x: sx,
+                y: sy
+            };
+        }
+
+        sy = _.defaultTo(sy, sx);
+
+        if (cx || cy) {
+            cx = _.defaultTo(cx, 0);
+            cy = _.defaultTo(cy, 0);
+        }
+
+        (cx || cy) && this.multiply(1, 0, 0, 1, cx, cy);
+        this.multiply(sx, 0, 0, sy, 0, 0);
+        (cx || cy) && this.multiply(1, 0, 0, 1, -cx, -cy);
+        
+        return this;
+    };
+        
+    Matrix.prototype.determinant = function() {
+        return this.props.a * this.props.d - this.props.b * this.props.c;
+    };
+
+    Matrix.prototype.delta = function(x, y) {
+        return {
+            x: x * this.props.a + y * this.props.c + 0,
+            y: x * this.props.b + y * this.props.d + 0
+        };
+    };
+
+    Matrix.prototype.data = function() {
+        var px = this.delta(0, 1),
+            py = this.delta(1, 0),
+            skewX = 180 / Math.PI * Math.atan2(px.y, px.x) - 90,
+            radSkewX = Graph.util.rad(skewX),
+            cosSkewX = Math.cos(radSkewX),
+            sinSkewX = Math.sin(radSkewX),
+            scaleX = Graph.util.hypo(this.props.a, this.props.b),
+            scaleY = Graph.util.hypo(this.props.c, this.props.d),
+            radian = Graph.util.rad(skewX);
+
+        if (this.determinant() < 0) {
+            scaleX = -scaleX;
+        }
+
+        return {
+            x: this.props.e,
+            y: this.props.f,
+            dx: (this.props.e * cosSkewX + this.props.f *  sinSkewX) / scaleX,
+            dy: (this.props.f * cosSkewX + this.props.e * -sinSkewX) / scaleY,
+            skewX: -skewX,
+            skewY: 180 / Math.PI * Math.atan2(py.y, py.x),
+            scaleX: scaleX,
+            scaleY: scaleY,
+            rotate: skewX,
+            rad: radian,
+            sin: Math.sin(radian),
+            cos: Math.cos(radian),
+            a: this.props.a,
+            b: this.props.b,
+            c: this.props.c,
+            d: this.props.d,
+            e: this.props.e,
+            f: this.props.f
+        };
+    };
+
+    Matrix.prototype.toFilter = function() {
+        return "progid:DXImageTransform.Microsoft.Matrix(" + 
+           "M11=" + this.get('a') + ", " + 
+           "M12=" + this.get('c') + ", " + 
+           "M21=" + this.get('b') + ", " + 
+           "M22=" + this.get('d') + ", " + 
+           "Dx="  + this.get('e') + ", " + 
+           "Dy="  + this.get('f') + ", " + 
+           "sizingmethod='auto expand'"  + 
+        ")";
+    };
+
+    Matrix.prototype.toArray = function() {
+        return [
+            [this.get('a'), this.get('c'), this.get('e')], 
+            [this.get('b'), this.get('d'), this.get('f')], 
+            [0, 0, 1]
+        ];
+    };
+
+    Matrix.prototype.toValue = function() {
+        return _.format(
+            'matrix({0},{1},{2},{3},{4},{5})',
+            this.get('a'),
+            this.get('b'),
+            this.get('c'),
+            this.get('d'),
+            this.get('e'),
+            this.get('f')
+        );
+    };
+
+    Matrix.prototype.toString = function() {
+        return 'Graph.lang.Matrix';
     };  
 
+    Matrix.prototype.clone = function() {
+        return new Matrix(
+            this.props.a, 
+            this.props.b, 
+            this.props.c, 
+            this.props.d, 
+            this.props.e, 
+            this.props.f
+        );
+    };
+
     ///////// EXTENSION /////////
-    
+
     Graph.isMatrix = function(obj) {
         return obj instanceof Graph.lang.Matrix;
     };
@@ -4064,15 +4203,15 @@
 
 (function(){
 
-    var Collection = Graph.collection.Point = function(items) {
-        this.items = items || [];
+    var Collection = Graph.collection.Point = function(points) {
+        this.items = points || [];
     };
 
     Collection.prototype.constructor = Collection;
     Collection.prototype.items = [];
 
-    Collection.prototype.nth = function(index) {
-        return _.nth(this.items, index);
+    Collection.prototype.get = function(index) {
+        return this.items[index];
     };
 
     Collection.prototype.push = function(item) {
@@ -4129,7 +4268,7 @@
 (function(){
 
     var Collection = Graph.collection.Vector = Graph.extend({
-
+        
         items: [],
 
         constructor: function(vectors) {
@@ -4164,47 +4303,50 @@
         
         push: function(vector) {
             var id = vector.guid();
-
             this.items.push(id);
-            this.fire('push', {vector: vector});
-
-            return this;
+            return this.items.length;
         },
 
         pop: function() {
-            this.items.pop();
+            var id = this.items.pop();
+            return Graph.registry.vector.get(id);
         },
 
         shift: function() {
-            this.items.shift();
+            var id = this.items.shift();
+            return Graph.registry.vector.get(id);
         },
 
         unshift: function(vector) {
             var id = vector.guid();
-
             this.items.unshift(id);
-            this.fire('unshift', {vector: vector});
+        },
 
-            return this;
+        insert: function(vector, offset) {
+            if (offset === -1) {
+                offset = 0;
+            }
+            this.items.splice(offset, 0, vector.guid());
         },
 
         pull: function(vector) {
             var id = vector.guid();
-
             _.pull(this.items, id);
-            this.fire('pull', {vector: vector});
-
-            return this;
         },
 
         clear: function() {
             this.items = [];
         },
 
-        each: function(handler) {
+        reverse: function() {
+            this.items.reverse();
+            return this;
+        },
+
+        each: function(iteratee) {
             _.forEach(this.items, function(id){
                 var vector = Graph.registry.vector.get(id);
-                handler.call(vector, vector);
+                iteratee.call(vector, vector);
             });
         },
         
@@ -4269,6 +4411,172 @@
     
 }());
 
+(function(){
+
+    var Collection = Graph.collection.Shape = Graph.extend({
+        
+        items: [],
+
+        constructor: function(shapes) {
+            this.items = shapes || [];
+        },
+
+        count: function() {
+            return this.items.length;
+        },
+
+        index: function(shape) {
+            var id = shape.guid();
+            return _.indexOf(this.items, id);
+        },
+
+        has: function(shape) {
+            var id = shape.guid();
+            return _.indexOf(this.items, id) !== -1;
+        },
+        
+        push: function(shape) {
+            var id = shape.guid();
+            this.items.push(id);
+            return this.items.length;
+        },
+
+        pop: function() {
+            var id = this.items.pop();
+            return Graph.registry.shape.get(id);
+        },
+
+        shift: function() {
+            var id = this.items.shift();
+            return Graph.registry.shape.get(id);
+        },
+
+        unshift: function(shape) {
+            this.items.unshift(shape);
+            return shape;
+        },
+
+        pull: function(shape) {
+            var id = shape.guid();
+            _.pull(this.items, id);
+        },
+
+        last: function() {
+            return _.last(this.items);
+        },
+
+        each: function(iteratee) {
+            var me = this;
+            _.forEach(me.items, function(id, i){
+                var shape = Graph.registry.shape.get(id);
+                if (shape) {
+                    iteratee.call(shape, shape, i);
+                }
+            });
+        },
+
+        toString: function() {
+            return 'Graph.collection.Shape';
+        }
+    });
+
+    Graph.collection.Shape.toString = function() {
+        return 'function(shapes)';
+    };
+
+}());
+
+(function(){
+
+    var Tree = Graph.collection.Tree = function(nodes) {
+        var me = this;
+
+        me.nodes = nodes;
+        
+        me.key = function(node){ return node; };
+
+        me.bisect = _.bisector(function(node){ 
+            return me.key(node); 
+        }).left;
+    };
+
+    Tree.prototype.get = function(index) {
+        return this.nodes[index];
+    };
+
+    Tree.prototype.count = function() {
+        return this.nodes.length;
+    };
+
+    Tree.prototype.insert = function(node) {
+        var index = this.index(node),
+            value = this.key(node);
+
+        if (this.nodes[index] && value == this.key(this.nodes[index])) {
+            return;
+        }
+
+        this.nodes.splice(index, 0, node);
+
+        return index;
+    };
+
+    Tree.prototype.remove = function(node) {
+        var index = this.index(node);
+        this.nodes.splice(index, 1);
+        
+        return index;
+    };
+
+    Tree.prototype.keygen = function(keygen) {
+        this.key = keygen;
+        return this;
+    };
+
+    Tree.prototype.index = function(node) {
+        return this.bisect(this.nodes, this.key(node));
+    };
+
+    Tree.prototype.order = function() {
+        this.nodes.sort(_.ascendingKey(this.key));
+        return this;
+    };
+    
+    Tree.prototype.root = function() {
+        return this.nodes[0];
+    };
+    
+    Tree.prototype.cascade = function(node, iteratee) {
+        var index = this.index(node),
+            nodes = this.nodes,
+            count = this.nodes.length;
+        
+        var start = 0;
+        
+        for (var n = index; n < count; n++) {
+            iteratee(nodes[n], start);
+            start++;
+        }
+    };
+
+    Tree.prototype.bubble = function(node, iteratee) {
+        var index = this.index(node),
+            nodes = this.nodes;
+
+        var start = 0;
+
+        for (var n = index; n >= 0; n--) {
+            iteratee(nodes[n], start);
+            start++;
+        }
+    };
+
+    Tree.prototype.toArray = function() {
+        return this.nodes.slice();
+    };
+
+}());
+
 (function(_, $){
     
     var REGEX_SVG_BUILDER = /^<(svg|g|rect|text|path|line|tspan|circle|polygon|defs|marker)/i;
@@ -4290,6 +4598,13 @@
 
         query = _.defaultTo(query, false);
 
+        if (context !== undefined) {
+            if (Graph.isElement(context)) {
+                context = context.node();
+            }
+        }
+
+
         if (_.isString(selector)) {
             if (REGEX_SVG_BUILDER.test(selector)) {
                 if (domParser) {
@@ -4308,10 +4623,11 @@
                 element = query ? selector.query : selector.query[0];
             } else {
                 // document, window, ...etc
-                element = query ? $(selector) : selector;
+                element = query ? $(selector, context) : selector;
             }
         }
 
+        context = null;
         return element;
     };  
 
@@ -4320,10 +4636,14 @@
     };
 
     ///////// ELEMENT /////////
-    
-    var E = Graph.dom.Element = function(query) {
-        this.query = $(query);
+
+    var E = Graph.dom.Element = function(node) {
+        this.query = $(node);
     };
+
+    E.prototype.is = function(pseudo) {
+        return this.query.is(pseudo);
+    };  
 
     E.prototype.node = function() {
         return this.query[0];
@@ -4346,6 +4666,10 @@
     };
 
     E.prototype.attr = function(name, value) {
+        if (value === undefined) {
+            return this.query.attr(name);
+        }
+        
         var me = this, node = this.query[0];
 
         if (Graph.isHTML(node)) {
@@ -4420,12 +4744,14 @@
         if (Graph.isHTML(node)) {
             this.query.addClass(classes);
         } else if (Graph.isSVG(node)) {
-            var currentClasses = _.split(node.className.baseVal || '', ' ');
-            classes = _.split(classes, ' ');
-            classes = _.concat(currentClasses, classes);
-            classes = _.uniq(classes);
-            classes = _.join(classes, ' ');
-            node.className.baseVal = _.trim(classes);
+            var values = _.chain([])
+                .concat(_.split(node.className.baseVal || '', ' '))
+                .concat(_.split(classes, ' '))
+                .uniq()
+                .join(' ')
+                .trim()
+                .value();
+            node.className.baseVal = values;
         }
         return this;
     };
@@ -4464,7 +4790,11 @@
     };
 
     E.prototype.append = function(element) {
-        this.query.append(element.query);
+        if (element.query === undefined) {
+            this.query.append(element);
+        } else {
+            this.query.append(element.query);
+        }
         return this;
     };
 
@@ -4486,6 +4816,15 @@
     E.prototype.before = function(element) {
         this.query.before(element.query);
         return this;
+    };
+
+    E.prototype.after = function(element) {
+        this.query.after(element.query);
+        return this;
+    };
+    
+    E.prototype.last = function() {
+        return new Graph.dom.Element(this.query.last());
     };
 
     E.prototype.remove = function() {
@@ -4511,6 +4850,14 @@
 
     E.prototype.trigger = function(type, data) {
         this.query.trigger(type, data);
+        return this;
+    };
+
+    E.prototype.val = function(value) {
+        if (value === undefined) {
+            return this.query.val();
+        }
+        this.query.val(value);
         return this;
     };
 
@@ -4589,6 +4936,10 @@
     E.prototype.toString = function() {
         return 'Graph.dom.Element';
     };
+
+    /// STATICS ///
+    
+    E.guid = 0;
     
     /// HELPERS ///
 
@@ -4630,16 +4981,14 @@
         },
 
         attrs: {
-            // 'stroke': '#4A4D6E',
-            // 'stroke-width': 1,
-            // 'fill': 'none',
-            'style': '',
-            'class': ''
+            'style': null,
+            'class': null
         },
 
         plugins: {
             transformer: null,
             collector: null,
+            definer: null,
             animator: null,
             resizer: null,
             reactor: null,
@@ -4650,14 +4999,13 @@
             sorter: null,
             panzoom: null,
             toolmgr: null,
+            toolpad: null,
+            snapper: null,
             editor: null
         },
 
         utils: {
-            collector: null,
-            spotlight: null,
-            definer: null,
-            toolpad: null
+            
         },
 
         graph: {
@@ -4675,29 +5023,30 @@
         elem: null,
 
         constructor: function(type, attrs) {
-            var me = this;
+            var me = this, guid;
 
             me.graph.matrix = Graph.matrix();
             me.tree.children = new Graph.collection.Vector();
             
-            me.tree.children.on({
-                push:    _.bind(me.onAppendChild, me),
-                pull:    _.bind(me.onRemoveChild, me),
-                unshift: _.bind(me.onPrependChild, me)
-            });
-
-            attrs = _.extend({
-                id: 'graph-vector-' + (++Vector.guid)
-            }, me.attrs, attrs || {});
+            guid  = 'graph-elem-' + (++Vector.guid);
+            attrs = _.extend({ id: guid }, me.attrs, attrs || {});
 
             me.elem = Graph.$(document.createElementNS(Graph.config.xmlns.svg, type));
             
+            if (attrs['class']) {
+                attrs['class'] = Graph.styles.VECTOR + ' ' + attrs['class'];
+            } else {
+                attrs['class'] = Graph.styles.VECTOR;
+            }
+
             // apply initial attributes
             me.attr(attrs);
 
-            me.props.guid = me.props.id = me.attrs.id; // Graph.uuid();
+            me.props.guid = me.props.id = guid; // Graph.uuid();
             me.props.type = type;
             
+            guid = null;
+
             me.elem.data(Graph.string.ID_VECTOR, me.props.guid);
 
             // me.plugins.history = new Graph.plugin.History(me);
@@ -4715,23 +5064,26 @@
             Graph.registry.vector.register(this);
         },
 
-        matrix: function(global) {
-            var matrix, ctm;
+        matrix: function() {
+            return this.graph.matrix;
+        },
 
-            global = _.defaultTo(global, false);
+        globalMatrix: function() {
+            var native = this.node().getCTM();
+            var matrix;
 
-            if (global) {
-                ctm = this.node().getCTM();
-                matrix = ctm ? Graph.matrix(
-                    ctm.a,
-                    ctm.b,
-                    ctm.c,
-                    ctm.d,
-                    ctm.e,
-                    ctm.f
-                ) : this.graph.matrix;
+            if (native) {
+                matrix = new Graph.lang.Matrix(
+                    native.a,
+                    native.b,
+                    native.c,
+                    native.d,
+                    native.e,
+                    native.f
+                );
+                native = null;
             } else {
-                matrix = this.graph.matrix;
+                matrix = this.matrix().clone();
             }
 
             return matrix;
@@ -4907,9 +5259,9 @@
         /**
          * Get or set sortable plugin
          */
-        sortable: function(config) {
+        sortable: function(options) {
             if ( ! this.plugins.sorter) {
-                this.plugins.sorter = new Graph.plugin.Sorter(this, config);
+                this.plugins.sorter = new Graph.plugin.Sorter(this, options);
             }
             return this.plugins.sorter;
         },
@@ -4917,9 +5269,11 @@
         /**
          * Get or set network plugin
          */
-        connectable: function(config) {
+        connectable: function(options) {
             if ( ! this.plugins.network) {
-                this.plugins.network = new Graph.plugin.Network(this, config);
+                this.plugins.network = new Graph.plugin.Network(this, options);
+            } else if (options) {
+                this.plugins.network.options(options);
             }
             return this.plugins.network;
         },
@@ -4978,18 +5332,16 @@
 
         snappable: function(options) {
             var me = this;
-            var enabled;
+            var enabled, snapper;
 
             if (_.isBoolean(options)) {
                 options = {
-                    vector: me,
-                    shield: me,
+                    context: me,
                     enabled: options
                 };
             } else {
                 options = _.extend({
-                    vector: me,
-                    shield: me,
+                    context: me,
                     enabled: true
                 }, options || {});
             }
@@ -4997,13 +5349,15 @@
             me.props.snappable = options.enabled;
 
             if (me.props.rendered) {
-                me.paper().snapping(options);
+                snapper = me.paper().plugins.snapper;
+                snapper.setup(me, options);
             } else {
                 me.on('render', function(){
-                    me.paper().snapping(options);
+                    snapper = me.paper().plugins.snapper;
+                    snapper.setup(me, options);
                 });
             }
-            
+
             return me;
         },
 
@@ -5140,16 +5494,12 @@
             return new Graph.lang.Path([]);
         },
 
-        vertices: function() {
-            return [];
-        },
-
-        dots: function(absolute) {
+        vertices: function(absolute) {
             var ma, pa, ps, dt;
 
             absolute = _.defaultTo(absolute, false);
 
-            ma = this.matrix(absolute);
+            ma = absolute ? this.globalMatrix() : this.matrix(),
             pa = this.pathinfo().transform(ma);
             ps = pa.segments;
             dt = [];
@@ -5164,14 +5514,6 @@
             });
 
             return dt;
-        },
-
-        dotval: function(x, y) {
-            var mat = this.graph.matrix;
-            return {
-                x: mat.x(x, y), 
-                y: mat.y(x, y)
-            };
         },
 
         dimension: function() {
@@ -5270,43 +5612,14 @@
 
             return new Graph.collection.Vector(vectors);
         },
-
-        holder: function() {
-            return this.isPaper()
-                ? Graph.$(this.node().parentNode) 
-                : Graph.$(this.paper().node().parentNode);
-        },
         
-        append: function(vector) {
-            var me = this;
-
-            if (_.isArray(vector)) {
-                _.forEach(vector, function(v){
-                    me.append(v);
-                });
-                return me;
-            }
-
-            if (_.isString(vector)) {
-                var clazz = Graph.svg[_.capitalize(vector)];
-                vector = Graph.factory(clazz, []);
-            }
-
-            vector.render(this, 'append');
-
-            return me;
-        },
-
-        prepend: function(vector) {
-            vector.render(this, 'prepend');
-            return vector;
-        },
-
-        render: function(container, method) {
+        render: function(container, method, sibling) {
             var me = this,
                 guid = me.guid(),
                 traversable = me.props.traversable;
             
+            var offset;
+
             if (me.props.rendered) {
                 return me;
             }
@@ -5327,8 +5640,38 @@
                 }
 
                 switch(method) {
+                    case 'before':
+
+                        if ( ! sibling) {
+                            throw Graph.error('vector.render(): Sibling vector is undefined')
+                        }
+
+                        sibling.elem.query.before(me.elem.query);
+
+                        if (traversable) {
+                            offset = container.children().index(sibling);
+                            container.children().insert(me, offset);
+                        }
+
+                        break;
+
+                    case 'after':
+
+                        if ( ! sibling) {
+                            throw Graph.error('vector.render(): Sibling vector is undefined')
+                        }
+
+                        sibling.elem.query.after(me.elem.query);
+
+                        if (traversable) {
+                            offset = container.children().index(sibling);
+                            container.children().insert(me, offset + 1);
+                        }
+
+                        break;
+
                     case 'append':
-                        container.elem.append(me.elem);
+                        container.elem.query.append(me.elem.query);
                         
                         if (traversable) {
                             container.children().push(me);
@@ -5337,7 +5680,7 @@
                         break;
 
                     case 'prepend':
-                        container.elem.prepend(me.elem);
+                        container.elem.query.prepend(me.elem.query);
 
                         if (traversable) {
                             container.children().unshift(me);
@@ -5348,6 +5691,7 @@
 
                 // broadcast
                 if (container.props.rendered) {
+                    
                     me.props.rendered = true;
                     me.fire('render');
 
@@ -5378,23 +5722,78 @@
             return this.tree.children;
         },
 
-        ancestors: function() {
-            var me = this, ancestors = [], papa;
-            
-            while((papa = me.parent()) && ! papa.isPaper()) {
-                ancestors.push(papa);
-                papa = papa.parent();
+        attach: function(vector, method) {
+            if ( ! this.isContainer()) {
+                return this;
             }
+
+            method = _.defaultTo(method, 'append');
+
+            if ( ! vector.isRendered()) {
+                vector.render(this, method);
+            } else {
+                var container = this.isPaper() ? this.viewport() : this,
+                    traversable = vector.isTraversable();
+
+                if (traversable) {
+                    var parent = vector.parent();
+
+                    if (parent) {
+                        parent.children().pull(vector);
+                        vector.tree.parent = null;
+                    }
+                }
+
+                container.elem[method](vector.elem);
+
+                if (traversable) {
+                    switch(method) {
+                        case 'append':
+                            container.children().push(vector);
+                            break;
+                        case 'prepend':
+                            container.children().unshift(vector);
+                            break;
+                    }
+                    
+                    vector.tree.parent = this.guid();
+                }
+            }
+
+            return this;
+        },
+
+        detach: function() {
+            this.elem.detach();
+            return this;
+        },
+
+        append: function(vector) {
+            return this.attach(vector, 'append');
+        },
+
+        prepend: function(vector) {
+            return this.attach(vector, 'prepend');
+        },
+        
+        ancestors: function() {
+            var ancestors = [], guid = this.guid();
+
+            this.bubble(function(curr){
+                if (curr.guid() != guid) {
+                    ancestors.push(curr);
+                }
+            });
 
             return new Graph.collection.Vector(ancestors);
         },
 
         descendants: function() {
-            var me = this, descendants = [];
-            
-            me.cascade(function(v){
-                if (v !== me) {
-                    descendants.push(v);
+            var descendants = [], guid = this.guid();
+
+            this.cascade(function(curr){
+                if (curr.guid() != guid) {
+                    descendants.push(curr);
                 }
             });
 
@@ -5432,8 +5831,8 @@
         remove: function() {
             var parent = this.parent();
 
-            if (this.$collector) {
-                this.$collector.decollect(this);
+            if (this.lasso) {
+                this.lasso.decollect(this);
             }
 
             // destroy plugins
@@ -5455,15 +5854,18 @@
             
             Graph.registry.vector.unregister(this);
             
+            // last chance
             this.fire('remove');
+            
+            this.listeners = null;
         },
 
         empty: function() {
-            var me = this;
+            var guid = this.guid();
 
-            me.cascade(function(c){
-                if (c !== me) {
-                    Graph.registry.vector.unregister(c);    
+            this.cascade(function(curr){
+                if (curr.guid() != guid) {
+                    Graph.registry.vector.unregister(curr);
                 }
             });
 
@@ -5473,36 +5875,31 @@
             return this;
         },
 
-        select: function() {
+        select: function(batch) {
             this.addClass('graph-selected');
             this.props.selected = true;
-            this.fire('select');
 
-            // invoke core plugins to increase performance
-            if (this.plugins.resizer) {
-                this.plugins.resizer.resume();
+            batch = _.defaultTo(batch, false);
+            this.fire('select', {batch: batch});
+
+            if ( ! batch) {
+                if (this.plugins.resizer) {
+                    this.plugins.resizer.resume();
+                }
             }
-
-            // publish
-            Graph.topic.publish('vector/select', {vector: this});
 
             return this;
         },
 
-        deselect: function() {
+        deselect: function(batch) {
             this.removeClass('graph-selected');
             this.props.selected = false;
-            this.fire('deselect');
 
-            // invoke core plugins to increase performance
+            batch = _.defaultTo(batch, false);
+            this.fire('deselect', {batch: batch});
+
             if (this.plugins.resizer) {
-                if ( ! this.plugins.resizer.props.suspended) {
-                    this.plugins.resizer.suspend();
-                }
-            }
-
-            if ( ! this.$collector) {
-                Graph.topic.publish('vector/deselect', {vector: this});
+                this.plugins.resizer.suspend();
             }
 
             return this;
@@ -5518,7 +5915,7 @@
 
         scale: function(sx, sy, cx, cy) {
             if (sx === undefined) {
-                return this.matrix(true).scale();
+                return this.globalMatrix().scale();
             }
             return this.plugins.transformer.scale(sx, sy, cx, cy);
         },
@@ -5540,28 +5937,7 @@
             return this;
         },
 
-        /**
-         * Difference matrix between local and global
-         */
-        deltaMatrix: function() {
-            
-        },
-
-        backward: function() {
-            var papa = this.parent();
-            if (papa) {
-                papa.elem.prepend(this.elem);
-            }
-        },
-
-        forward: function() {
-            var papa = this.parent();
-            if (papa) {
-                papa.elem.append(this.elem);
-            }
-        },
-
-        front: function() {
+        sendToFront: function() {
             if ( ! this.tree.paper) {
                 return this;
             }
@@ -5569,7 +5945,7 @@
             return this;
         },  
 
-        back: function() {
+        sendToBack: function() {
             if ( ! this.tree.paper) {
                 return this;
             }
@@ -5577,20 +5953,13 @@
             return this;
         },
 
-        focus: function(state) {
-            var paper = this.paper(), timer;
-            if (paper && paper.utils.spotlight) {
-                state = _.defaultTo(state, true);
-                timer = _.delay(function(vector, state){
-                    clearTimeout(timer);
-                    paper.utils.spotlight.focus(vector, state);
-                }, 0, this, state);
-            }
-        },
-
         resize: function(sx, sy, cx, cy, dx, dy) {
             return this;
         },
+
+        isContainer: function() {
+            return this.isGroup() || this.isPaper();
+        },  
 
         isGroup: function() {
             return this.props.type == 'g';
@@ -5657,8 +6026,8 @@
             // forward event
             this.fire(e);
 
-            if (this.$collector) {
-                this.$collector.syncDragStart(this, e);
+            if (this.lasso) {
+                this.lasso.syncDragStart(this, e);
             }
 
             // invoke core plugins
@@ -5675,8 +6044,8 @@
             // forward event
             this.fire(e);
 
-            if (this.$collector) {
-                this.$collector.syncDragMove(this, e);
+            if (this.lasso) {
+                this.lasso.syncDragMove(this, e);
             }
         },
 
@@ -5688,11 +6057,6 @@
             // publish
             Graph.topic.publish('vector/dragend', e);
 
-            if (this.$collector) {
-                this.$collector.syncDragEnd(this, e);
-            }
-
-            // invoke plugins
             if (this.plugins.resizer) {
                 this.plugins.resizer.resume();
                 if ( ! this.props.selected) {
@@ -5700,6 +6064,9 @@
                 }
             }
 
+            if (this.lasso) {
+                this.lasso.syncDragEnd(this, e);
+            }
         },
 
         onDropperEnter: function(e) {
@@ -5718,7 +6085,7 @@
 
             // invoke core plugins
             if (this.plugins.dragger) {
-                var rotate = this.matrix(true).rotate();
+                var rotate = this.globalMatrix().rotate();
                 this.plugins.dragger.rotate(rotate.deg);
             }
         },
@@ -5736,7 +6103,7 @@
             this.fire('scale', {sx: e.sx, sy: e.sy});
 
             if (this.plugins.dragger) {
-                var scale = this.matrix(true).scale();
+                var scale = this.globalMatrix().scale();
                 this.plugins.dragger.scale(scale.x, scale.y);
             }
         },
@@ -5749,21 +6116,6 @@
         onDeactivateTool: function(e) {
             var data = e.originalData
             this.fire('deactivatetool', data);
-        },
-
-        onAppendChild: function(e) {
-            // forward
-            this.fire('appendchild', {child: e.vector});
-        },
-
-        onRemoveChild: function(e) {
-            // forward
-            this.fire('removechild', {child: e.vector});
-        },
-
-        onPrependChild: function(e) {
-            // forwad
-            this.fire('prependchild', {child: e.vector});
         }
 
     });
@@ -5785,13 +6137,15 @@
     
     function cascade(vector, handler) {
         var child = vector.children().toArray();
+        var result; 
 
-        handler.call(vector, vector);
-        
-        if (child.length) {
-            _.forEach(child, function(c){
-                cascade(c, handler);
-            });    
+        result = handler.call(vector, vector);
+        result = _.defaultTo(result, true);
+
+        if (result && child.length) {
+            _.forEach(child, function(curr){
+                cascade(curr, handler);
+            });
         }
     }
 
@@ -5803,7 +6157,7 @@
         result = _.defaultTo(result, true);
         
         if (result && parent) {
-            return bubble(parent, handler);
+            bubble(parent, handler);
         }
     }
 
@@ -5826,14 +6180,7 @@
 (function(){
 
     Graph.svg.Ellipse = Graph.extend(Graph.svg.Vector, {
-        attrs: {
-            // 'stroke': '#696B8A',
-            // 'stroke-width': 1,
-            // 'fill': '#ffffff',
-            // 'style': '',
-            'class': Graph.string.CLS_VECTOR_ELLIPSE
-        },
-
+        
         constructor: function(cx, cy, rx, ry) {
             
             // this.$super('ellipse', {
@@ -5934,14 +6281,6 @@
 (function(){
 
     Graph.svg.Circle = Graph.extend(Graph.svg.Vector, {
-
-        attrs: {
-            // 'stroke': '#696B8A',
-            // 'stroke-width': 1,
-            // 'fill': '#ffffff',
-            'style': '',
-            'class': Graph.string.CLS_VECTOR_CIRCLE
-        },
         
         constructor: function(cx, cy, r) {
             var me = this;
@@ -6054,16 +6393,7 @@
 (function(){
 
     Graph.svg.Rect = Graph.extend(Graph.svg.Vector, {
-
-        attrs: {
-            // 'stroke': '#333333',
-            // 'stroke-width': 1,
-            // 'fill': '#ffffff',
-            'style': '',
-            // 'shape-rendering': 'crispEdges',
-            'class': Graph.string.CLS_VECTOR_RECT
-        },
-
+        
         constructor: function(x, y, width, height, r) {
             var me = this;
             r = _.defaultTo(r, 6);
@@ -6191,25 +6521,17 @@
 
     Graph.svg.Path = Graph.extend(Graph.svg.Vector, {
 
-        attrs: {
-            // 'stroke': '#696B8A',
-            // 'stroke-width': 1,
-            // 'fill': 'none',
-            'style': '',
-            'class': Graph.string.CLS_VECTOR_PATH
-        },
-
         constructor: function(d) {
             if ( ! d) {
                 d = [['M', 0, 0]];
             }
 
             if (_.isArray(d)) {
-                d = Graph.path(Graph.util.segments2path(d)).absolute().toString();
+                d = Graph.path(Graph.util.segments2path(d)).absolute().toValue();
             } else if (d instanceof Graph.lang.Path) {
-                d = d.toString();
+                d = d.toValue();
             } else {
-                d = Graph.path(d).absolute().toString();
+                d = Graph.path(d).absolute().toValue();
             }
 
             this.superclass.prototype.constructor.call(this, 'path', {
@@ -6373,14 +6695,7 @@
 (function(){
 
     Graph.svg.Polyline = Graph.extend(Graph.svg.Vector, {
-        attrs: {
-            // 'stroke': '#696B8A',
-            // 'stroke-width': 1,
-            // 'fill': '#ffffff',
-            'style': '',
-            'class': Graph.string.CLS_VECTOR_POLYLINE
-        },
-
+        
         constructor: function(points) {
             points = _.defaultTo(points, '');
 
@@ -6432,14 +6747,6 @@
 
     Graph.svg.Polygon = Graph.extend(Graph.svg.Vector, {
         
-        attrs: {
-            // 'stroke': '#696B8A',
-            // 'stroke-width': 1,
-            // 'fill': '#ffffff',
-            'style': '',
-            'class': Graph.string.CLS_VECTOR_POLYGON
-        },
-
         constructor: function(points) {
             points = _.defaultTo(points, '');
             
@@ -6560,13 +6867,13 @@
 
             if (x !== undefined && y !== undefined) {
                 this.graph.matrix.translate(x, y);
-                this.attr('transform', this.graph.matrix.toString());
+                this.attr('transform', this.graph.matrix.toValue());
             }
         },
 
         pathinfo: function() {
             var size = this.dimension();
-
+            
             return new Graph.lang.Path([
                 ['M', size.x, size.y], 
                 ['l', size.width, 0], 
@@ -6595,13 +6902,7 @@
     Graph.svg.Text = Graph.extend(Graph.svg.Vector, {
         
         attrs: {
-            // 'stroke': '#000000',
-            // 'stroke-width': .05,
-            // 'fill': '#000000',
-            // 'font-size': '12px',
-            // 'font-family': 'Arial',
-            'text-anchor': 'middle',
-            'class': Graph.string.CLS_VECTOR_TEXT
+            'text-anchor': 'middle'
         },  
 
         props: {
@@ -6633,8 +6934,7 @@
             });
 
             this.attr({
-                'font-size': Graph.config.font.size,
-                'font-family': Graph.config.font.family
+                'font-size': Graph.config.font.size
             });
 
             if (text) {
@@ -6665,7 +6965,7 @@
 
             me.empty();
             me.rows = [];
-
+            
             _.forEach(parts, function(t, i){
                 me.addSpan(t);
             });
@@ -6676,7 +6976,7 @@
 
         addSpan: function(text) {
             var me = this, span;
-
+    
             text = _.defaultTo(text, '');
 
             span = Graph.$('<tspan/>');
@@ -6696,7 +6996,7 @@
                 size = this.props.fontSize,
                 line = this.props.lineHeight,
                 bbox = this.bbox().toJson();
-
+            
             if (rows.length) {
                 for (var i = 0, ii = rows.length; i < ii; i++) {
                     if (i) {
@@ -6730,6 +7030,7 @@
             var word, span;
 
             this.empty();
+            this.rows = [];
 
             span = this.addSpan();
             span.attr({
@@ -6758,7 +7059,7 @@
         center: function(target) {
             if (target) {
                 var targetBox = target.bbox().toJson(),
-                    matrix = this.graph.matrix.data();
+                    rotate = this.matrix().rotate();
 
                 var textBox, dx, dy, cx, cy;
 
@@ -6771,8 +7072,8 @@
                 cx = textBox.x + textBox.width / 2;
                 cy = textBox.y + textBox.height / 2;
 
-                if (matrix.rotate) {
-                    this.translate(dx, dy).rotate(matrix.rotate).commit();
+                if (rotate.deg) {
+                    this.translate(dx, dy).rotate(rotate.deg).commit();
                 } else {
                     this.translate(dx, dy).commit();
                 }
@@ -6816,8 +7117,7 @@
     Graph.svg.Image = Graph.extend(Graph.svg.Vector, {
 
         attrs: {
-            preserveAspectRatio: 'none',
-            class: Graph.string.CLS_VECTOR_IMAGE
+            preserveAspectRatio: 'none'
         },
 
         constructor: function(src, x, y, width, height) {
@@ -6914,7 +7214,7 @@
         
         resize: function(sx, sy, cx, cy, dx, dy) {
             var ms = this.graph.matrix.clone().scale(sx, sy, cx, cy),
-                ro = this.graph.matrix.data().rotate;
+                ro = this.graph.matrix.rotate();
 
             this.reset();
 
@@ -6954,14 +7254,7 @@
 (function(){
 
     Graph.svg.Line = Graph.extend(Graph.svg.Vector, {
-
-        attrs: {
-            // 'stroke': '#696B8A',
-            // 'stroke-width': 1,
-            // 'stroke-linecap': 'butt',
-            'class': Graph.string.CLS_VECTOR_LINE
-        },
-
+        
         constructor: function(x1, y1, x2, y2) {
             var args = _.toArray(arguments);
 
@@ -7024,9 +7317,9 @@
      */
 
     var Paper = Graph.svg.Paper = Graph.extend(Graph.svg.Vector, {
-
+        
         attrs: {
-            'class': Graph.string.CLS_VECTOR_SVG
+            'class': Graph.styles.PAPER
         },
 
         props: {
@@ -7052,7 +7345,7 @@
 
         constructor: function(width, height, options) {
             var me = this;
-
+            
             me.superclass.prototype.constructor.call(me, 'svg', {
                 'xmlns': Graph.config.xmlns.svg,
                 'xmlns:link': Graph.config.xmlns.xlink,
@@ -7076,19 +7369,17 @@
 
             me.plugins.linker = new Graph.plugin.Linker(me);
             me.plugins.toolmgr.register('linker', 'plugin');
-
+            
             me.plugins.pencil = new Graph.plugin.Pencil(me);
             me.plugins.definer = new Graph.plugin.Definer(me);
-
-            me.plugins.snapper = new Graph.plugin.Snapper(me);
-
-            me.utils.spotlight = new Graph.util.Spotlight(me);
-            me.utils.toolpad = new Graph.util.Toolpad(me);
             
+            me.plugins.snapper = new Graph.plugin.Snapper(me);
+            me.plugins.toolpad = new Graph.plugin.Toolpad(me);
+
             me.on('pointerdown', _.bind(me.onPointerDown, me));
             me.on('keynavdown', _.bind(me.onKeynavDown, me));
             me.on('keynavup', _.bind(me.onKeynavUp, me));
-
+            
             // subscribe topics
             Graph.topic.subscribe('link/update', _.bind(me.listenLinkUpdate, me));
             Graph.topic.subscribe('link/remove', _.bind(me.listenLinkRemove, me));
@@ -7098,7 +7389,7 @@
         initLayout: function() {
             // create viewport
             var viewport = (new Graph.svg.Group())
-                .addClass(Graph.string.CLS_VECTOR_VIEWPORT)
+                .addClass(Graph.styles.VIEWPORT)
                 .selectable(false);
 
             viewport.props.viewport = true;
@@ -7108,8 +7399,8 @@
             if (this.props.showOrigin) {
                 var origin = Graph.$(
                     '<g class="graph-origin">' + 
-                        '<rect class="x" rx="1" ry="1" x="-16" y="-2" height="2" width="30"></rect>' + 
-                        '<rect class="y" rx="1" ry="1" x="-2" y="-16" height="30" width="2"></rect>' + 
+                        '<rect class="x" rx="1" ry="1" x="-16" y="-1" height="1" width="30"></rect>' + 
+                        '<rect class="y" rx="1" ry="1" x="-1" y="-16" height="30" width="1"></rect>' + 
                         '<text class="t" x="-40" y="-10">(0, 0)</text>' + 
                     '</g>'
                 );
@@ -7143,7 +7434,7 @@
 
             if (options === undefined) {
                 return viewport.graph.layout;
-            }1
+            }
             
             viewport.layout(options);
             return this;
@@ -7201,6 +7492,20 @@
             return this.tree.container;
         },
 
+        selections: function() {
+            return this.plugins.collector.selections;
+        },
+
+        removeSelection: function() {
+            var selections = this.plugins.collector.collection;
+            
+            for (var v, i = selections.length - 1; i >= 0; i--) {
+                v = selections[i];
+                selections.splice(i, 1);
+                v.remove();
+            }
+        },
+
         viewport: function() {
             return Graph.registry.vector.get(this.components.viewport);
         },
@@ -7213,17 +7518,12 @@
             return this.plugins.transformer.scale(sx, sy, cx, cy);
         },
 
-        snapping: function(options) {
-            if (Graph.isVector(options)) {
-                options = {
-                    vector: options,
-                    shield: options,
-                    enabled: true
-                };
-            }
+        width: function() {
+            return this.elem.width();
+        },
 
-            var snapper = this.plugins.snapper;
-            snapper.subscribe(options);
+        height: function() {
+            return this.elem.height();
         },
 
         connect: function(source, target, start, end, options) {
@@ -7237,8 +7537,8 @@
                 }
             }
 
-            source = Graph.isShape(source) ? source.hub() : source;
-            target = Graph.isShape(target) ? target.hub() : target;
+            source = Graph.isShape(source) ? source.provider('network') : source;
+            target = Graph.isShape(target) ? target.provider('network') : target;
             layout = this.layout();
             router = layout.createRouter(source, target, options);
             
@@ -7248,6 +7548,14 @@
             link.render(this);
 
             return link;
+        },
+        
+        addPallet: function(pallet) {
+            pallet.bindPaper(this);
+        },
+        
+        removePallet: function(pallet) {
+            pallet.unbindPaper(this);
         },
 
         parse: function(json) {
@@ -7274,6 +7582,12 @@
             alert('save');
         },
 
+        diagram: function(diagram) {
+            if (diagram !== undefined) {
+
+            }
+        },
+
         toString: function() {
             return 'Graph.svg.Paper';
         },
@@ -7281,12 +7595,7 @@
         ///////// OBSERVERS /////////
         
         onPointerDown: function(e) {
-            if (e.target === this.node()) {
-                var tool = this.tool().current();
-                if (tool != 'collector') {
-                    this.tool().activate('panzoom');    
-                }
-            }
+
         },
 
         onKeynavDown: function(e) {
@@ -7294,16 +7603,7 @@
 
             switch(key) {
                 case Graph.event.DELETE:
-
-                    var selections = me.plugins.collector.collection;
-                    
-                    for (var v, i = selections.length - 1; i >= 0; i--) {
-                        if ((v = selections[i])) {
-                            v.remove();
-                            selections.splice(i, 1);
-                        }
-                    }
-
+                    me.removeSelection();
                     e.preventDefault();
                     break;
 
@@ -7332,6 +7632,11 @@
             var exporter = new Graph.data.Exporter(this);
             exporter.exportPNG(filename);
             exporter = null;
+        },
+        
+        saveAsBlob: function(callback) {
+            var exporter = new Graph.data.Exporter(this);
+            return exporter.exportBlob(callback);
         },
 
         /**
@@ -7375,8 +7680,7 @@
         group: 'Group',
         text: 'Text',
         image: 'Image',
-        line: 'Line',
-        connector: 'Connector'
+        line: 'Line'
     };
 
     _.forOwn(vectors, function(name, method){
@@ -7482,6 +7786,16 @@
             return storage[key];
         },
 
+        collect: function(scope) {
+            var vectors = [];
+            for (var id in context) {
+                if (context[id] == scope && storage[id]) {
+                    vectors.push(storage[id]);
+                }
+            }
+            return vectors;
+        },
+
         wipe: function(paper) {
             var pid = paper.guid();
 
@@ -7551,8 +7865,12 @@
             return _.keys(storage).length;
         },
 
+        has: function(key) {
+            return storage[key] !== undefined;
+        },  
+
         get: function(key) {
-            if (_.isUndefined(key)) {
+            if (key === undefined) {
                 return this.toArray();
             }
 
@@ -7645,6 +7963,8 @@
                 key = Graph.$(key).data(Graph.string.ID_SHAPE);
             } else if (key instanceof Graph.dom.Element) {
                 key = key.data(Graph.string.ID_SHAPE);
+            } else if (key instanceof Graph.svg.Vector) {
+                key = key.elem.data(Graph.string.ID_SHAPE);
             }
             return storage[key];
         },
@@ -7696,6 +8016,10 @@
             return Graph.registry.vector.get(this.props.view);
         },
 
+        paper: function() {
+            return this.view().paper();
+        },
+
         offset: function() {
             var offset = this.cached.offset;
             var view, node;
@@ -7710,24 +8034,70 @@
             return offset;
         },
 
-        invalidate: function() {
-            this.cached.offset = null;
+        center: function() {
+            var center = this.cached.center;
+
+            if ( ! center) {
+                var offset = this.offset();
+
+                center = {
+                    x: offset.width / 2,
+                    y: offset.height / 2
+                };
+
+                this.cached.center = _.extend({}, center);
+            }
+
+            return center;
+        },
+
+        scale: function() {
+            return this.view().matrix().scale();
         },
 
         width: function() {
+            var view, bbox, width;
 
+            view = this.view();
+
+            if (view.isViewport()) {
+                width = this.paper().width();
+            } else {
+                bbox  = view.bbox();
+                width = bbox.width();
+            }
+
+            view = bbox = null;
+            return width;
         },
 
         height: function() {
-            
+            var view, bbox, height;
+
+            view = this.view();
+
+            if (view.isViewport()) {
+                height = this.paper().height();
+            } else {
+                bbox   = view.bbox();
+                height = bbox.height();
+            }
+
+            view = bbox = null;
+            return height;
         },
-
-        fit: function() {
-
+        
+        invalidate: function() {
+            this.cached.offset = null;
+            this.cached.center = null;
         },
 
         grabVector: function(event) {
             return Graph.registry.vector.get(event.target);
+        },
+
+        grabLink: function(event) {
+            return Graph.registry.link.get(event.target);
         },
 
         grabLocation: function(event) {
@@ -7748,10 +8118,6 @@
             matrix = invert = null;
 
             return location;
-        },
-
-        currentScale: function() {
-            return this.view().matrix().scale();
         },
 
         dragSnapping: function() {
@@ -8025,6 +8391,11 @@
         repair: function(component, port) {
             
         },
+
+        reset: function() {
+            this.invalidate();
+            this.values.waypoints = null;
+        },
         
         relocate: function(dx, dy) {
             _.forEach(this.values.waypoints, function(p){
@@ -8035,6 +8406,8 @@
             this.commit();
             return this;
         },
+
+
 
         ///////// ROUTER TRANS /////////
 
@@ -8059,14 +8432,16 @@
         },
 
         destroy: function() {
-            for (var key in this.cached) {
-                this.cached[key] = null;
-            }
+            this.reset();
         }
         
     });
     
-    ///////// HELPERS /////////
+    ///////// STATICS /////////
+    
+    Router.toString = function() {
+        return 'function(domain, source, target, options)';
+    };
     
     Router.portCentering = function(port, center, axis) {
         if (axis == 'x') {
@@ -8675,6 +9050,12 @@
         
     });
 
+    ///////// STATICS /////////
+    
+    Graph.router.Directed.toString = function() {
+        return 'function(domain, source, target, options)';
+    };
+
 }());
 
 (function(){
@@ -8750,9 +9131,9 @@
                 srcnet = source.connectable(),
                 tarnet = target.connectable(),
                 srcbox = srcnet.bbox(),
-                sbound = srcbox.data(),
+                sbound = srcbox.toJson(),
                 tarbox = tarnet.bbox(),
-                tbound = tarbox.data(),
+                tbound = tarbox.toJson(),
                 orient = srcnet.orientation(tarnet),
                 direct = srcnet.direction(tarnet),
                 tuneup  = false;
@@ -9412,6 +9793,12 @@
 
     });
 
+    ///////// STATICS /////////
+    
+    Graph.router.Orthogonal.toString = function() {
+        return 'function(domain, source, target, options)';
+    };
+
 }());
 
 (function(){
@@ -9428,7 +9815,8 @@
             labelX: null,
             labelY: null,
             source: null,
-            target: null
+            target: null,
+            connected: false
         },
 
         components: {
@@ -9451,6 +9839,10 @@
         },
         
         router: null,
+        
+        metadata: {
+            icon: Graph.icons.SHAPE_LINK
+        },
 
         constructor: function(router, options) {
             options = _.extend({
@@ -9463,6 +9855,8 @@
             this.router = router;
 
             this.initComponent();
+            this.initMetadata();
+            
             this.bindResource('source', router.source());
             this.bindResource('target', router.target());
 
@@ -9483,9 +9877,7 @@
             block.elem.data(Graph.string.ID_LINK, this.props.guid);
 
             coat = (new Graph.svg.Path())
-                .removeClass(Graph.string.CLS_VECTOR_PATH)
                 .addClass('graph-link-coat')
-                // .selectable(false)
                 .render(block);
 
             coat.data('text', this.props.label);
@@ -9493,8 +9885,8 @@
 
             coat.draggable({
                 ghost: true,
-                single: false,
-                manual: true
+                manual: true,
+                batchSync: false
             });
             
             coat.editable({
@@ -9503,6 +9895,7 @@
                 offset: 'pointer'
             });
 
+            coat.on('pointerdown.link', _.bind(this.onCoatClick, this));
             coat.on('select.link', _.bind(this.onCoatSelect, this));
             coat.on('deselect.link', _.bind(this.onCoatDeselect, this));
             coat.on('dragstart.link', _.bind(this.onCoatDragStart, this));
@@ -9512,7 +9905,6 @@
             coat.on('remove.link', _.bind(this.onCoatRemove, this));
 
             path = (new Graph.svg.Path())
-                .removeClass(Graph.string.CLS_VECTOR_PATH)
                 .addClass('graph-link-path')
                 .selectable(false)
                 .clickable(false)
@@ -9524,7 +9916,6 @@
             label = (new Graph.svg.Text(0, 0, ''))
                 .addClass('graph-link-label')
                 .selectable(false)
-                // .attr('text-anchor', 'left')
                 .render(block);
             
             label.draggable({ghost: true});
@@ -9547,9 +9938,34 @@
             comp.editor = editor.guid();
         },
         
-        bindResource: function(type, resource) {
-            var router = this.router,
-                existing = this.props[type],
+        initMetadata: function() {
+            this.metadata.tools = [
+                {
+                    name: 'sendtofront',
+                    icon: Graph.icons.SEND_TO_FRONT,
+                    title: Graph._('Send to front'),
+                    enabled: true,
+                    handler: _.bind(this.onFrontToolClick, this)
+                },
+                {
+                    name: 'sendtoback',
+                    icon: Graph.icons.SEND_TO_BACK,
+                    title: Graph._('Send to back'),
+                    enabled: true,
+                    handler: _.bind(this.onBackToolClick, this)
+                },
+                {
+                    name: 'trash', 
+                    icon: Graph.icons.TRASH, 
+                    title: Graph._('Click to remove link'), 
+                    enabled: true,
+                    handler: _.bind(this.onTrashToolClick, this)
+                }
+            ];
+        },
+        
+        unbindResource: function(type) {
+            var existing = this.props[type],
                 handlers = this.handlers[type];
             
             if (existing && handlers) {
@@ -9564,8 +9980,19 @@
                 }
             }
             
+            handlers = null;
+            
+            return this;
+        },
+        
+        bindResource: function(type, resource) {
+            var router = this.router,
+                handlers = this.handlers[type];
+            
+            this.unbindResource(type, resource);
+            
             handlers = {};
-
+    
             handlers.resize    = _.bind(getHandler(this, type, 'resize'), this);
             handlers.rotate    = _.bind(getHandler(this, type, 'rotate'), this);
             handlers.dragstart = _.bind(getHandler(this, type, 'dragstart'), this, _, resource);
@@ -9597,6 +10024,14 @@
 
         bindTarget: function(target) {
             return this.bindResource('target', target);
+        },
+        
+        unbindSource: function(source) {
+            return this.unbindResource('source');
+        },
+        
+        unbindTarget: function(target) {
+            return this.unbindResource('target');
         },
 
         component: function(name) {
@@ -9630,7 +10065,35 @@
         },
 
         connect: function(/*start, end*/) {
+            // already connected ?
+            if (this.props.connected) {
+                return;
+            }
+            
             this.router.route();
+
+            var source = this.router.source(),
+                target = this.router.target();
+
+            source.connectable().addLink(this, 'outgoing', target);
+            target.connectable().addLink(this, 'incoming', source);
+
+            this.props.connected = true;
+        },
+
+        disconnect: function() {
+            // already disconnected ?
+            if ( ! this.props.connected) {
+                return;
+            }
+            
+            // unbind resource
+            // this.unbindResource('source');
+            // sthis.unbindResource('target');
+            
+            this.props.connected = false;
+            this.router.reset();
+            this.update(this.router.command());
         },
         
         update: function(command, silent) {
@@ -9668,7 +10131,7 @@
                 var label = this.component('label'),
                     bound = label.bbox().toJson(),
                     distance = this.props.labelDistance || .5,
-                    scale = this.router.layout().currentScale(),
+                    scale = this.router.layout().scale(),
                     path = this.router.pathinfo(),
                     dots = path.pointAt(distance * path.length(), true),
                     align = Graph.util.pointAlign(dots.start, dots.end, 10);
@@ -9723,17 +10186,26 @@
             return this;
         },
 
-        select: function() {
+        select: function(batch) {
             this.props.selected = true;
             this.component('block').addClass('selected');
-            this.sendToFront();
-            this.resumeControl();
+            
+            if ( ! batch) {
+                //this.sendToFront();
+                this.resumeControl();
+
+                Graph.topic.publish('link/select', {link: this});
+            }
         },
 
-        deselect: function() {
+        deselect: function(batch) {
             this.props.selected = false;
             this.component('block').removeClass('selected');
-            this.suspendControl();
+
+            if ( ! batch) {
+                this.suspendControl();
+                Graph.topic.publish('link/deselect', {link: this});    
+            }
         },
         
         renderControl: function() {
@@ -9758,6 +10230,64 @@
         sendToFront: function() {
             var container = this.component().parent();
             this.component().elem.appendTo(container.elem);
+        },
+
+        remove: function() {
+            var me = this;
+            var prop;
+            
+            // disconnect first
+            this.disconnect();
+            
+            // remove from source & target
+            var source = this.router.source(),
+                target = this.router.target();
+            
+            source.connectable().removeLink(this);
+            target.connectable().removeLink(this);
+            
+            // remove label
+            me.component('label').remove();
+
+            // remove vertexs
+            if (me.cached.controls) {
+                _.forEach(me.cached.controls, function(id){
+                    var c = Graph.registry.vector.get(id);
+                    c && c.remove();
+                });
+                me.cached.controls = null;
+            }
+
+            // remove editor
+            me.component('editor').remove();
+
+            // remove path
+            me.component('path').remove();
+
+            // remove block
+            me.component('block').remove();
+            
+            for (prop in me.components) {
+                me.components[prop] = null;
+            }
+
+            // unbind resource
+            this.unbindSource();
+            this.unbindTarget();
+
+            // clear cache
+            for (prop in me.cached) {
+                me.cached[prop] = null;
+            }
+
+            me.router.destroy();
+            me.router = null;
+
+            // unregister
+            Graph.registry.link.unregister(me);
+            
+            // publish
+            Graph.topic.publish('link/remove');
         },
 
         toString: function() {
@@ -9828,12 +10358,19 @@
             this.label(e.text, e.left, e.top);
         },
 
+        onCoatClick: function(e) {
+            var paper = this.component('coat').paper();
+            if (paper.state() == 'linking') {
+                paper.tool().activate('panzoom');
+            }
+        },
+
         onCoatSelect: function(e) {
-            this.select();
+            this.select(e.batch);
         },
 
         onCoatDeselect: function(e) {
-            this.deselect();
+            this.deselect(e.batch);
         },
 
         onCoatDragStart: function(e) {
@@ -9848,7 +10385,7 @@
         },
 
         onCoatRemove: function(e) {
-            this.destroy();
+            this.remove();
         },
 
         ///////// OBSERVERS /////////
@@ -9858,8 +10395,9 @@
         },
 
         onSourceDragstart: function(e, source) {
-            var lasso = this.component('coat').$collector;
-            if ( ! source.$collector) {
+            var lasso = this.component('coat').lasso;
+            
+            if ( ! source.lasso) {
                 if (lasso) {
                     lasso.decollect(this.component('coat'));
                 }
@@ -9874,22 +10412,25 @@
         },
 
         onSourceDragend: function(e) {
-            var lasso = this.component('coat').$collector;
+            var lasso = this.component('coat').lasso;
             if ( ! lasso) {
                 var port = this.router.tail();
-                port.x += e.dx;
-                port.y += e.dy;
-                this.router.repair(this.router.source(), port);
+                if (port) {
+                    port.x += e.dx;
+                    port.y += e.dy;
+                    this.router.repair(this.router.source(), port);
+                }
             }
         },
 
         onSourceResize: function(e) {
             var port = this.router.tail();
+            if (port) {
+                port.x += e.translate.dx;
+                port.y += e.translate.dy;
             
-            port.x += e.translate.dx;
-            port.y += e.translate.dy;
-            
-            this.router.repair(this.router.source(), port);
+                this.router.repair(this.router.source(), port);
+            }
         },
 
         onTargetRotate: function() {
@@ -9897,9 +10438,9 @@
         },
 
         onTargetDragstart: function(e, target) {
-            var lasso = this.component('coat').$collector;
+            var lasso = this.component('coat').lasso;
 
-            if ( ! target.$collector) {
+            if ( ! target.lasso) {
                 if (lasso) {
                     lasso.decollect(this.component('coat'));
                 }
@@ -9914,84 +10455,42 @@
         },
 
         onTargetDragend: function(e) {
-            var lasso = this.component('coat').$collector;
+            var lasso = this.component('coat').lasso;
             if ( ! lasso) {
                 var port = this.router.head();
-                port.x += e.dx;
-                port.y += e.dy;
+                if (port) {
+                    port.x += e.dx;
+                    port.y += e.dy;
                     
-                this.router.repair(this.router.target(), port);
+                    this.router.repair(this.router.target(), port);
+                }
             }
         },
 
         onTargetResize: function(e) {
             var port = this.router.head();
+            if (port) {
+                port.x += e.translate.dx;
+                port.y += e.translate.dy;
+                
+                this.router.repair(this.router.target(), port);
+            }
+        },
+        
+        onTrashToolClick: function(e) {
+            this.component('coat').remove();
+        },
+
+        onFrontToolClick: function(e) {
+            this.sendToFront();
+        },
+
+        onBackToolClick: function(e) {
             
-            port.x += e.translate.dx;
-            port.y += e.translate.dy;
-            
-            this.router.repair(this.router.target(), port);
         },
 
         destroy: function() {
-            var me = this;
-            var prop;
-
-            // remove label
-            me.component('label').remove();
-
-            // remove vertexs
-            if (me.cached.controls) {
-                _.forEach(me.cached.controls, function(id){
-                    var c = Graph.registry.vector.get(id);
-                    c && c.remove();
-                });
-                me.cached.controls = null;
-            }
-
-            // remove editor
-            me.component('editor').remove();
-
-            // remove path
-            me.component('path').remove();
-
-            // remove block
-            me.component('block').remove();
             
-            for (prop in me.components) {
-                me.components[prop] = null;
-            }
-
-            // unbind resource
-            _.forEach(['source', 'target'], function(res){
-                var handlers = me.handlers[res],
-                    resource = me.router[res]();
-                
-                var key, ns;
-
-                if (handlers && resource) {
-                    for (key in handlers) {
-                        ns = key + '.link';
-                        resource.off(ns, handlers[key]);
-                    }
-                }
-                
-                handlers = null;
-            });
-
-            // clear cache
-            for (prop in me.cached) {
-                me.cached[prop] = null;
-            }
-
-            me.router.destroy();
-            me.router = null;
-
-            // unregister
-            Graph.registry.link.unregister(me);
-            
-            // publish
-            Graph.topic.publish('link/remove');
         }
 
     });
@@ -9999,6 +10498,10 @@
     ///////// STATICS /////////
     
     Link.guid = 0;
+
+    Link.toString = function() {
+        return 'function(router, options)';
+    };
 
     ///////// HELPERS /////////
     
@@ -10044,13 +10547,13 @@
                 ));
                 
                 control.selectable(false);
-                control.removeClass(Graph.string.CLS_VECTOR_IMAGE);
+                control.removeClass(Graph.styles.VECTOR);
                 
                 if (i === 0) {
-                    control.addClass(Graph.string.CLS_LINK_TAIL);
+                    control.addClass(Graph.styles.LINK_TAIL);
                     control.elem.data('pole', 'tail');
                 } else if (i === maxlen) {
-                    control.addClass(Graph.string.CLS_LINK_HEAD);
+                    control.addClass(Graph.styles.LINK_HEAD);
                     control.elem.data('pole', 'head');
                 }
                 
@@ -10101,6 +10604,13 @@
         onControlStart: function(e, context, control) {
             this.router.initTrans(context);
             
+            if (context.trans == 'CONNECT') {
+                var paper = this.component().paper();
+                if (paper) {
+                    paper.addClass('linking');
+                }
+            }
+
             var snaphor = context.snap.hor,
                 snapver = context.snap.ver;
             
@@ -10158,12 +10668,26 @@
         
         onControlEnd: function(e, context, control) {
             this.router.stopTrans(context);
+
+            if (context.trans == 'CONNECT') {
+                var paper = this.component().paper();
+                if (paper) {
+                    paper.removeClass('linking');
+                }
+            }
+
             this.update(this.router.command());
             this.invalidate();
             this.resumeControl();
         }
 
     });
+
+    ///////// STATICS /////////
+    
+    Graph.link.Directed.toString = function() {
+        return 'function(router, options)';
+    };
 
 }());
 
@@ -10180,8 +10704,13 @@
             smooth = this.props.smooth;
             
             if (convex) {
-                
-                routes = this.router.waypoints().slice();
+                var points = this.router.waypoints();
+
+                if ( ! points) {
+                    return;
+                }
+
+                routes = points.slice();
                 maxlen = routes.length - 1;
 
                 segments = [];
@@ -10255,17 +10784,19 @@
                 
             }
 
-            this.component('coat').attr('d', command).dirty(true);
-            this.component('path').attr('d', command);
-            
-            this.invalidate();
-            
-            if ( ! silent) {
+            if (command) {
+                this.component('coat').attr('d', command).dirty(true);
+                this.component('path').attr('d', command);
                 
-                this.redraw();
+                this.invalidate();
                 
-                this.fire('update');
-                Graph.topic.publish('link/update');
+                if ( ! silent) {
+                    
+                    this.redraw();
+                    
+                    this.fire('update');
+                    Graph.topic.publish('link/update');
+                }
             }
         },
         
@@ -10297,7 +10828,7 @@
                 ));
                 
                 control.selectable(false);
-                control.removeClass(Graph.string.CLS_VECTOR_IMAGE);
+                control.removeClass(Graph.styles.VECTOR);
                 control.elem.group('graph-link');
                 control.elem.data(Graph.string.ID_LINK, linkid);
                 
@@ -10306,10 +10837,10 @@
                 cursor = 'default';
                 
                 if (i === 0) {
-                    control.addClass(Graph.string.CLS_LINK_TAIL);
+                    control.addClass(Graph.styles.LINK_TAIL);
                     control.elem.data('pole', 'tail');
                 } else if (i === maxlen) {
-                    control.addClass(Graph.string.CLS_LINK_HEAD);
+                    control.addClass(Graph.styles.LINK_HEAD);
                     control.elem.data('pole', 'head');
                 } else {
                     align  = Graph.util.pointAlign(dot.start, dot.end);
@@ -10371,6 +10902,13 @@
             this.component('coat').cursor(context.cursor);
             this.router.initTrans(context);
             
+            if (context.trans == 'CONNECT') {
+                var paper = this.component().paper();
+                if (paper) {
+                    paper.addClass('linking');
+                }
+            }
+
             // snapping
             var snaphor = context.snap.hor,
                 snapver = context.snap.ver;
@@ -10434,6 +10972,14 @@
         onControlEnd: function(e, context, control) {
             this.component('coat').cursor('pointer');
             this.router.stopTrans(context);
+
+            if (context.trans == 'CONNECT') {
+                var paper = this.component().paper();
+                if (paper) {
+                    paper.removeClass('linking');
+                }
+            }
+
             this.update(this.router.command());
             this.invalidate();
             this.resumeControl();
@@ -10444,228 +10990,13 @@
         }
 
     });
+
+    ///////// STATICS /////////
     
-}());
-
-(function(){
-
-    Graph.util.Spotlight = Graph.extend({
-        props: {
-            suspended: true,
-            rendered: false
-        },
-        
-        components: {
-            G: null,
-            N: null,
-            E: null,
-            S: null,
-            W: null
-        },
-
-        paper: null,
-        
-        constructor: function(paper) {
-            var me = this, comp = me.components;
-
-            me.paper = paper;
-
-            comp.G = (new Graph.svg.Group())
-                .traversable(false)
-                .selectable(false)
-                .addClass('graph-util-spotlight');
-
-            _.forEach(['N', 'E', 'S', 'W'], function(name){
-                comp[name] = (new Graph.svg.Line(0, 0, 0, 0))
-                    .removeClass(Graph.string.CLS_VECTOR_LINE)
-                    .traversable(false)
-                    .selectable(false)
-                    .render(comp.G);
-            });
-
-            // paper.on('pointerdown', function(e){
-            //     var vector = Graph.registry.vector.get(e.target);
-            //     me.focus(vector);
-            // })
-        },
-        
-        component: function() {
-            return this.components.G;
-        },
-        
-        render: function() {
-            if (this.props.rendered) {
-                return;
-            }
-
-            this.components.G.render(this.paper);
-            this.props.rendered = true;
-        },
-
-        suspend: function() {
-            this.props.suspended = true;
-            this.components.G.elem.detach();
-            // this.components.G.removeClass('visible');
-        },
-
-        resume: function() {
-            this.props.suspended = false;
-
-            if ( ! this.props.rendered) {
-                this.render();
-            } else {
-                this.paper.viewport().elem.append(this.components.G.elem);
-                // this.components.G.addClass('visible');    
-            }
-        },
-
-        focus: function(target, state) {
-            state = _.defaultTo(state, true);
-
-            if ( ! state) {
-                this.suspend();
-                return;
-            }
-
-            var tbox = target.bbox().toJson(),
-                dots = target.dots(true),
-                comp = this.components,
-                root = this.paper;
-
-            var x, y, h, w;
-
-            x = tbox.x,
-            y = tbox.y,
-            h = root.elem.height() || 0;
-            w = root.elem.width() || 0;
-
-            this.resume();
-
-            comp.W.attr({
-                x1: x,
-                y1: 0,
-                x2: x,
-                y2: h
-            });
-
-            comp.E.attr({
-                x1: x + tbox.width,
-                y1: 0,
-                x2: x + tbox.width,
-                y2: h
-            });
-
-            comp.N.attr({
-                x1: 0,
-                y1: y,
-                x2: w,
-                y2: y
-            });
-
-            comp.S.attr({
-                x1: 0,
-                y1: y + tbox.height,
-                x2: w,
-                y2: y + tbox.height
-            });
-        },
-        toString: function() {
-            return 'Graph.util.Spotlight';
-        }
-    });
-
-}());
-
-(function(){
-
-    Graph.util.Toolpad = Graph.extend({
-
-        props: {
-            vector: null,
-
-            rendered: false,
-            suspended: true,
-            
-            tools: [
-
-            ]
-        },
-
-        components: {
-            block: null
-        },
-
-        paper: null,
-
-        constructor: function(paper) {
-            this.paper = paper;
-            this.initComponent();
-
-            Graph.topic.subscribe('vector/select', _.bind(this.onVectorSelect, this));
-            Graph.topic.subscribe('vector/deselect', _.bind(this.onVectorDeselect, this));
-        },
-
-        initComponent: function() {
-            var comp = this.components;
-            comp.block = Graph.$('<div class="graph-util-toolpad">');
-        },
-
-        render: function() {
-            if (this.props.rendered) {
-                this.redraw();
-                return;
-            }
-
-            this.paper.container().append(this.components.block);
-            this.rendered = true;
-
-            this.redraw();
-        },
-
-        vector: function() {
-            return Graph.registry.vector.get(this.props.vector);
-        },
-
-        resume: function() {
-            this.props.suspended = false;
-
-            if ( ! this.props.rendered) {
-                this.render();
-            } else {
-                this.paper.container().append(this.components.block);
-            }
-
-            this.redraw();
-        },
-
-        redraw: function() {
-            var vector = this.vector(),
-                box = vector.bbox().toJson(),
-                pos = vector.position();
-
-            this.components.block.css({
-                top: pos.top,
-                left: pos.left + box.width + 12
-            });
-        },
-
-        suspend: function()  {
-            this.props.suspended = true;
-            this.components.block.detach();
-        },
-
-        onVectorSelect: function(e) {
-            // var vector = e.vector;
-            // this.props.vector = vector.guid();
-            // this.resume();
-        },
-
-        onVectorDeselect: function(e) {
-            // this.suspend();
-        }
-
-    });
-
+    Graph.link.Orthogonal.toString = function() {
+        return 'function(router, options)';
+    };
+    
 }());
 
 (function(){
@@ -10955,94 +11286,116 @@
     Graph.plugin.Plugin = Graph.extend({
 
         props: {
-            shield: null,
+            context: null,
             vector: null,
             activator: 'tool'
         },
 
         cached: {
-            bboxMatrix: null,
-            pathMatrix: null
+            path: null,
+            bbox: null
         },
 
+        /**
+         * Update options
+         */
+        options: function(options) {
+            options = options || {};
+
+            var context = _.defaultTo(options.context, this.vector()),
+                contextId = context.guid();
+
+            if (contextId != this.props.context) {
+                this.props.context = contextId;
+                this.cached.bbox = null;
+                this.cached.path = null;
+            }
+        },
+        
         vector: function() {
             return Graph.registry.vector.get(this.props.vector);
         },
 
-        shield: function() {
-            if (this.props.shield == this.props.vector) {
+        context: function() {
+            if (this.props.context == this.props.vector) {
                 return this.vector();
             }
-            return Graph.registry.vector.get(this.props.shield);
-        },
-
-        invalidate: function() {
-            this.cached.bboxMatrix = null;
-            this.cached.pathMatrix = null;
-        },
-
-        bboxMatrix: function() {
-            var matrix = this.cached.bboxMatrix;
-
-            if ( ! matrix) {
-                if (this.props.vector == this.props.shield) {
-                    matrix = this.vector().matrix().clone();
-                } else {
-                    matrix = this.shield().matrix().clone();
-                }
-
-                this.cached.bboxMatrix = matrix;
-            }
-            
-            return matrix;
+            return Graph.registry.vector.get(this.props.context);    
         },
         
-        pathMatrix: function() {
-            var matrix = this.cached.pathMatrix;
-
-            if ( ! matrix) {
-                matrix = Graph.matrix();
-
-                if (this.props.vector == this.props.shield) {
-                    matrix = matrix.multiply(this.vector().matrix());
-                } else {
-                    var shield = this.shield(),
-                        vector = this.vector();
-
-                    vector.bubble(function(curr){
-                        matrix.multiply(curr.matrix());
-                        if (curr == shield) {
-                            return false;
-                        }
-                    });
-                }
-                this.cached.pathMatrix = matrix;
-            }
-
-            return matrix;
+        invalidate: function() {
+            this.cached.path = null;
+            this.cached.bbox = null;
         },
 
         bbox: function() {
-            var matrix = this.bboxMatrix(),
-                path = this.vector().pathinfo().transform(matrix),
+            var bbox = this.cached.bbox;
+
+            if ( ! bbox) {
+                // TODO: grab outer matrix based on current context
+                var vector = this.vector(),
+                    path = vector.pathinfo();
+
+                var matrix, contextId;
+
+                if (this.props.context == this.props.vector) {
+                    matrix = vector.matrix();
+                } else {
+                    matrix = Graph.matrix();
+                    contextId = this.props.context;
+
+                    vector.bubble(function(curr){
+                        if (curr.guid() == contextId) {
+                            return false;
+                        }
+                        matrix.multiply(curr.matrix());
+                    });
+                }
+
+                // TODO: transform path based on calculated matrix
+                path = path.transform(matrix);
+                
                 bbox = path.bbox();
-            
-            matrix = path = null;
-            
-            return bbox;
+                this.cached.bbox = bbox;
+
+                matrix = path = null;
+            }
+
+            return bbox.clone();
         },
 
         pathinfo: function() {
-            var matrix = this.pathMatrix(),
-                path = this.vector().pathinfo().transform(matrix);
-            
-            matrix = null;
-            
-            return path;
-        },
+            var path = this.cached.path;
 
-        hasShield: function() {
-            return this.props.vector != this.props.shield;
+            if ( ! path) {
+                // TODO: grab outer matrix based on current context
+                var vector = this.vector(),
+                    path = vector.pathinfo();
+
+                var matrix, contextId;
+
+                if (this.props.context == this.props.vector) {
+                    matrix = vector.matrix();
+                } else {
+                    matrix = Graph.matrix();
+                    contextId = this.props.context;
+
+                    vector.bubble(function(curr){
+                        if (curr.guid() == contextId) {
+                            return false;
+                        }
+                        matrix.multiply(curr.matrix());
+                    });
+                }
+
+                // TODO: transform path
+                path = path.transform(matrix);
+                this.cached.path = path;
+
+                matrix = null;
+            }
+
+            return path.clone();
         },
 
         enable: function(activator) {},
@@ -11111,14 +11464,15 @@
 
 (function(){
     
+    // storages
+    var vendors = {};
+
     var Reactor = Graph.plugin.Reactor = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
             vector: null
         },
 
-        plugin: null,
-        
         navigationKeys: [
             Graph.event.ENTER,
             Graph.event.DELETE,
@@ -11128,43 +11482,54 @@
         ],
 
         constructor: function(vector, listeners) {
-            var me = this;
+            var me = this, 
+                node = vector.node(),
+                guid = vector.guid();
 
-            this.props.vector = vector.guid();
-            this.plugin = interact(vector.node());
-            this.listeners = listeners || {};
+            var vendor;
 
-            this.plugin.on('down', function(e){
-                e.originalType = 'pointerdown';
-                vector.fire(e);
+            me.props.vector = guid;
+            me.listeners = listeners || {};
+
+            vendor = vendors[guid] = interact(node);
+
+            vendor.on('down', function reactorDown(e){
+                if (e.target === node) {
+                    e.originalType = 'pointerdown';
+                    vector.fire(e);    
+                }
             }, true);
 
             vector.elem.on({
-                mouseenter: function(e) {
-                    e.type = 'pointerin'
-                    vector.fire(e);
-                },
-                mouseleave: function(e) {
-                    e.type = 'pointerout';
-                    vector.fire(e);
+                contextmenu: function(e) {
+                    if (e.currentTarget === node) {
+                        vector.fire(e);
+                        // e.preventDefault();
+                    }
                 }
             });
 
             if (vector.isPaper()) {
-                Graph.$(document).on('keydown', function(e){
-                    if (me.isNavigation(e)) {
+                var doc = Graph.$(document);
+
+                doc.on('keydown', function(e){
+                    if (me.isNavigation(e) && Graph.cached.paper == guid) {
                         e.originalType = 'keynavdown';
-                        vector.fire(e);    
+                        vector.fire(e); 
                     }
                 });
 
-                Graph.$(document).on('keyup', function(e){
-                    if (me.isNavigation(e)) {
+                doc.on('keyup', function(e){
+                    if (me.isNavigation(e) && Graph.cached.paper == guid) {
                         e.originalType = 'keynavup';
                         vector.fire(e);
                     }
                 });
+
+                doc = null;
             }
+
+            vendor = null;
         },
 
         isNavigation: function(e) {
@@ -11173,24 +11538,30 @@
         },
         
         vendor: function() {
-            return this.plugin;
+            return vendors[this.props.vector];
         },
 
         draggable: function(options) {
-            return this.plugin.draggable(options);
+            return this.vendor().draggable(options);
         },
 
         dropzone: function(options) {
-            return this.plugin.dropzone(options);
+            return this.vendor().dropzone(options);
         },
 
         gesturable: function(options) {
-            return this.plugin.gesturable(options);
+            return this.vendor().gesturable(options);
         },
 
         destroy: function() {
-            this.plugin.unset();
-            this.plugin = null;
+            var guid = this.props.vector,
+                vendor = vendors[guid];
+
+            if (vendor) {
+                vendor.unset();
+            }
+
+            delete vendors[guid];
         },
 
         toString: function() {
@@ -11381,7 +11752,7 @@
             }
             
             vector.graph.matrix = mat;
-            vector.attr('transform', mat);
+            vector.attr('transform', mat.toValue());
 
             if (events.translate) {
                 events.translate = {
@@ -11750,7 +12121,7 @@
 
                                     matrix = plugin.commit(false, true);
 
-                                    vector.attr('transform', matrix.toString());
+                                    vector.attr('transform', matrix.toValue());
 
 
                                     matrix = null;
@@ -11765,7 +12136,7 @@
                                         from[key].props.e + ease * time * delta[key].e,
                                         from[key].props.f + ease * time * delta[key].f
                                     );
-                                    vector.attr('transform', matrix.toString());
+                                    vector.attr('transform', matrix.toValue());
                                     matrix = null;
                                 }
 
@@ -11794,7 +12165,7 @@
                                     matrix = plugin.commit(false, true);
 
                                     vector.graph.matrix = matrix;
-                                    vector.attr('transform', matrix.toString());
+                                    vector.attr('transform', matrix.toValue());
                                     
                                     matrix = null;
                                     plugin = null;
@@ -11802,7 +12173,7 @@
                                     matrix = to[key].clone();
 
                                     vector.graph.matrix = matrix;
-                                    vector.attr('transform', matrix.toString());
+                                    vector.attr('transform', matrix.toValue());
 
                                     matrix = null;
                                 }
@@ -12167,7 +12538,7 @@
     Graph.plugin.Resizer = Graph.extend(Graph.plugin.Plugin, {
         
         props: {
-            shield: null,
+            context: null,
             vector: null,
             enabled: true,
             suspended: true,
@@ -12205,10 +12576,10 @@
             
             options = options || {};
 
-            if (options.shield) {
-                options.shield = options.shield.guid();
+            if (options.context) {
+                options.context = options.context.guid();
             } else {
-                options.shield = guid;
+                options.context = guid;
             }
 
             _.assign(me.props, options);
@@ -12216,7 +12587,6 @@
             vector.addClass('graph-resizable');
 
             me.props.handleImage = Graph.config.base + 'img/resize-control.png';
-
             me.props.vector = guid;
 
             me.cached.snapping = null;
@@ -12341,7 +12711,7 @@
                 // get original bounding
                 var path = vector.pathinfo(),
                     bbox = path.bbox().toJson(),
-                    rotate = vector.matrix(true).rotate();
+                    rotate = vector.globalMatrix().rotate();
 
                 var ro, cx, cy, ox, oy, hs, hw, hh;
 
@@ -12364,7 +12734,7 @@
                     path = path.transform(rmatrix);
                     bbox = path.bbox().toJson();
                 } else {
-                    if ( ! this.hasShield()) {
+                    if (this.props.context != this.props.vector) {
                         path = me.pathinfo();
                         bbox = path.bbox().toJson();
                     }
@@ -12700,27 +13070,23 @@
     Graph.plugin.Collector = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
-            x: 0,
-            y: 0,
-            x2: 0,
-            y2: 0,
-            dir: null,
-            top: 0,
-            left: 0,
-            width: 0,
-            height: 0,
-            offset: [0, 0],
             enabled: false,
             suspended: true,
             rendered: false,
-            activator: 'tool'
+            activator: 'tool',
+            ready: false
         },
 
         paper: null,
+
         collection: [],
 
         components: {
             rubber: null
+        },
+
+        collecting: {
+            
         },
 
         constructor: function(paper) {
@@ -12759,114 +13125,134 @@
         },
 
         setup: function() {
-            var me = this, paper = me.paper;
+            var me = this;
 
-            if (me.plugin) {
+            if (me.props.ready) {
                 return;
             }
-            // me.tree.container.on('scroll', function(){
-            //     var top = me.tree.container.scrollTop(),
-            //         left = me.tree.container.scrollLeft(),
-            //         dy = top - me.props.top,
-            //         dx = left - me.props.left;
 
-            //     me.props.height += dy;
-            //     me.props.width += dx;
+            me.props.ready = true;
 
-            //     me.props.top = top;
-            //     me.props.left = left;
-            // });
+            var collecting = me.collecting,
+                paper = me.paper,
+                layout = paper.layout(),
+                offset = layout.offset(),
+                rubber = me.components.rubber,
+                vendor = paper.interactable().vendor();
 
-            me.plugin = paper.interactable().draggable({
+            vendor.styleCursor(false);
+
+            vendor.draggable({
+
                 manualStart: true,
 
                 onstart: function(e) {
-                    me.reset();
-                    me.resize(0, 0);
 
-                    var offset = paper.tree.container.offset(),   
-                        x = e.pageX - offset.left,
-                        y = e.pageY - offset.top;
+                    _.assign(collecting, {
+                        start: {
+                            x: e.clientX,
+                            y: e.clientY,    
+                        },
+                        end: {
+                            x: e.clientX,
+                            y: e.clientY,    
+                        },
+                        bounds: {}
+                    });
 
-                    me.translate(x, y);
-                    me.props.offset = [x, y];
+                    rubber.query.css({
+                        width: 0,
+                        height: 0,
+                        transform: 'translate(' + (collecting.start.x - offset.left) + 'px, ' + (collecting.start.y - offset.top) + 'px)'   
+                    });
                 },
                 
                 onmove: function(e) {
-                    var dw = 0,
-                        dh = 0,
-                        dx = 0,
-                        dy = 0;
+                    var start = collecting.start,
+                        end = {
+                            x: e.clientX,
+                            y: e.clientY
+                        };
 
-                    if ( ! me.props.dir) {
-                        switch(true) {
-                            case (e.dx > 0 && e.dy > 0):
-                                me.props.dir = 'nw';
-                                break;
-                            case (e.dx < 0 && e.dy < 0):
-                                me.props.dir = 'se';
-                                break;
-                            case (e.dx < 0 && e.dy > 0):
-                                me.props.dir = 'ne';
-                                break;
-                            case (e.dx > 0 && e.dy < 0):
-                                me.props.dir = 'sw';
-                                break;
-                        }
+                    var bounds;
+
+                    if ((start.x <= end.x && start.y < end.y) || (start.x < end.x && start.y <= end.y)) {
+                        bounds = {
+                            x: start.x,
+                            y: start.y,
+                            width:  end.x - start.x,
+                            height: end.y - start.y
+                        };
+                    } else if ((start.x >= end.x && start.y < end.y) || (start.x > end.x && start.y <= end.y)) {
+                        bounds = {
+                            x: end.x,
+                            y: start.y,
+                            width:  start.x - end.x,
+                            height: end.y - start.y
+                        };
+                    } else if ((start.x <= end.x && start.y > end.y) || (start.x < end.x && start.y >= end.y)) {
+                        bounds = {
+                            x: start.x,
+                            y: end.y,
+                            width:  end.x - start.x,
+                            height: start.y - end.y
+                        };
+                    } else if ((start.x >= end.x && start.y > end.y) || (start.x > end.x && start.y >= end.y)) {
+                        bounds = {
+                            x: end.x,
+                            y: end.y,
+                            width:  start.x - end.x,
+                            height: start.y - end.y
+                        };
                     } else {
-                        switch(me.props.dir) {
-                            case 'nw':
-                                dw = e.dx;
-                                dh = e.dy;
-                                dx = 0;
-                                dy = 0;
-                                break;
-                            case 'ne':
-                                dw = -e.dx;
-                                dh =  e.dy;
-                                dx =  e.dx;
-                                dy =  0;
-                                break;
-                            case 'se':
-                                dw = -e.dx;
-                                dh = -e.dy;
-                                dx =  e.dx;
-                                dy =  e.dy;
-                                break;
-                            case 'sw':
-                                dw =  e.dx;
-                                dh = -e.dy;
-                                dx =  0;
-                                dy =  e.dy;
-                                break;
-                        }
-                        
-                        me.props.width  += dw;
-                        me.props.height += dh;
-
-                        if (me.props.width >= 0 && me.props.height >= 0) {
-                            me.translate(dx, dy); 
-                            me.resize(me.props.width, me.props.height);
-                        } else {
-                            me.props.width  -= dw;
-                            me.props.height -= dh;
-                        }
-                        
+                        bounds = {
+                            x: end.x,
+                            y: end.y,
+                            width:  0,
+                            height: 0
+                        };
                     }
+
+                    collecting.bounds = bounds;
+
+                    rubber.query.css({
+                        width:  bounds.width,
+                        height: bounds.height,
+                        transform: 'translate(' + (bounds.x - offset.left) + 'px,' + (bounds.y - offset.top) + 'px)'
+                    });
                 },
 
                 onend: function() {
-                    var bbox
+                    var context = paper.guid(),
+                        vectors = Graph.registry.vector.collect(context),
+                        bounds = collecting.bounds,
+                        scale = layout.scale();
 
-                    me.props.x2 = me.props.x + me.props.width;
-                    me.props.y2 = me.props.y + me.props.height;
+                    var start = layout.grabLocation({
+                        clientX: bounds.x, 
+                        clientY: bounds.y
+                    });
 
-                    bbox = me.bbox();
+                    var end = layout.grabLocation({
+                        clientX: bounds.x + bounds.width,
+                        clientY: bounds.y + bounds.height
+                    });
+
+                    var bbox = new Graph.lang.BBox({
+                        x: start.x,
+                        y: start.y,
+                        x2: end.x,
+                        y2: end.y,
+                        width: end.x - start.x,
+                        height: end.y - start.y
+                    });
+
+                    bbox.transform(paper.viewport().matrix());
                     
-                    paper.cascade(function(c){
-                        if (c !== paper && c.isSelectable() && ! c.isGroup()) {
-                            if (bbox.contains(c)) {
-                                me.collect(c);
+                    _.forEach(vectors, function(v){
+                        if (v.guid() != context && v.isSelectable() && ! v.isGroup()) {
+                            if (bbox.contains(v)) {
+                                me.collect(v, true);
                             }
                         }
                     });
@@ -12875,7 +13261,7 @@
                         paper.tool().activate('panzoom');    
                     }
 
-                    me.resize(0, 0);
+                    bbox = null;
                     me.suspend();
                 }
             })
@@ -12886,7 +13272,9 @@
                 if (vector) {
                     if ( ! vector.isSelectable()) {
                         if ( ! vector.elem.belong('graph-resizer') && ! vector.elem.belong('graph-link')) {
-                            single && me.clearCollection();    
+                            if (single) {
+                                me.clearCollection(); 
+                            }
                         }
                     }
                 }
@@ -12905,7 +13293,7 @@
                         me.clearCollection();
                     }
                     
-                    me.collect(vector);
+                    me.collect(vector, ! single);
                 }
 
             }, true)
@@ -12914,17 +13302,22 @@
 
                 if (me.props.enabled) {
                     if (i.pointerIsDown && ! i.interacting()) {
+
+                        var action = {name: 'drag'};
+
+                        // -- workaround for a bug in v1.2.6 of interact.js
+                        i.prepared.name = action.name;
+                        i.setEventXY(i.startCoords, i.pointers);
+
                         if (e.currentTarget === paper.node()) {
                             if (me.props.suspended) {
                                 me.resume();
                             }
-                            i.start({name: 'drag'}, e.interactable, me.components.rubber.node());        
+                            i.start(action, e.interactable, rubber.node());
                         }
                     }
                 }
             });
-
-            me.plugin.styleCursor(false);
         },
 
         render: function() {
@@ -12938,103 +13331,67 @@
             me.props.rendered = true;
         },
 
-        bbox: function() {
-            var props = this.props;
-            
-            return Graph.bbox({
-                x: props.x,
-                y: props.y,
-                x2: props.x2,
-                y2: props.y2,
-                width: props.width,
-                height: props.height
-            });
-        },
-
-        collect: function(vector, silent) {
+        collect: function(vector, batch) {
             var me = this, offset;
 
-            vector.$collector = this;
-            vector.select();
+            vector.lasso = this;
+            vector.batch = batch;
 
-            silent = _.defaultTo(silent, false);
+            vector.select(batch);
+
             offset = _.indexOf(this.collection, vector);
 
             if (offset === -1) {
                 this.collection.push(vector);
-                if ( ! silent) {
-                    vector.fire('collect');
-                }
             }
+
+            Graph.cached.paper = me.paper.guid();
         },
 
         decollect: function(vector) {
-            var offset;
+            var batch, offset;
             
-            vector.$collector = null;
-            vector.deselect();
+            batch = vector.batch;
+
+            delete vector.lasso;
+            delete vector.batch;
+
+            vector.deselect(batch);
 
             offset = _.indexOf(this.collection, vector);
 
             if (offset > -1) {
                 this.collection.splice(offset, 1);
-                vector.fire('decollect');
             }
         },
 
         clearCollection: function(except) {
-            var me = this;
-            me.paper.cascade(function(c){
-                if (c !== me.paper && c !== except && c.props.selected) {
-                    me.decollect(c);
+            var me = this, 
+                collection = me.collection.slice();
+
+            _.forEach(collection, function(v){
+                if (v !== except) {
+                    me.decollect(v);
                 }
             });
+
+            collection = null;
         },
 
         suspend: function() {
             this.props.suspended = true;
             this.components.rubber.detach();
-            // this.components.rubber.removeClass('visible');
         },
 
         resume: function() {
-            this.props.suspended = false;
-
-            if ( ! this.props.rendered) {
-                this.render();
-            } else {
-                this.paper.container().append(this.components.rubber);
-                // this.components.rubber.addClass('visible');
+            if (this.props.suspended) {
+                this.props.suspended = false;
+                if ( ! this.props.rendered) {
+                    this.render();
+                } else {
+                    this.paper.container().append(this.components.rubber);
+                }
             }
-        },
-
-        reset: function() {
-            var top = this.paper.container().scrollTop(),
-                left = this.paper.container().scrollLeft();
-
-            this.props.x = 0;
-            this.props.y = 0;
-            this.props.x2 = this.props.x,
-            this.props.y2 = this.props.y,
-            this.props.top = top;
-            this.props.left = left;
-            this.props.dir = null;
-            this.props.width = 0;
-            this.props.height = 0;
-            this.props.offset = [0, 0];
-        },
-
-        translate: function(dx, dy) {
-            this.props.x += dx;
-            this.props.y += dy;
-            
-            this.components.rubber.css({
-                transform: 'translate(' + this.props.x + 'px,' + this.props.y + 'px)'
-            });
-        },
-
-        resize: function(width, height) {
-            this.components.rubber.width(width).height(height);
         },
 
         syncDragStart: function(origin, e) {
@@ -13047,12 +13404,11 @@
                             sin = mat.sin,
                             cos = mat.cos;
 
-                        if (v.plugins.resizer) {
-                            v.plugins.resizer.redraw();
+                        if (v.plugins.resizer && ! v.plugins.resizer.suspended) {
                             v.plugins.resizer.suspend();
                         }
 
-                        if (v.plugins.dragger.components.helper) {
+                        if (v.plugins.dragger.props.ghost) {
                             v.plugins.dragger.resume();
                         }
 
@@ -13067,7 +13423,8 @@
                         
                         v.fire('dragstart', {
                             dx: e.dx *  cos + e.dy * sin,
-                            dy: e.dx * -sin + e.dy * cos
+                            dy: e.dx * -sin + e.dy * cos,
+                            batch: true
                         });
 
                     }());
@@ -13086,7 +13443,7 @@
                         var dx = e.ox *  v.syncdrag.cos + e.oy * v.syncdrag.sin,
                             dy = e.ox * -v.syncdrag.sin + e.oy * v.syncdrag.cos;
 
-                        if (v.plugins.dragger.components.helper) {
+                        if (v.plugins.dragger.props.ghost) {
                             v.plugins.dragger.helper().translate(e.ox, e.oy).commit();
                         } else {
                             v.translate(dx, dy).commit();
@@ -13097,7 +13454,8 @@
 
                         v.fire('dragmove', {
                             dx: dx,
-                            dy: dy
+                            dy: dy,
+                            batch: true
                         });
 
                     }(v, e));    
@@ -13109,30 +13467,27 @@
         syncDragEnd: function(origin, e) {
             var me = this;
 
-            _.forEach(me.collection, function(v){
+            _.forEach(me.collection, function(v, i){
                 if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== origin) {
                     (function(v, e){
-                        var manual = v.plugins.dragger.props.manual,
-                            helper = v.plugins.dragger.components.helper;
+                        var batchSync = v.plugins.dragger.props.batchSync,
+                            ghost = v.plugins.dragger.props.ghost;
 
-                        if (helper) {
-                            if ( ! manual) {
+                        if (ghost) {
+                            if (batchSync) {
                                 v.translate(v.syncdrag.tdx, v.syncdrag.tdy).commit();    
                             }
                             v.plugins.dragger.suspend();
                         }
                         
-                        if ( ! manual) {
+                        if ( ! batchSync) {
                             v.dirty(true);    
-                        }
-
-                        if (v.plugins.resizer) {
-                            v.plugins.resizer.resume();
                         }
 
                         v.fire('dragend', {
                             dx: v.syncdrag.tdx,
-                            dy: v.syncdrag.tdy
+                            dy: v.syncdrag.tdy,
+                            batch: true
                         });
                         
                         v.removeClass('dragging');
@@ -13174,7 +13529,7 @@
                     tool.activate('panzoom');
                 }
             }
-        }
+        }   
 
     });
 
@@ -13185,8 +13540,9 @@
     Graph.plugin.Dragger = Graph.extend(Graph.plugin.Plugin, {
         
         props: {
+            ready: false,
             manual: false,
-            single: true,
+            
             ghost: false,
             vector: null,
             enabled: true,
@@ -13194,11 +13550,14 @@
             suspended: true,
             inertia: false,
             bound: false,
-            // grid: [1, 1],
             grid: null,
             axis: false,
             cursor: 'move',
-            snappable: false
+
+            dragClass: '',
+
+            // batching operation
+            batchSync: true
         },
 
         rotation: {
@@ -13275,13 +13634,19 @@
                     .traversable(false)
                     .selectable(false);
 
+                var style = 'graph-dragger-helper' + (me.props.dragClass ? ' ' + me.props.dragClass : '');
+
                 helper = (new Graph.svg.Rect(0, 0, 0, 0, 0))
-                    .addClass('graph-dragger-helper')
+                    .addClass(style)
                     .removeClass('graph-elem graph-elem-rect')
                     .traversable(false)
                     .selectable(false)
                     .clickable(false)
                     .render(holder);
+
+                style = null;
+
+                helper.elem.data(Graph.string.ID_VECTOR, this.vector().guid());
 
                 comp.holder = holder.guid();
                 comp.helper = helper.guid();
@@ -13292,20 +13657,16 @@
         },
 
         setup: function() {
-            var me = this, 
-                vector = me.vector(),
-                paper = vector.paper(),
-                options = {};
+            var me, vector, vendor, paper, options;
 
-            if (me.plugin) {
+            if (this.props.ready) {
                 return;
             }
 
-            if (paper.utils.scroller) {
-                // options.autoScroll = {
-                //     container: paper.utils.scroller.node()
-                // };
-            }
+            me = this;
+            vector = me.vector();
+            paper = vector.paper();
+            options = {};
 
             _.extend(options, {
                 manualStart: true,
@@ -13314,23 +13675,23 @@
                 onend: _.bind(me.onDragEnd, me)
             });
 
-            var vendor = vector.interactable().vendor();
-            
+            vendor = vector.interactable().vendor();
             vendor.draggable(options);
             vendor.styleCursor(false);
 
             me.cached.origin   = vendor.origin();
             me.cached.snapping = [];
             
-            vendor.on('down', function(e){
+            vendor.on('down', function draggerDown(e){
                 e.preventDefault();
+                // e.stopPropagation();
             });
 
-            if (me.props.single) {
+            if ( ! me.props.manual) {
                 vendor.on('move', _.bind(me.onPointerMove, me, _, vector));    
             }
             
-            var matrix = vector.matrix(true),
+            var matrix = vector.globalMatrix(),
                 rotate = matrix.rotate(),
                 scale  = matrix.scale();
 
@@ -13344,6 +13705,8 @@
                     y: me.props.grid[1]
                 });
             }
+
+            me.props.ready = true;
         },
 
         enable: function() {
@@ -13472,12 +13835,6 @@
                 });
             }
 
-            // if (this.plugin) {
-            //     this.plugin.setOptions('snap', {
-            //         targets: snaps
-            //     });
-            // }
-
             /////////
             
             function fixsnap(snap) {
@@ -13513,37 +13870,14 @@
         },
 
         bound: function(bound) {
-            /*if ( ! this.plugin) {
-                return;
-            }
-
-            if (_.isBoolean(bound) && bound === false) {
-                this.props.bound = false;
-                this.plugin.setOptions('restrict', null);
-                return;
-            }
-
-            bound = _.extend({
-                top: Infinity,
-                right: Infinity,
-                bottom: Infinity,
-                left: Infinity
-            }, bound || {});
             
-            this.props.bound = _.extend({}, bound);
-
-            this.plugin.setOptions('restrict', {
-                restriction: bound
-            });
-
-            return;*/
         },
 
         onVectorRender: function() {
             this.setup();
         },
 
-        onPointerMove: function(e, vector) {
+        onPointerMove: function draggerMove(e, vector) {
             var i = e.interaction;
 
             if (this.props.enabled) {
@@ -13602,13 +13936,16 @@
 
             this.trans.dx = 0;
             this.trans.dy = 0;
+            this.trans.hx = 0;
+            this.trans.hy = 0;
 
             var edata = {
                 x: e.clientX,
                 y: e.clientY,
                 dx: 0,
                 dy: 0,
-                ghost: this.props.ghost
+                ghost: this.props.ghost,
+                batch: false
             };
 
             this.fire('dragstart', edata);
@@ -13628,7 +13965,7 @@
                 scaleY = this.scaling.y;
 
             // check current scaling
-            var scaling = vector.matrix(true).scale();
+            var scaling = vector.globalMatrix().scale();
             
             if (scaling.x !== scaleX || scaling.y !== scaleY) {
                 this.scale(scaling.x, scaling.y);
@@ -13668,6 +14005,9 @@
 
             this.trans.dx += tx;
             this.trans.dy += ty;
+
+            this.trans.hx += hx;
+            this.trans.hy += hy;
             
             var pageX = _.defaultTo(e.pageX, e.x0),
                 pageX = _.defaultTo(e.pageY, e.y0);
@@ -13691,7 +14031,8 @@
                 ox: hx,
                 oy: hy,
                 
-                ghost: this.props.ghost
+                ghost: this.props.ghost,
+                batch: false
             };
 
             this.fire('dragmove', event);
@@ -13709,7 +14050,9 @@
                 vector = trans.vector,
                 helper = trans.helper,
                 dx = trans.dx,
-                dy = trans.dy;
+                dy = trans.dy,
+                hx = trans.hx,
+                hy = trans.hy;
 
             if (helper) {
                 vector.translate(dx, dy).commit();
@@ -13723,7 +14066,8 @@
             var edata = {
                 dx: dx,
                 dy: dy,
-                ghost: this.props.ghost
+                ghost: this.props.ghost,
+                batch: false
             };
             
             this.fire('dragend', edata);
@@ -13731,8 +14075,11 @@
             this.trans.vector = null;
             this.trans.paper = null;
             this.trans.helper = null;
+
             this.trans.dx = 0;
             this.trans.dy = 0;
+            this.trans.hx = 0;
+            this.trans.hy = 0;
 
         },
 
@@ -14280,8 +14627,8 @@
             height = bbox.height;
 
             if (bsize) {
-                if ( ! item.$collector) {
-                    me.batch.pop().$collector.clearCollection();
+                if ( ! item.lasso) {
+                    me.batch.pop().lasso.clearCollection();
                     me.batch = [];
                 } else {
                     height = 0;
@@ -14350,12 +14697,12 @@
             drag = Graph.registry.vector.get(e.relatedTarget);
             drop = Graph.registry.vector.get(e.target);
 
-            if (drag.$collector) {
+            if (drag.lasso) {
                 
                 height = 0;
                 width  = me.props.width;
 
-                _.forEach(drag.$collector.collection, function(v){
+                _.forEach(drag.lasso.collection, function(v){
                     var box;
 
                     if (v.$sorter) {
@@ -14434,18 +14781,18 @@
     
     var CLS_CONNECT_VALID = 'connect-valid',
         CLS_CONNECT_INVALID = 'connect-invalid',
+        CLS_CONNECT_RESET = 'connect-valid connect-invalid',
+        CLS_CONNECT_CLEAR = 'connect-valid connect-invalid connect-hover',
         CLS_CONNECT_HOVER = 'connect-hover';
     
     Graph.plugin.Network = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
-            shield: null,
+            context: null,
             vector: null,
             wiring: 'h:h'
         },
 
-        links: [],
-        
         linking: {
             valid: false,
             router: null,
@@ -14454,21 +14801,24 @@
             link: null,
             pole: null
         },
-
+        
         constructor: function(vector, options) {
             var me = this, guid = vector.guid();
             
             options = options || {};
 
-            if (options.shield) {
-                options.shield = options.shield.guid();
+            if (options.context) {
+                options.context = options.context.guid();
             } else {
-                options.shield = guid;
+                options.context = guid;
             }
 
             _.assign(me.props, options);
 
             me.props.vector = guid;
+
+            me.cached.cables = {};
+            me.cached.pairs = {};
 
             vector.addClass('graph-connectable');
             
@@ -14477,14 +14827,13 @@
             var vendor = vector.interactable().vendor();
             
             vendor.dropzone({
-                accept: _.format('.{0}, .{1}', Graph.string.CLS_LINK_HEAD, Graph.string.CLS_LINK_TAIL),
+                accept: _.format('.{0}, .{1}', Graph.styles.LINK_HEAD, Graph.styles.LINK_TAIL),
                 overlap: .2
             })
             .on('dropdeactivate', function(e){
                 var v = Graph.registry.vector.get(e.target);
-                
                 if (v) {
-                    v.removeClass([CLS_CONNECT_VALID, CLS_CONNECT_INVALID, CLS_CONNECT_HOVER]);
+                    v.removeClass(CLS_CONNECT_CLEAR);
                 }
                 me.invalidateTrans();
             })
@@ -14540,7 +14889,7 @@
             .on('dragleave', function(e){
                 var v = Graph.registry.vector.get(e.target);
                 if (v) {
-                    v.removeClass([CLS_CONNECT_VALID, CLS_CONNECT_INVALID]);
+                    v.removeClass(CLS_CONNECT_RESET);
                 }
                 
                 me.linking.valid = false;
@@ -14633,6 +14982,105 @@
             return link.target().guid() == this.vector().guid();
         },
         
+        addLink: function(link, type, pair) {
+            var guid = link.guid(),
+                cables = this.cached.cables,
+                pairs = this.cached.pairs;
+
+            pair  = pair.guid();
+            pairs = pairs || {};
+            
+            pairs[pair] = pairs[pair] || [];
+
+            if (_.indexOf(pairs[pair], guid) === -1) {
+                pairs[pair].push(guid);
+            }
+            
+            cables[guid] = {
+                type: type,
+                pair: pair
+            };
+        },
+
+        removeLink: function(link) {
+            var guid, pair;
+
+            if (_.isString(link)) {
+                guid = link;
+            } else {
+                guid = link.guid();
+            }
+            
+            var conn = this.cached.cables[guid];
+
+            if (conn) {
+                if (this.cached.pairs[conn.pair]) {
+                    var index = _.indexOf(this.cached.pairs[conn.pair], guid);
+                
+                    if (index > -1) {
+                        this.cached.pairs[conn.pair].splice(index, 1);
+                    }
+
+                    if ( ! this.cached.pairs[conn.pair].length) {
+                        delete this.cached.pairs[conn.pair];
+                    }
+                }
+            }
+
+            delete this.cached.cables[guid];
+            conn = null;
+        },
+        
+        hasConnection: function(network) {
+            var conn = this.getConnection();
+            return conn.length ? conn : false;
+        },
+        
+        connections: function(network) {
+            var me = this, 
+                registry = Graph.registry.link,
+                current = this.props.vector,
+                conns = [];
+            
+            if (network !== undefined) {
+                
+                var pair = network.vector().guid();
+                
+                if (this.cached.pairs[pair]) {
+                    _.forEach(me.cached.pairs[pair], function(guid){
+                        var link = registry.get(guid),
+                            opts = me.cached.cables[guid];
+                        if (link && opts) {
+                            conns.push({
+                                link: link,
+                                type: opts.type,
+                                source: opts.type == 'outgoing' ? current : pair,
+                                target: opts.type == 'outgoing' ? pair : current
+                            });
+                        }
+                    });
+                }
+                
+                return conns;
+            }
+            
+            var cables = me.cached.cables;
+            
+            _.forOwn(cables, function(opts, guid){
+                var link = registry.get(guid);
+                if (link) {
+                    conns.push({
+                        link: link,
+                        type: opts.type,
+                        source: opts.type == 'outgoing' ? current : opts.pair,
+                        target: opts.type == 'outgoing' ? opts.pair : current
+                    });
+                }
+            });
+            
+            return conns;
+        },
+
         ///////// RULES /////////
         
         /**
@@ -14647,6 +15095,18 @@
             }
 
             return false;
+        },
+
+        destroy: function() {
+            var me = this, conns = this.connections();
+
+            _.forEach(conns, function(conn){
+                conn.link.remove(); 
+            });
+            
+            // collect garbage
+            this.cached.cables = null;
+            this.cached.pairs  = null;
         }
 
     });
@@ -14802,11 +15262,17 @@
                 toolbox = me.components.toolbox = Graph.$('<div class="graph-zoom-toolbox">');
                 toolbox.html(
                     '<div>' + 
-                        '<a data-tool="zoom-reset" href="#"><i class="ion-pinpoint"></i></a>'+
+                        '<a data-tool="zoom-reset" href="javascript:void(0)" title="' + Graph._('Reset zoom') + '">' + 
+                            '<i class="'+ Graph.icons.ZOOM_RESET +'"></i>' + 
+                        '</a>'+
                         '<div class="splitter"></div>'+
-                        '<a data-tool="zoom-in" href="#"><i class="ion-android-add"></i></a>'+
+                        '<a data-tool="zoom-in" href="javascript:void(0)" title="' + Graph._('Zoom in') + '">' + 
+                            '<i class="'+ Graph.icons.ZOOM_IN +'"></i>' + 
+                        '</a>'+
                         '<div class="splitter"></div>'+
-                        '<a data-tool="zoom-out" href="#"><i class="ion-android-remove"></i></a>'+
+                        '<a data-tool="zoom-out" href="javascript:void(0)" title="' + Graph._('Zoom out') + '">' + 
+                            '<i class="'+ Graph.icons.ZOOM_OUT +'"></i>' + 
+                        '</a>'+
                     '</div>'
                 );
 
@@ -14863,24 +15329,24 @@
             matrix = Graph.matrix();
             matrix.translate(.5, .5);
 
-            viewport.attr('transform', matrix.toString());
+            viewport.attr('transform', matrix.toValue());
             viewport.graph.matrix = matrix;
         },
 
         zoomIn: function() {
-            var paper = this.vector(),
+            var paper = this.vector().paper(),
                 viewport = paper.viewport(),
-                direction = 0.1,
-                origin = viewport.bbox().center(true);
+                origin = paper.layout().center(),
+                direction = 0.1;
 
             this.zoom(paper, viewport, direction, origin);
         },
 
         zoomOut: function() {
-            var paper = this.vector(),
+            var paper = this.vector().paper(),
                 viewport = paper.viewport(),
-                direction = -0.1,
-                origin = viewport.bbox().center(true);
+                origin = paper.layout().center(),
+                direction = -0.1;
 
             this.zoom(paper, viewport, direction, origin);
         },
@@ -14900,7 +15366,7 @@
 
             matrixScale.scale(scale, scale, origin.x, origin.y);
 
-            viewport.attr('transform', matrixScale.toString());
+            viewport.attr('transform', matrixScale.toValue());
             viewport.graph.matrix = matrixScale;
 
             this.zooming.zoom  = zoom;
@@ -14924,7 +15390,7 @@
             
             matrix.translate(dx, dy);
 
-            viewport.attr('transform', matrix.toString());
+            viewport.attr('transform', matrix.toValue());
             viewport.graph.matrix = matrix;
 
             if (this.zooming.origin) {
@@ -14996,6 +15462,16 @@
 
             var offset;
 
+            if (this.panning.moveHandler) {
+                vendor.off('move', this.panning.moveHandler);
+                this.panning.moveHandler = null;
+            }
+
+            if (this.panning.stopHandler) {
+                vendor.off('up', this.panning.stopHandler);
+                this.panning.stopHandler = null;
+            }
+
             if (tool == 'collector') {
                 return;
             }
@@ -15030,6 +15506,7 @@
         },
 
         onPointerMove: function(e, paper, viewport) {
+            
             var offset = this.caching.offset,
                 start = this.panning.start,
                 current = { 
@@ -15040,8 +15517,6 @@
                 dy = current.y - start.y,
                 mg = Graph.util.hypo(dx, dy);
 
-            paper.cursor('move');
-
             this.scroll(paper, viewport, dx, dy);
 
             this.panning.start = {
@@ -15049,13 +15524,15 @@
                 y: e.clientY - offset.y
             };
 
+            paper.cursor('move');
+            
             // prevent select
             e.preventDefault();
         },
 
         onPointerStop: function(e, paper) {
             var me = this, vendor = paper.interactable().vendor();
-            var delay, bounce;
+            var delay;
 
             // wait interact to fire last posible event...
             delay = _.delay(function(){
@@ -15065,6 +15542,8 @@
                 vendor.off('move', me.panning.moveHandler);
                 vendor.off('up', me.panning.stopHandler);
 
+                me.panning.moveHandler = null;
+                me.panning.stopHandler = null;
             }, 0);
 
             paper.cursor('default');
@@ -15131,10 +15610,15 @@
 
 (function(){
 
+    var CLS_CONNECT_VALID = 'connect-valid',
+        CLS_CONNECT_INVALID = 'connect-invalid',
+        CLS_CONNECT_RESET = 'connect-valid connect-invalid';
+
     Graph.plugin.Linker = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
             vector: null,
+            context: null,
             enabled: false,
             suspended: true,
             rendered: false
@@ -15176,28 +15660,42 @@
             });
 
             me.props.vector = vector.guid();
-            me.initComponent(vector);
+            me.initComponent();
         },
         
-        initComponent: function(paper) {
-            var me = this, comp = me.components;
+        initComponent: function() {
+            var me = this, 
+                comp = me.components;
 
-            comp.block = (new Graph.svg.Group())
+            var block, pointer, path;
+
+            block = (new Graph.svg.Group())
                 .addClass('graph-linker-path')
                 .selectable(false);
 
-            comp.pointer = (new Graph.svg.Circle())
+            pointer = (new Graph.svg.Circle())
                 .addClass('graph-linker-pointer')
-                .removeClass(Graph.string.CLS_VECTOR_CIRCLE)
+                .removeClass(Graph.styles.VECTOR)
                 .selectable(false)
-                .render(comp.block);
+                .render(block);
 
-            comp.path = (new Graph.svg.Path())
+            path = (new Graph.svg.Path())
                 .addClass('graph-linker-path')
-                .removeClass(Graph.string.CLS_VECTOR_PATH)
+                .removeClass(Graph.styles.VECTOR)
                 .selectable(false)
-                .render(comp.block)
+                .render(block)
                 .attr('marker-end', 'url(#marker-arrow)');
+
+            comp.block = block.guid();
+            comp.pointer = pointer.guid();
+            comp.path = path.guid();
+        },
+
+        component: function(name) {
+            if (name === undefined) {
+                return Graph.registry.vector.get(this.components.block);
+            }
+            return Graph.registry.vector.get(this.components[name]);
         },
 
         render: function() {
@@ -15208,8 +15706,10 @@
             }
 
             paper = this.vector();
-            this.components.block.render(paper);
+            this.component().render(paper);
+
             this.props.rendered = true;
+            this.props.context = paper.viewport().guid();
         },
 
         invalidate: function() {
@@ -15218,15 +15718,10 @@
             if (this.linking.enabled) {
                 vector = this.vector();
                 vendor = vector.interactable().vendor();
-
-                vector.removeClass('linking');
-
+                
                 if (this.linking.moveHandler) {
                     vendor.off('move', this.linking.moveHandler);
-                }
-
-                if (this.linking.stopHandler) {
-                    vendor.off('up', this.linking.stopHandler);   
+                    this.linking.moveHandler = null;
                 }
 
                 if (this.linking.source) {
@@ -15258,19 +15753,26 @@
         },
 
         enable: function() {
+            var paper = this.vector();
             this.props.enabled = true;
-            this.vector().state('linking');
+
+            paper.state('linking');
+            paper.addClass('linking');
         },
 
         disable: function() {
+            var paper = this.vector();
+
             this.props.enabled = false;
             this.invalidate();
             this.suspend();
+
+            paper.removeClass('linking');
         },
 
         suspend: function() {
             this.props.suspended = true;
-            this.components.block.elem.detach();
+            this.component().elem.detach();
         },
 
         resume: function() {
@@ -15281,15 +15783,87 @@
             }
 
             paper = this.vector();
+
             this.props.suspended = false;
             
             if ( ! this.props.rendered) {
                 this.render();
             } else {
-                paper.viewport().elem.append(this.components.block.elem);
+                this.component().elem.appendTo(paper.viewport().elem);
             }
         },
+        
+        /**
+         *  Start manual linking
+         */
+        start: function(source, anchor) {
+            var paper = this.vector(),
+                layout = paper.layout(),
+                offset = layout.offset();
+                
+            if (paper.tool().current() != 'linker') {
+                return;
+            }
+            
+            if (this.linking.enabled) {
+                if (this.linking.source && this.linking.target) {
+                    this.build();
+                } else {
+                    this.invalidate();
+                    this.suspend();
+                }
+                return;
+            }
+            
+            this.linking.visits = [];
+            
+            var vendor, sbox, port;
 
+            if (source.isConnectable()) {
+
+                if (this.props.suspended) {
+                    this.resume();    
+                }
+
+                var path = this.component('path'),
+                    context = this.context();
+
+                this.linking.moveHandler = _.bind(this.onPointerMove, this, _, paper, path, context);    
+                
+                vendor = paper.interactable().vendor();
+                vendor.on('move', this.linking.moveHandler);
+
+                this.linking.visits.push(source);    
+
+                if (source.isConnectable()) {
+                    
+                    if ( ! this.linking.source) {
+                        // update context
+                        source.connectable({
+                            context: context
+                        });
+
+                        sbox = source.connectable().bbox();
+                        port = sbox.center(true);
+
+                        this.linking.source = source;
+                        this.linking.start  = port;
+                        
+                        if (anchor) {
+                            path.moveTo(port.x, port.y).lineTo(anchor.x, anchor.y, false);
+                        } else {
+                            path.moveTo(port.x, port.y).lineTo(port.x, port.y, false);
+                        }   
+
+                        sbox = port = null;
+                    }
+
+                }
+
+                this.linking.enabled = true;
+            }
+        },
+        
         cropping: function(start, end) {
             var source = this.linking.source,
                 target = this.linking.target,
@@ -15316,8 +15890,9 @@
         },
 
         build: function() {
-            var tail = this.components.path.tail(),
-                head = this.components.path.head();
+            var path = this.component('path'),
+                tail = path.tail(),
+                head = path.head();
 
             if (tail && head) {
                 var paper = this.vector();
@@ -15335,143 +15910,118 @@
 
         onPointerDown: function(e, paper) {
             var layout = paper.layout(),
-                offset = layout.offset(),
-                vector = layout.grabVector(e), 
-                vendor = paper.interactable().vendor(),
-                tool = paper.tool().current();
-
-            if (tool != 'linker') {
-                return;
+                source = layout.grabVector(e);
+            
+            if (source) {
+                this.start(source);
             }
-
-            if (this.linking.enabled) {
-                if (this.linking.target) {
-                    this.build();
-                }
-            } else {
-                
-                this.linking.visits = [];
-
-                if (vector.isConnectable()) {
-                    var sbox, port;
-
-                    // track visit
-                    this.linking.visits.push(vector);
-
-                    if ( ! this.linking.source) {
-                        
-                        sbox = vector.connectable().bbox();
-                        port = sbox.center(true);
-
-                        this.linking.source = vector;
-                        this.linking.start = port;
-
-                        this.components.path
-                            .moveTo(port.x, port.y)
-                            .lineTo(port.x, port.y, false);
-
-                        sbox = port = null;
-                    }
-
-                    if (this.props.suspended) {
-                        this.resume();    
-                    }
-
-                    this.linking.enabled = true;
-                    this.linking.moveHandler = _.bind(this.onPointerMove, this, _, paper);
-
-                    paper.addClass('linking');
-
-                    vendor = paper.interactable().vendor();
-                    vendor.on('move', this.linking.moveHandler);
-                }
-            }
+            
+            layout = source = null;
         },
 
-        onPointerMove: function(e, paper) {
-            var layout = paper.layout(),
-                start = this.linking.start,
-                coord = layout.grabLocation(e);
+        onPointerMove: function(e, paper, path, context) {
 
-            var x = coord.x,
-                y = coord.y;
+            if (this.linking.enabled) {
 
-            // add threshold
-            var rad = Graph.util.rad(Graph.util.theta( start, {x: x, y: y} )),
-                sin = Math.sin(rad),
-                cos = Math.cos(rad),
-                tdx = this.linking.treshold * -cos,
-                tdy = this.linking.treshold *  sin;
+                var layout = paper.layout(),
+                    target = layout.grabVector(e);
 
-            x += tdx;
-            y += tdy;
-
-            var current = layout.grabVector(e),
-                valid = false;
-
-            var target, crop, tbox, port;
-
-            if (current && current.isConnectable()) {
-                
-                if (this.linking.visits.indexOf(current.guid()) === -1) {
-                    this.linking.visits.push(current);
+                if ( ! target) {
+                    return;
                 }
 
-                if (this.linking.source.connectable().canConnect(current.connectable())) {
-                    valid = true;
-                    target = current;
+                var source = this.linking.source,
+                    valid = false;
 
-                    target.removeClass('connect-invalid');
-                    target.addClass('connect-valid');
-                    
-                    tbox = current.connectable().bbox();
-                    port = tbox.center(true);
-                    
-                    this.linking.target = target;
-                    this.linking.end    = port;
+                if (source) {
 
-                    crop = this.cropping(start, port);
-
-                    if (crop.start) {
-                        this.components.path.moveTo(crop.start.x, crop.start.y);
+                    // track visit
+                    if (this.linking.visits.indexOf(target.guid()) === -1) {
+                        this.linking.visits.push(target);
                     }
+                    
+                    var start = this.linking.start,
+                        coord = layout.grabLocation(e),
+                        x = coord.x,
+                        y = coord.y,
+                        rad = Graph.util.rad(Graph.util.theta(start, {x: x, y: y})),
+                        sin = Math.sin(rad),
+                        cos = Math.cos(rad),
+                        tdx = this.linking.treshold * -cos,
+                        tdy = this.linking.treshold *  sin;
 
-                    if (crop.end) {
-                        this.components.path.lineTo(crop.end.x, crop.end.y, false);
+                    x += tdx;
+                    y += tdy;
+
+                    if (target.isConnectable()) {
+                        
+                        var crop, tbox, port;
+
+                        if (source.connectable().canConnect(target.connectable())) {
+                            valid  = true;
+                            
+                            target.removeClass(CLS_CONNECT_INVALID);
+                            target.addClass(CLS_CONNECT_VALID);
+                            
+                            // update target context
+                            target.connectable({
+                                context: context
+                            });
+
+                            tbox = target.connectable().bbox();
+                            port = tbox.center(true);
+
+                            this.linking.target = target;
+                            this.linking.end    = port;
+
+                            crop = this.cropping(start, port);
+
+                            if (crop.start) {
+                                path.moveTo(crop.start.x, crop.start.y);
+                            }
+
+                            if (crop.end) {
+                                path.lineTo(crop.end.x, crop.end.y, false);
+                            } else {
+                                path.lineTo(x, y, false);
+                            }
+
+                            tbox = port = null;
+                        } else {
+                            target.removeClass(CLS_CONNECT_VALID);
+                            target.addClass(CLS_CONNECT_INVALID);
+                        }
+
                     } else {
-                        this.components.path.lineTo(x, y, false);
+                        target.addClass(CLS_CONNECT_INVALID);
                     }
 
-                    tbox = port = null;
+                    if ( ! valid) {
 
-                } else {
-                    current.removeClass('connect-valid');
-                    current.addClass('connect-invalid');
+                        if (this.linking.target) {
+                            this.linking.target.removeClass(CLS_CONNECT_RESET);
+                        }
+
+                        this.linking.target = null;
+                        this.linking.end    = null; 
+
+                        crop = this.cropping(start, {x: x, y: y});
+
+                        if (crop.start) {
+                            path.moveTo(crop.start.x, crop.start.y);
+                        }
+
+                        if (crop.end) {
+                            path.lineTo(crop.end.x, crop.end.y, false);
+                        } else {
+                            path.lineTo(x, y, false);
+                        }
+                    }
+
                 }
             }
 
-            if ( ! valid) {
-
-                if (this.linking.target) {
-                    this.linking.target.removeClass('connect-valid connect-invalid');
-                }
-
-                this.linking.target = null;
-                this.linking.end    = null;
-
-                crop = this.cropping(start, {x: x, y: y});
-
-                if (crop.start) {
-                    this.components.path.moveTo(crop.start.x, crop.start.y);
-                }
-
-                if (crop.end) {
-                    this.components.path.lineTo(crop.end.x, crop.end.y, false);
-                } else {
-                    this.components.path.lineTo(x, y, false);
-                }
-            }
-
+            e.preventDefault();
         }
 
     });
@@ -15817,7 +16367,7 @@
         redraw: function() {
             var editor = this.components.editor,
                 vector = this.vector(),
-                matrix = vector.matrix(true),
+                matrix = vector.globalMatrix(),
                 scale  = matrix.scale();
 
             var vbox = vector.bbox().clone().transform(matrix).toJson();
@@ -15866,8 +16416,8 @@
         startEdit: function(e) {
             var me = this, vector = me.vector();
 
-            if (vector.$collector) {
-                vector.$collector.decollect(vector);
+            if (vector.lasso) {
+                vector.lasso.decollect(vector);
             }
 
             if (vector.paper().tool().current() == 'linker') {
@@ -15880,7 +16430,7 @@
             if (e && this.props.offset == 'pointer') {
                 var editor = me.components.editor,
                     paper = vector.paper(),
-                    scale = paper.layout().currentScale();
+                    scale = paper.layout().scale();
 
                 var offset, coords, left, top;
 
@@ -15933,7 +16483,8 @@
             enabled: true,
             suspended: true,
             rendered: false,
-            vector: null
+            vector: null,
+            context: null
         },
 
         clients: {
@@ -15950,6 +16501,7 @@
         snapping: {
             coords: null,
             vector: null,
+            offset: null,
             stubx: null,
             stuby: null
         },
@@ -15961,10 +16513,13 @@
                 throw Graph.error("Snapper plugin only available for paper");
             }
 
-            this.props.vector = vector.guid();
-            this.initComponent(vector);
+            _.assign(this.props, options);
 
-            this.snapping.coords = {x: [], y: [] };
+            this.props.vector  = vector.guid();
+            this.props.context = vector.viewport().guid();
+
+            this.initComponent(vector);
+            this.snapping.coords = {};
         },
 
         initComponent: function(vector) {
@@ -15976,13 +16531,13 @@
                 .addClass('graph-snapper');
 
             stubx = (new Graph.svg.Path('M 0 0 L 0 0'))
-                .removeClass(Graph.string.CLS_VECTOR_PATH)
+                .removeClass(Graph.styles.VECTOR)
                 .selectable(false)
                 .clickable(false)
                 .render(block);
 
             stuby = (new Graph.svg.Path('M 0 0 L 0 0'))
-                .removeClass(Graph.string.CLS_VECTOR_PATH)
+                .removeClass(Graph.styles.VECTOR)
                 .clickable(false)
                 .selectable(false)
                 .render(block);
@@ -16026,53 +16581,83 @@
             }
         },
 
-        subscribe: function(options) {
+        setup: function(client, options) {
+
+            if ( ! this.props.enabled) {
+                return;
+            }
+
             var me = this,
-                vector = options.vector,
-                shield = options.shield,
-                guid = vector.guid();
+                contextId = this.props.context,
+                clientId = client.guid();
 
-            if (me.clients[guid]) {
-                vector.off('dragstart', me.clients[guid].dragStartHandler);
-                vector.off('dragend', me.clients[guid].dragEndHandler);
-                vector.off('remove',  me.clients[guid].removeHandler);
+            var key;
 
-                delete me.clients[guid];
+            if (me.clients[clientId]) {
+                client.off('dragstart', me.clients[clientId].dragStartHandler);
+                client.off('dragend',  me.clients[clientId].dragEndHandler);
+                client.off('remove',  me.clients[clientId].removeHandler);
+
+                if (me.clients[clientId].coords) {
+                    delete me.snapping.coords[me.clients[clientId].coords];
+                }
+
+                delete me.clients[clientId];
             }
 
             if (options.enabled) {
 
-                var dragger = vector.draggable();
+                var dragger = client.draggable();
 
-                me.clients[guid] = {
-                    vector: guid,
-                    shield: shield.guid(),
+                me.clients[clientId] = {
+                    coords: null,
                     osnaps: dragger.snap(),
-                    ostart: dragger.origin(),
-                    
-                    dragStartHandler: _.bind(me.onClientDragStart, me, _, vector, shield),
-                    dragEndHandler: _.bind(me.onClientDragEnd, me, _, vector),
-                    removeHandler: _.bind(me.onClientRemove, me, _, guid)
+                    dragStartHandler: _.bind(me.onClientDragStart, me, _, client),
+                    dragEndHandler: _.bind(me.onClientDragEnd, me, _, client),
+                    removeHandler: _.bind(me.onClientRemove, me, _, client)
                 };
 
-                vector.on('dragstart', me.clients[guid].dragStartHandler);
-                vector.on('dragend', me.clients[guid].dragEndHandler);
-                vector.on('remove',  me.clients[guid].removeHandler);
+                client.on('dragstart', me.clients[clientId].dragStartHandler);
+                client.on('dragend', me.clients[clientId].dragEndHandler);
+                client.on('remove',  me.clients[clientId].removeHandler);
 
-                var center = shield.bbox().center().toJson(),
-                    offset = vector.paper().offset(),
-                    coords = this.snapping.coords,
-                    cx = center.x,
-                    cy = center.y;
+                var center = me.getClientCenter(client),
+                    coords = this.snapping.coords;
 
-                if (_.indexOf(coords.x, cx) === -1) {
-                    coords.x.push((cx + offset.left));
+                key = center.x + '_' + center.y;
+
+                if ( ! coords[key]) {
+                    coords[key] = center;
+                    me.clients[clientId].coords = key;
                 }
 
-                if (_.indexOf(coords.y, cy) === -1) {
-                    coords.y.push((cy + offset.top));
-                }
+                key = null;
             }
+        },
+
+        getClientCenter: function(client) {
+            var clientId = client.guid(),
+                contextId = this.props.context,
+                matrix = Graph.matrix(),
+                path = client.pathinfo();
+
+            var center, bbox;
+
+            client.bubble(function(curr){
+                if (curr.guid() == contextId) {
+                    return false;
+                }
+                matrix.multiply(curr.matrix());
+            });
+
+            path = path.transform(matrix);
+            bbox = path.bbox();
+
+            center = bbox.center().toJson();
+
+            matrix = path = bbox = null;
+
+            return center;
         },
 
         showStub: function(axis, value) {
@@ -16101,10 +16686,12 @@
             this.snapping[stub].removeClass('visible');
         },
 
-        onClientDragStart: function(e, vector, shield) {
+        onClientDragStart: function(e, client) {
             var me = this,
-                offset = vector.paper().offset(),
-                center = shield.bbox().center().toJson();
+                paper = me.vector(),
+                layout = paper.layout(),
+                offset = layout.offset(),
+                center = me.getClientCenter(client);
 
             var snapping = this.snapping,
                 coords = snapping.coords;
@@ -16112,46 +16699,66 @@
             snapping.stubx = this.component('stubx');
             snapping.stuby = this.component('stuby');
 
-            var origX = center.x + offset.left - e.x,
-                origY = center.y + offset.top - e.y,
-                snapX = [],
-                snapY = [];
+            var left = offset.left,
+                top = offset.top,
+                ma = this.context().matrix(),
+                dx = ma.props.e,
+                dy = ma.props.f,
+                point = layout.grabLocation({clientX: e.x, clientY: e.y}),
+                diffx = center.x - point.x,
+                diffy = center.y - point.y,
+                snapx = [],
+                snapy = [];
 
-            _.forEach(coords.x, function(v){
-                snapX.push((v - origX));
+            _.forOwn(coords, function(c){
+                var mx, my, vx, vy;
+                
+                mx = ma.x(c.x - diffx, c.y - diffy);
+                my = ma.y(c.x - diffx, c.y - diffy);
+
+                vx = mx + left;
+
+                if (_.indexOf(snapx, vx) === -1) {
+                    snapx.push(vx);
+                }
+
+                vy = my + top;
+
+                if (_.indexOf(snapy, vy) === -1) {
+                    snapy.push(vy);
+                }
             });
 
-            _.forEach(coords.y, function(v){
-                snapY.push((v - origY));
-            });
-
-            vector.draggable().origin({
-                x: origX,
-                y: origY
-            });
-
-            vector.draggable().snap([
+            client.draggable().snap([
                 function(x, y) {
-                    var sx, sy;
+                    var rx, ry, x1, y1, pt;
 
-                    sx = snapValue(x, snapX);
-                    sy = snapValue(y, snapY);
+                    rx = snapValue(x, snapx);
+                    ry = snapValue(y, snapy);
 
-                    if (sx.snapped) {
-                        me.showStub('x', sx.value - offset.left + origX);
+                    x1 = rx.value;
+                    y1 = ry.value;
+
+                    pt = layout.grabLocation({
+                        clientX: x1,
+                        clientY: y1
+                    });
+
+                    if (rx.snapped) {
+                        me.showStub('x', pt.x + diffx);
                     } else {
                         me.hideStub('x');
                     }
 
-                    if (sy.snapped) {
-                        me.showStub('y', sy.value - offset.top + origY);
+                    if (ry.snapped) {
+                        me.showStub('y', pt.y + diffy);
                     } else {
                         me.hideStub('y');
                     }
 
                     return {
-                        x: sx.value,
-                        y: sy.value
+                        x: x1,
+                        y: y1
                     };
                 }
             ]);
@@ -16159,23 +16766,35 @@
             me.resume();
         },
 
-        onClientDragEnd: function(e, vector) {
+        onClientDragEnd: function(e, client) {
             var snapping = this.snapping,
-                options = this.clients[vector.guid()];
+                options = this.clients[client.guid()];
 
             if (options) {
-                var dragger = vector.draggable();
+                var dragger = client.draggable();
                 
                 if (options.osnaps) {
                     dragger.snap(options.osnaps);
                 }
 
-                if (options.ostart) {
-                    dragger.origin(options.ostart);
+                var key, center;
+
+                if (options.coords) {
+                    delete snapping.coords[options.coords];
                 }
 
-            }
+                center = this.getClientCenter(client);
+                key = center.x + '_' + center.y;
 
+                if ( ! snapping.coords[key]) {
+                    snapping.coords[key] = center;
+                    options.coords = key;
+                }
+                
+                key = null;
+                center = null;
+            }
+            
             this.suspend();
 
             _.assign(this.snapping, {
@@ -16184,21 +16803,57 @@
             });
         },
 
-        onClientRemove: function(e) {
+        onClientRemove: function(e, client) {
+            var guid = client.guid(),
+                options = this.clients[guid],
+                snapping = this.snapping;
 
+            if (options) {
+                if (options.coords) {
+                    if (snapping.coords[options.coords]) {
+                        delete snapping.coords[options.coords];
+                    }
+                }
+                delete this.clients[guid];
+            }
         }
 
     });
 
     ///////// HELPERS /////////
-    
+
+    function bboxCenter(client, context) {
+        if (client.guid() == context.guid()) {
+            return client.bbox().center(true);
+        }
+
+        var matrix = Graph.matrix();
+        var path, bbox, center;
+
+        client.bubble(function(curr){
+            matrix.multiply(curr.matrix());
+            if (curr === context) {
+                return false;
+            }
+        });
+
+        path = client.pathinfo().transform(matrix);
+        bbox = path.bbox();
+
+        center = bbox.center(true);
+        path = bbox = null;
+
+        return center;
+    }
+
     function snapValue(value, snaps, range) {
         range = _.defaultTo(range, 10);
         
-        var i = snaps.length;
+        var i = snaps.length, v;
 
         while(i--) {
-            if (Math.abs(snaps[i] - value) <= range) {
+            v = Math.abs(snaps[i] - value);
+            if (v <= range) {
                 return {
                     snapped: true,
                     value: snaps[i]
@@ -16211,6 +16866,148 @@
             value: value
         };
     }
+
+}());
+
+(function(){
+
+    Graph.plugin.Toolpad = Graph.extend(Graph.plugin.Plugin, {
+        
+        props: {
+            vector: null,
+            rendered: false,
+            suspended: true
+        },
+        
+        components: {
+            pad: null
+        },  
+    
+        constructor: function(paper) {
+            
+            this.props.vector = paper.guid();
+            this.initComponent(paper);
+
+            this.cached.tools = null;
+            
+            Graph.topic.subscribe('shape/select', _.bind(this.onShapeSelect, this));
+            Graph.topic.subscribe('shape/deselect', _.bind(this.onShapeDeselect, this));
+            
+            Graph.topic.subscribe('link/select', _.bind(this.onLinkSelect, this));
+            Graph.topic.subscribe('link/deselect', _.bind(this.onLinkDeselect, this));
+        },
+        
+        initComponent: function(paper) {
+            
+            var pad = '<div class="graph-toolpad">' + 
+                            '<div class="pad-header"></div>' + 
+                            '<div class="pad-splitter"></div>' + 
+                            '<div class="pad-body">x</div>'+
+                      '</div>';
+
+            pad = Graph.$(pad);
+
+            pad.on('click', '[data-shape-tool]', _.bind(this.onToolClick, this));
+            
+            this.components.pad = pad;
+        },
+        
+        render: function() {
+            if (this.props.rendered) {
+                return;
+            }
+            
+            this.components.pad.appendTo(this.vector().container());
+            this.props.rendered = true;
+        },
+        
+        suspend: function() {
+            this.props.suspended = true;
+            this.components.pad.detach();
+        },
+        
+        resume: function() {
+            if (this.props.suspended) {
+                
+                this.props.suspended = false;
+                
+                if ( ! this.props.rendered) {
+                    this.render();
+                } else {
+                    this.components.pad.appendTo(this.vector().container());
+                }
+            }
+        },
+        
+        onShapeSelect: function(e) {
+            var shape = e.shape,
+                meta = shape.metadata,
+                pad = this.components.pad;
+            
+            pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
+            
+            var body = '';
+            
+            _.forEach(meta.tools, function(tool){
+                if (tool.enabled) {
+                    body += '<div class="splitter"></div>';
+                    body += '<a data-shape-tool="' + tool.name + '" href="javascript:void(0)" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
+                }
+            });
+            
+            pad.find('.pad-body').html(body);
+            
+            this.cached.tools = meta.tools;
+            this.resume();
+        },
+        
+        onShapeDeselect: function(e) {
+            this.suspend();
+        },
+        
+
+        onLinkSelect: function(e) {
+            var link = e.link,
+                meta = link.metadata,
+                pad = this.components.pad;
+            
+            pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
+            
+            var body = '';
+            
+            _.forEach(meta.tools, function(tool){
+                if (tool.enabled) {
+                    body += '<div class="splitter"></div>';
+                    body += '<a data-shape-tool="' + tool.name + '" href="#" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
+                }
+            });
+            
+            pad.find('.pad-body').html(body);
+            
+            this.cached.tools = meta.tools;
+            this.resume();
+        },
+
+        onLinkDeselect: function(e) {
+            this.suspend();
+        },
+        
+        onToolClick: function(e) {
+            var target = Graph.$(e.currentTarget),
+                name = target.data('shapeTool');
+            
+            var tool = _.find(this.cached.tools, function(t){
+                return t.name == name;
+            });
+            
+            if (tool && tool.handler) {
+                tool.handler(e);
+            }
+            
+            e.preventDefault();
+        }
+        
+    });
 
 }());
 
@@ -16229,33 +17026,97 @@
         components: {
             shape: null,
             block: null,
-            label: null
+            label: null,
+            child: null
         },
 
-        plugins: {},
+        tree: {
+            paper: null,
+            parent: null,
+            children: null
+        },
+
+        metadata: {
+            name: null,
+            icon: Graph.icons.SHAPE,
+            style: 'graph-shape',
+            tools: null
+        },
+
+        cached: {
+            innerMatrix: null,
+            outerMatrix: null,
+            innerBBox: null,
+            outerBBox: null
+        },
 
         constructor: function(options) {
+            var guid;
+
             _.assign(this.props, options || {});
 
-            this.props.guid = 'graph-shape-' + (++Shape.guid);
+            guid = 'graph-shape-' + (++Shape.guid);
+
+            this.props.guid = guid;
+            this.tree.children = new Graph.collection.Shape();
+
             this.initComponent();
+            this.initMetadata();
+
+            if (this.components.shape) {
+                var style = Graph.styles.SHAPE;
+
+                if (this.metadata.style) {
+                    style += ' ' + this.metadata.style;
+                }
+                
+                this.component().addClass(style);
+                style = null;
+            }
+
             Graph.registry.shape.register(this);
+
+            guid = null;
         },
 
-        guid: function() {
-            return this.props.guid;
-        },
-
-        /**
-         * Default draw function
-         */
-        draw: function() {
-
-        },
-
-        render: function(paper) {
-            var component = this.component();
-            component && component.render(paper);
+        initMetadata: function() {
+            this.metadata.tools = [
+                {
+                    name: 'config', 
+                    icon: Graph.icons.CONFIG, 
+                    title: Graph._('Click to config shape'), 
+                    enabled: true,
+                    handler: _.bind(this.onConfigToolClick, this)
+                },
+                {
+                    name: 'link', 
+                    icon: Graph.icons.LINK, 
+                    title: Graph._('Click to start shape linking'), 
+                    enabled: true,
+                    handler: _.bind(this.onLinkToolClick, this)
+                },
+                {
+                    name: 'sendtofront',
+                    icon: Graph.icons.SEND_TO_FRONT,
+                    title: Graph._('Send to front'),
+                    enabled: true,
+                    handler: _.bind(this.onFrontToolClick, this)
+                },
+                {
+                    name: 'sendtoback',
+                    icon: Graph.icons.SEND_TO_BACK,
+                    title: Graph._('Send to back'),
+                    enabled: true,
+                    handler: _.bind(this.onBackToolClick, this)
+                },
+                {
+                    name: 'trash', 
+                    icon: Graph.icons.TRASH, 
+                    title: Graph._('Click to remove shape'), 
+                    enabled: true,
+                    handler: _.bind(this.onTrashToolClick, this)
+                }
+            ];
         },
 
         initComponent: function() {
@@ -16271,12 +17132,310 @@
             }
             return manager.get(this.components[name]);
         },
-        
-        hub: function() {
-            // TODO return connectable component
-            return this.component('block');
+
+        invalidate: function() {
+            this.cached.innerMatrix = null;
+            this.cached.outerMatrix = null;
+            this.cached.innerBBox = null;
+            this.cached.outerBBox = null;
         },
 
+        provider: function(plugin) {    
+            var provider;
+
+            switch(plugin) {
+                case 'network':
+                case 'resizer':
+                case 'dragger':
+                case 'snapper':
+                    provider = this.components.block;
+                    break;
+                default:
+                    provider = this.components.block;
+                    break;
+            }
+
+            return Graph.registry.vector.get(provider);
+        },
+
+        paper: function() {
+            return Graph.registry.vector.get(this.tree.paper);
+        },
+
+        parent: function() {
+            return Graph.registry.shape.get(this.tree.parent);
+        },
+
+        children: function() {
+            return this.tree.children;
+        },
+
+        addChild: function(shape) {
+            var parent = shape.parent();
+
+            if (parent) {
+                parent.removeChild(shape);
+            }
+
+            this.children().push(shape);
+            shape.tree.parent = this.guid();
+
+            if (this.components.child) {
+                this.component('child').append(shape.component());
+            }
+
+            return this;
+        },
+
+        removeChild: function(shape) {
+            this.children().pull(shape);
+            shape.tree.parent = null;
+
+            var paper = shape.paper();
+
+            if (paper) {
+                paper.viewport().append(shape.component());
+            }
+
+            return this;
+        },
+        
+        addChild_: function(child, relocate) {
+            this.children().push(child);
+            child.tree.parent = this.guid();
+
+            if (this.components.child) {
+                var context = this.component(),
+                    target = this.component('child'),
+                    source = child.component();
+                
+                // sync vector tree
+                target.children().push(source);
+                source.tree.parent = target.guid();
+
+                relocate = _.defaultTo(relocate, true);
+
+                if (relocate) {
+
+                    target.elem.append(source.elem);
+
+                    var matrix = source.innerMatrix(context);
+
+                    source.graph.matrix = matrix;
+                    source.attr('transform', matrix.toValue());
+                    source.dirty(true);
+
+                    // update child props
+                    _.assign(child.props, {
+                        left: matrix.props.e,
+                        top:  matrix.props.f
+                    });
+
+                    matrix = null;
+                }
+            }
+        },
+
+        removeChild_: function(child, relocate) {
+            // sync shape tree
+            this.children().pull(child);
+            child.tree.parent = null;
+
+            // sync vector tree => revert back to paper
+            var paper = child.paper();
+
+            if (paper) {
+                var source = child.component(),
+                    target = paper.viewport();
+
+                // need relocate node ?
+                relocate = _.defaultTo(relocate, true);
+
+                if (relocate) {
+                    var context = this.component(),
+                        srcmat = Graph.matrix();
+
+                    source.bubble(function(curr){
+                        srcmat.multiply(curr.matrix());
+                        if (curr === context) {
+                            return false;
+                        }
+                    });
+
+                    source.graph.matrix = srcmat;
+                    source.attr('transform', srcmat.toValue());
+                    source.dirty(true);
+
+                    // update child props
+                    _.assign(child.props, {
+                        left: srcmat.props.e,
+                        top: srcmat.props.f
+                    });
+
+                    srcmat = null;
+
+                    target.children().push(source);
+                    source.tree.parent = target.guid();    
+                    target.elem.append(source.elem);
+
+                } else {
+                    target.children().push(source);
+                    source.tree.parent = target.guid();    
+                }
+            }
+        },
+        
+        guid: function() {
+            return this.props.guid;
+        },
+
+        data: function(name, value) {
+            var me = this;
+            
+            if (_.isPlainObject(name)) {
+                _.forOwn(name, function(v, k){
+                    me.data(k, v);
+                });
+                return me;
+            }
+            
+            if (value === undefined) {
+                return me.props[name];
+            }
+            
+            me.props[name] = value;
+            return me;
+        },
+
+        matrix: function() {
+            return this.component().matrix();
+        },
+
+        innerMatrix: function() {
+            var paper = this.paper();
+            var matrix;
+
+            if (paper) {
+                matrix = this.cached.innerMatrix;
+
+                if ( ! matrix) {
+
+                    var context = paper.viewport(),
+                        contextId = context.guid(),
+                        current = this.component(),
+                        currentId = current.guid(),
+                        component = this.component(),
+                        outerMatrix = Graph.matrix();
+
+                    component.bubble(function(curr){
+                        var guid = curr.guid();
+
+                        if (guid == contextId) {
+                            return false;
+                        }
+
+                        if (guid != currentId) {
+                            outerMatrix.multiply(curr.matrix());    
+                        }
+                    });
+
+                    outerMatrix.invert();
+                    matrix = component.matrix().clone().multiply(outerMatrix);
+
+                    this.cached.innerMatrix = matrix;
+
+                    outerMatrix = null;
+                }
+            } else {
+                matrix = this.matrix();
+            }
+
+            return matrix.clone();
+        },
+
+        outerMatrix: function() {
+            var paper = this.paper();
+            var matrix;
+
+            if (paper) {
+                matrix = this.cached.outerMatrix;
+
+                if ( ! matrix) {
+                    var context = paper.viewport(),
+                        contextId = context.guid(),
+                        component = this.component();
+
+                    matrix = Graph.matrix();
+
+                    component.bubble(function(curr){
+                        if (curr.guid() == contextId) {
+                            return false;
+                        }
+                        matrix.multiply(curr.matrix());
+                    });
+
+                    this.cached.outerMatrix = matrix;
+
+                    context = component = null;
+                }
+            } else {
+                matrix = this.matrix();
+            }
+
+            return matrix.clone();
+        },
+
+        bbox: function() {
+            return Graph.bbox({
+                 x: this.props.left,
+                 y: this.props.top,
+                x2: this.props.left + this.props.width,
+                y2: this.props.top + this.props.height,
+                width: this.props.width,
+                height: this.props.height
+            });
+        },
+
+        innerBBox: function() {
+            var bbox = this.cached.innerBBox;
+        },
+
+        outerBBox: function() {
+            var bbox = this.cached.outerBBox;
+
+            if ( ! bbox) {
+                var matrix = this.outerMatrix(),
+                    path = this.component().pathinfo().transform(matrix);
+
+                bbox = path.bbox();
+                this.cached.outerBBox = bbox;
+            }
+
+            return bbox.clone();
+        },
+
+        contains: function(shape) {
+            var bbox1, bbox2;
+
+            bbox1 = this.outerBBox();
+            bbox2 = shape.outerBBox();
+
+            return bbox1.contains(bbox2);
+        },
+
+        render: function(paper) {
+            var component = this.component();
+            component && component.render(paper);
+            
+            // save
+            this.tree.paper = paper.guid();
+        },
+
+        remove: function() {
+            // just fire block removal
+            this.component('block').remove();
+        },
+        
         redraw: _.debounce(function() {
             var label = this.component('label'),
                 block = this.component('block'),
@@ -16290,18 +17449,75 @@
             label.wrap(bound.width - 10);
 
         }, 1),
+        
+        translate: function(dx, dy) {
+            var component = this.component();
+            component.translate(dx, dy).commit();
 
-        move: function(x, y) {
-            var shape = this.component(),
-                imatrix = shape.matrix().clone().invert();
+            // update props
+            var matrix = component.matrix(),
+                left = matrix.props.e,
+                top = matrix.props.f;
+            
+            this.data({
+                left: left,
+                top: top
+            });
+        },
 
-            x -= this.props.width / 2;
-            y -= this.props.height / 2;
+        sendToBack: function() {
+            var paper = this.paper();
+        },
 
-            shape.matrix().multiply(imatrix);
-            shape.translate(x, y).commit();
+        sendToFront: function() {
+            var paper = this.paper();
+            paper.viewport().elem.append(this.component().elem);
+        },
 
-            imatrix = null;
+        /**
+         *  Use this method only for updating `width`, `height`, `left`, `top`
+         *  otherwise use data()
+         */
+        attr: function(name, value) {
+            var me = this;
+            
+            if (_.isPlainObject(name)) {
+                _.forOwn(name, function(v, k){
+                    me.props[k] = v;
+                });
+                return this;
+            }
+            
+            if (value === undefined) {
+                return this.props[name];
+            }
+            
+            this.props[name] = value;
+            return this;
+        },
+        
+        height: function(value) {
+            if (value === undefined) {
+                return this.props.height;
+            }
+            
+            return this.attr('height', value);
+        },
+
+        left: function(value) {
+            if (value === undefined) {
+                return this.props.left;
+            }
+            
+            return this.attr('left', value);
+        },
+        
+        top: function(value) {
+            if (value === undefined) {
+                return this.props.top;
+            }
+            
+            return this.attr('top', value);
         },
 
         onLabelEdit: function(e) {
@@ -16310,6 +17526,11 @@
             this.redraw();
         },
 
+        onDragStart: function(e) {
+            var shape = this.component();
+            shape.addClass('shape-dragging');
+        },
+        
         onDragEnd: function(e) {
             var block = this.component('block'),
                 shape = this.component('shape'),
@@ -16318,13 +17539,37 @@
             block.reset();
 
             shape.matrix().multiply(matrix);
-            shape.attr('transform', shape.matrix().toString());
+            shape.attr('transform', shape.matrix().toValue());
+            shape.dirty(true);
+            
+            // update props
+            var matrix = shape.matrix();
+
+            this.data({
+                left: matrix.props.e,
+                top: matrix.props.f
+            });
+
+            // forward
+            this.fire(e);
+
+            shape.removeClass('shape-dragging');
+        },
+        
+        onSelect: function() {
+            this.component('shape').addClass('shape-selected');
+            Graph.topic.publish('shape/select', {shape: this});
+        },
+
+        onDeselect: function() {
+            this.component('shape').removeClass('shape-selected');
+            Graph.topic.publish('shape/deselect', {shape: this});
         },
 
         onResize: function() {
             this.redraw();
         },
-
+        
         onRemove: function() {
             // remove label
             this.component('label').remove();
@@ -16335,14 +17580,47 @@
             for (var name in this.components) {
                 this.components[name] = null;
             }
-
+            
             Graph.registry.shape.unregister(this);
+        },
+        
+        onConfigToolClick: function(e) {
+            
+        },
+        
+        onTrashToolClick: function(e) {
+            this.remove();
+        },
+        
+        onLinkToolClick: function(e) {
+            var paper = this.paper();
+            
+            if (paper) {
+                var layout = paper.layout(),
+                    linker = paper.plugins.linker,
+                    coord  = layout.grabLocation(e);
+                
+                paper.tool().activate('linker');
+                linker.start(this.provider('network'), coord);
+            }
+        },
+
+        onFrontToolClick: function(e) {
+            this.sendToFront();
+        },
+
+        onBackToolClick: function(e) {
+            this.sendToBack();
         }
     });
 
     ///////// STATICS /////////
     
     Shape.guid = 0;
+
+    Shape.toString = function() {
+        return 'function(options)';
+    };
 
     ///////// EXTENSION /////////
     
@@ -16366,6 +17644,11 @@
             top: 0
         },
 
+        metadata: {
+            name: 'activity.start',
+            style: 'graph-shape-activity-start'
+        },
+
         initComponent: function() {
             var me = this, 
                 comp = me.components;
@@ -16373,27 +17656,38 @@
             var shape, block, label;
 
             shape = (new Graph.svg.Group(me.props.left, me.props.top))
-                .addClass('graph-shape-activity-start')
                 .selectable(false);
 
             var cx = me.props.width / 2,
                 cy = me.props.height / 2;
 
             block = (new Graph.svg.Ellipse(cx, cy, cx, cy))
+                .addClass(Graph.styles.SHAPE_BLOCK)
                 .data('text', me.props.label)
                 .render(shape);
 
-            block.draggable({ghost: true});
-            block.connectable({shield: shape, wiring: 'h:v'});
-            block.resizable({shield: shape});
+            block.draggable({
+                ghost: true,
+                dragClass: Graph.styles.SHAPE_DRAG
+            });
+            
+            block.connectable({wiring: 'h:v'});
+            block.resizable();
             block.editable();
+            block.snappable();
 
-            block.on('edit',    _.bind(me.onLabelEdit, me));
-            block.on('dragend', _.bind(me.onDragEnd, me));
-            block.on('resize',  _.bind(me.onResize, me));
-            block.on('remove',  _.bind(me.onRemove, me));
+            block.elem.data(Graph.string.ID_SHAPE, this.guid());
+
+            block.on('edit.shape',    _.bind(me.onLabelEdit, me));
+            block.on('dragstart.shape', _.bind(me.onDragStart, me));
+            block.on('dragend.shape', _.bind(me.onDragEnd, me));
+            block.on('resize.shape',  _.bind(me.onResize, me));
+            block.on('remove.shape',  _.bind(me.onRemove, me));
+            block.on('select.shape',  _.bind(me.onSelect, me));
+            block.on('deselect.shape',  _.bind(me.onDeselect, me));
 
             label = (new Graph.svg.Text(cx, cy, me.props.label))
+                .addClass(Graph.styles.SHAPE_LABEL)
                 .selectable(false)
                 .clickable(false)
                 .render(shape);
@@ -16416,7 +17710,7 @@
             matrix = Graph.matrix().translate(bound.x, bound.y);
 
             shape.matrix().multiply(matrix);
-            shape.attr('transform', shape.matrix().toString());
+            shape.attr('transform', shape.matrix().toValue());
 
             cx = bound.width  / 2;
             cy = bound.height / 2;
@@ -16436,6 +17730,17 @@
 
             label.wrap(bound.width - 10);
 
+            // update props
+            
+            matrix = shape.matrix();
+            
+            this.data({
+                left: matrix.props.e,
+                top: matrix.props.f,
+                width: bound.width,
+                height: bound.height
+            });
+            
             bound  = null;
             matrix = null;
         },
@@ -16445,6 +17750,12 @@
         }
 
     });
+
+    ///////// STATIC /////////
+    
+    Graph.shape.activity.Start.toString = function() {
+        return 'function(options)';
+    };
 
 }());
 
@@ -16460,6 +17771,11 @@
             top: 0
         }, 
 
+        metadata: {
+            name: 'activity.final',
+            style: 'graph-shape-activity-final'
+        },
+
         initComponent: function() {
             var me = this, 
                 comp = me.components;
@@ -16467,20 +17783,19 @@
             var shape, block, inner, label;
 
             shape = (new Graph.svg.Group(me.props.left, me.props.top))
-                .addClass('graph-shape-activity-final')
                 .selectable(false);
 
             var cx = me.props.width / 2,
                 cy = me.props.height / 2;
 
             block = (new Graph.svg.Ellipse(cx, cy, cx, cy))
-                .addClass('block')
+                .addClass('comp-block')
                 .data('text', me.props.label)
                 .render(shape);
 
             block.draggable({ghost: true});
-            block.connectable({shield: shape});
-            block.resizable({shield: shape});
+            block.connectable();
+            block.resizable();
             block.editable();
 
             block.on('edit',    _.bind(me.onLabelEdit, me));
@@ -16489,13 +17804,13 @@
             block.on('remove',  _.bind(me.onRemove, me));
 
             inner = (new Graph.svg.Ellipse(cx, cy, cx - 6, cy - 6))
-                .addClass('inner')
+                .addClass('comp-inner')
                 .clickable(false)
                 .selectable(false)
                 .render(shape);
 
             label = (new Graph.svg.Text(cx, cy, me.props.label))
-                .addClass('label')
+                .addClass('comp-label')
                 .selectable(false)
                 .clickable(false)
                 .render(shape);
@@ -16520,7 +17835,7 @@
             matrix = Graph.matrix().translate(bound.x, bound.y);
             
             shape.matrix().multiply(matrix);
-            shape.attr('transform', shape.matrix().toString());
+            shape.attr('transform', shape.matrix().toValue());
 
             cx = bound.width / 2,
             cy = bound.height / 2;
@@ -16545,6 +17860,16 @@
                 cy: cy,
                 rx: cx - 6,
                 ry: cy - 6
+            });
+
+            // update props
+            matrix = shape.matrix();
+            
+            this.data({
+                left: matrix.props.e,
+                top: matrix.props.f,
+                width: bound.width,
+                height: bound.height
             });
             
             bound  = null;
@@ -16574,6 +17899,12 @@
 
     });
 
+    ///////// STATIC /////////
+    
+    Graph.shape.activity.Final.toString = function() {
+        return 'function(options)';
+    };
+
 }());
 
 (function(){
@@ -16588,6 +17919,12 @@
             top: 0
         },
 
+        metadata: {
+            name: 'activity.action',
+            icon: Graph.icons.SHAPE_ACTION,
+            style: 'graph-shape-activity-action'
+        },
+
         initComponent: function() {
             var me = this, comp = this.components;
             var shape, block, label;
@@ -16599,21 +17936,28 @@
                 .selectable(false);
 
             block = (new Graph.svg.Rect(0, 0, me.props.width, me.props.height))
+                .addClass(Graph.styles.SHAPE_BLOCK)
                 .data('text', me.props.label)
                 .render(shape);
 
-            block.draggable({ghost: true});
-            block.resizable({shield: shape});
+            block.elem.data(Graph.string.ID_SHAPE, me.guid());
+
+            block.draggable({ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            block.resizable();
             block.editable();
-            block.connectable({shield: shape, wiring: 'h:v'});
-            block.snappable({shield: shape, enabled: true});
+            block.connectable({wiring: 'h:v'});
+            block.snappable();
 
             block.on('edit.shape',    _.bind(me.onLabelEdit, me));
+            block.on('dragstart.shape', _.bind(me.onDragStart, me));
             block.on('dragend.shape', _.bind(me.onDragEnd, me));
             block.on('resize.shape',  _.bind(me.onResize, me));
             block.on('remove.shape',  _.bind(me.onRemove, me));
+            block.on('select.shape',  _.bind(me.onSelect, me));
+            block.on('deselect.shape',  _.bind(me.onDeselect, me));
 
             label = (new Graph.svg.Text(cx, cy, me.props.label))
+                .addClass(Graph.styles.SHAPE_LABEL)
                 .clickable(false)
                 .selectable(false)
                 .render(shape);
@@ -16636,7 +17980,7 @@
             matrix = Graph.matrix().translate(bound.x, bound.y);
 
             shape.matrix().multiply(matrix);
-            shape.attr('transform', shape.matrix().toString());
+            shape.attr('transform', shape.matrix().toValue());
 
             block.attr({
                 x: 0,
@@ -16652,8 +17996,19 @@
             });
 
             label.wrap(bound.width - 10);
-
-            bound = null;
+            
+            // update props
+            
+            matrix = shape.matrix();
+            
+            this.data({
+                left: matrix.props.e,
+                top: matrix.props.f,
+                width: bound.width,
+                height: bound.height
+            });
+            
+            bound  = null;
             matrix = null;
         },
 
@@ -16667,6 +18022,12 @@
 
     });
 
+    ///////// STATIC /////////
+    
+    Graph.shape.activity.Action.toString = function() {
+        return 'function(options)';
+    };
+
 }());
 
 (function(){
@@ -16679,6 +18040,12 @@
             height: 100,
             left: 0,
             top: 0
+        },
+
+        metadata: {
+            name: 'activity.router',
+            icon: Graph.icons.SHAPE_ROUTER,
+            style: 'graph-shape-activity-router'
         },
 
         initComponent: function() {
@@ -16702,15 +18069,21 @@
                 .data('text', me.props.label)
                 .render(shape);
 
-            block.draggable({ghost: true});
-            block.resizable({shield: shape});
+            block.elem.data(Graph.string.ID_SHAPE, me.guid());
+
+            block.draggable({ghost: true, dragClass: 'shape-draggable'});
+            block.resizable();
             block.editable();
-            block.connectable({shield: shape});
+            block.connectable({wiring: 'h:v'});
+            block.snappable();
 
             block.on('edit', _.bind(me.onLabelEdit, me));
+            block.on('dragstart', _.bind(me.onDragStart, me));
             block.on('dragend', _.bind(me.onDragEnd, me));
             block.on('resize', _.bind(me.onResize, me));
             block.on('remove',  _.bind(me.onRemove, me));
+            block.on('select.shape',  _.bind(me.onSelect, me));
+            block.on('deselect.shape',  _.bind(me.onDeselect, me));
 
             label = (new Graph.svg.Text(cx, cy, me.props.label))
                 .clickable(false)
@@ -16735,7 +18108,7 @@
             matrix = Graph.matrix().translate(bound.x, bound.y);
 
             shape.matrix().multiply(matrix);
-            shape.attr('transform', shape.matrix().toString());
+            shape.attr('transform', shape.matrix().toValue());
 
             var points = [
                 bound.width / 2, 0,
@@ -16758,11 +18131,28 @@
 
             label.wrap(bound.width - 10);
 
+            // update props
+            
+            matrix = shape.matrix();
+            
+            this.data({
+                left: matrix.props.e,
+                top: matrix.props.f,
+                width: bound.width,
+                height: bound.height
+            });
+
             matrix = null;
             bound  = null;
         }
 
     });
+
+    ///////// STATIC /////////
+    
+    Graph.shape.activity.Router.toString = function() {
+        return 'function(options)';
+    };
 
 }());
 
@@ -16777,6 +18167,11 @@
             top: 0
         },
 
+        metadata: {
+            name: 'activity.fork',
+            style: 'graph-shape-activity-fork'
+        },
+
         initComponent: function() {
             var me = this, comp = this.components;
             var shape, block, label;
@@ -16788,6 +18183,12 @@
         }
 
     });
+
+    ///////// STATIC /////////
+    
+    Graph.shape.activity.Fork.toString = function() {
+        return 'function(options)';
+    };
 
 }());
 
@@ -16801,12 +18202,16 @@
             top: 0
         },
 
+        metadata: {
+            name: 'activity.join',
+            style: 'graph-shape-activity-join'
+        },
+
         initComponent: function() {
             var me = this, comp = this.components;
             var shape, block, beam, label;
 
             shape = (new Graph.svg.Group(me.props.left, me.props.top))
-                .addClass('graph-shape-activity-join')
                 .selectable(false);
 
             block = (new Graph.svg.Rect(0, 0, me.props.width, me.props.height, 0))
@@ -16814,7 +18219,7 @@
                 .render(shape);
 
             block.draggable({ghost: true});
-            block.connectable({shield: shape});
+            block.connectable();
             block.on('dragend', _.bind(me.onDragEnd, me));
 
             comp.shape = shape.guid();
@@ -16822,9 +18227,18 @@
         }
     });
 
+    ///////// STATIC /////////
+    
+    Graph.shape.activity.Join.toString = function() {
+        return 'function(options)';
+    };
+
 }());
 
 (function(){
+
+    var TRANSFER_RECEIVE = 'receive',
+        TRANSFER_DISPOSE = 'dispose';
 
     Graph.shape.activity.Lane = Graph.extend(Graph.shape.Shape, {
 
@@ -16836,60 +18250,250 @@
             top: 0
         },
 
+        components: {
+            header: null
+        },
+
+        tree: {
+            pool: null
+        },
+
+        transfer: null,
+
+        metadata: {
+            name: 'activity.lane',
+            icon: Graph.icons.SHAPE_LANE,
+            style: 'graph-shape-activity-lane'
+        },
+
+        constructor: function(options) {
+            this.superclass.prototype.constructor.call(this, options);
+            this.initDropzone();
+        },
+        
+        initMetadata: function() {
+            this.metadata.tools = [
+                {
+                    name: 'config', 
+                    icon: Graph.icons.CONFIG, 
+                    title: Graph._('Click to config shape'), 
+                    enabled: true
+                },
+                {
+                    name: 'above', 
+                    icon: Graph.icons.LANE_ABOVE,
+                    title: Graph._('Add shape above'), 
+                    enabled: true,
+                    handler: _.bind(this.onAboveToolClick, this)
+                },
+                {
+                    name: 'below', 
+                    icon: Graph.icons.LANE_BELOW,
+                    title: Graph._('Add shape below'), 
+                    enabled: true,
+                    handler: _.bind(this.onBelowToolClick, this)
+                },
+                {
+                    name: 'moveup',
+                    icon: Graph.icons.MOVE_UP,
+                    title: Graph._('Move up'),
+                    enabled: true,
+                    handler: _.bind(this.onUpToolClick, this)
+                },
+                {
+                    name: 'movedown',
+                    icon: Graph.icons.MOVE_DOWN,
+                    title: Graph._('Move down'),
+                    enabled: true,
+                    handler: _.bind(this.onDownToolClick, this)
+                },
+                {
+                    name: 'sendtofront',
+                    icon: Graph.icons.SEND_TO_FRONT,
+                    title: Graph._('Send to front'),
+                    enabled: true,
+                    handler: _.bind(this.onFrontToolClick, this)
+                },
+                {
+                    name: 'sendtoback',
+                    icon: Graph.icons.SEND_TO_BACK,
+                    title: Graph._('Send to back'),
+                    enabled: true,
+                    handler: _.bind(this.onBackToolClick, this)
+                },
+                {
+                    name: 'trash', 
+                    icon: Graph.icons.TRASH, 
+                    title: Graph._('Click to remove shape'), 
+                    enabled: true,
+                    handler: _.bind(this.onTrashToolClick, this)
+                }
+            ];
+        },
+
         initComponent: function() {
-            var me = this, comp = me.components;
-            var shape, block, header, label;
+            var me = this, 
+                comp = me.components;
+
+            var shape, block, header, label, child;
 
             shape = (new Graph.svg.Group(me.props.left, me.props.top))
-                .addClass('graph-shape-activity-lane')
                 .selectable(false);
 
             block = (new Graph.svg.Rect(0, 0, me.props.width, me.props.height, 0))
-                .addClass('block')
+                .addClass(Graph.styles.SHAPE_BLOCK)
                 .render(shape);
 
-            block.resizable({shield: shape});
-            block.draggable({ghost: true});
+            block.resizable();
 
-            block.on('dragend', _.bind(me.onDragEnd, me));
-            block.on('resize', _.bind(me.onResize, me));
-            block.on('remove',  _.bind(me.onRemove, me));
+            block.draggable({
+                ghost: true,
+                batchSync: false
+            });
+
+            block.on('dragend.shape', _.bind(me.onDragEnd, me));
+            block.on('resize.shape', _.bind(me.onResize, me));
+            block.on('remove.shape',  _.bind(me.onRemove, me));
+            block.on('select.shape',  _.bind(me.onSelect, me));
+            block.on('deselect.shape',  _.bind(me.onDeselect, me));
 
             header = (new Graph.svg.Rect(0, 0, 30, me.props.height, 0))
-                .addClass('header')
+                .addClass(Graph.styles.SHAPE_HEADER)
                 .selectable(false)
                 .render(shape);
+
+            header.data('text', me.props.label);
+            header.editable({
+                width: 200,
+                height: 100
+            });
+
+            header.on('edit.shape', _.bind(me.onLabelEdit, me));
 
             var tx = 15,
                 ty = me.props.height / 2;
 
             label = (new Graph.svg.Text(tx, ty, me.props.label))
+                .addClass(Graph.styles.SHAPE_LABEL)
                 .selectable(false)
                 .clickable(false)
                 .render(shape);
 
             label.rotate(270, tx, ty).commit();
 
+            child = (new Graph.svg.Group())
+                .addClass(Graph.styles.SHAPE_CHILD)
+                .selectable(false)
+                .render(shape);
+
+            child.translate(50, 0).commit();
+
             comp.shape = shape.guid();
             comp.block = block.guid();
             comp.header = header.guid();
             comp.label = label.guid();
+            comp.child = child.guid();
+
+            // set virtual pool
+            me.tree.pool = new Graph.shape.activity.Pool();
+            me.tree.pool.insert(me);
 
             shape = block = header = label = null;
         },
 
-        onDragEnd: function() {
-            var block = this.component('block'),
-                shape = this.component('shape'),
-                matrix = block.matrix();
+        initDropzone: function() {
+            var me = this,
+                comp = me.component(),
+                block = me.component('block'),
+                children = me.children();
 
-            block.reset();
-            block.attr('transform', '');
+            block.interactable().dropzone({
+                accept: '.shape-draggable',
+                overlap: .2
+            })
+            .on('dragenter', function laneDragEnter(e){
+                var vector, shape, batch;
 
-            shape.matrix().multiply(matrix);
-            shape.attr('transform', shape.matrix().toString());
+                if ( ! me.transfer) {
+                    vector = Graph.registry.vector.get(e.relatedTarget);
+
+                    if (vector) {
+
+                        shape = Graph.registry.shape.get(vector);
+
+                        if (shape) {
+                            me.transfer = {
+                                shape: shape,
+                                batch: [],
+                                startHandler: _.bind(me.onTransferStart, me),
+                                stopHandler: _.bind(me.onTransferEnd, me)
+                            };
+
+                            shape.on('dragend', me.transfer.stopHandler);
+
+                            // handle batch
+                            if (vector.lasso) {
+                                batch = vector.lasso.collection.slice();
+                                _.forEach(batch, function(v){
+                                    var s = Graph.registry.shape.get(v);
+                                    if (s && s !== shape) {
+                                        me.transfer.batch.push(s);
+                                    }
+                                });
+                                batch = null;
+                            }
+
+                            // handle shape
+                            if ( ! children.has(shape)) {
+                                me.transfer.trans = TRANSFER_RECEIVE;
+                                comp.addClass('receiving');
+                            }
+                        }
+                    }
+                } else {
+                    if (me.transfer.trans == TRANSFER_RECEIVE) {
+                        comp.addClass('receiving');
+                    }
+                }
+            })
+            .on('dragleave', function laneDragLeave(e){
+                if (me.transfer) {
+                    comp.removeClass('receiving');
+                }
+            })
+            .on('drop', function laneDrop(e){
+                if (me.transfer) {
+                    comp.removeClass('receiving');
+                }
+            });
+
+            block = null;
         },
 
+        pool: function() {
+            return this.tree.pool;
+        },
+
+        // @Override
+        render: function(paper, method, sibling) {
+            var component = this.component();
+
+            method = _.defaultTo(method, 'prepend');
+
+            component.render(paper, method, sibling);
+            
+            // save
+            this.tree.paper = paper.guid();
+        },
+
+        sendToBack: function() {
+            var paper = this.paper();
+        },
+
+        sendToFront: function() {
+            this.pool().bringToFront(this);
+        },
+        
         redraw: function() {
             var block = this.component('block'),
                 shape = this.component('shape'),
@@ -16900,10 +18504,11 @@
 
             bound  = block.bbox().toJson();
             matrix = Graph.matrix().translate(bound.x, bound.y);
-
+            
             shape.matrix().multiply(matrix);
-            shape.attr('transform', shape.matrix().toString());
-
+            shape.attr('transform', shape.matrix().toValue());
+            shape.dirty(true);
+            
             block.attr({
                 x: 0,
                 y: 0
@@ -16930,10 +18535,118 @@
                 x: tx,
                 y: ty
             });
-
+            
             label.wrap(bound.height - 10);
             label.rotate(270, tx, ty).commit();
+            
+            // update props
+            
+            matrix = shape.matrix();
+            
+            this.data({
+                left: matrix.props.e,
+                top: matrix.props.f,
+                width: bound.width,
+                height: bound.height
+            });
+            
+            bound  = null;
+            matrix = null;
+        },
+        
+        attr: function(name, value) {
+            var result = this.superclass.prototype.attr.call(this, name, value),
+                maps = {
+                    width: 'width',
+                    height: 'height',
+                    left: 'x',
+                    top: 'y'
+                };
+                
+            var block, key, val;
+            
+            if (_.isPlainObject(name)) {
+                
+                block = this.component('block');
+                
+                for (key in name) {
+                    if (maps[key]) {
+                        val = name[key];
+                        block.attr(maps[key], val);
+                    }
+                }
+                
+                this.redraw();
+                
+            } else if (value !== undefined) {
+                block = this.component('block');
+                
+                if (maps[name]) {
+                    block.attr(maps[name], value);
+                }
+                
+                this.redraw();
+            }
+            
+            return result;
+        },
+        
+        addSiblingAbove: function() {
+            var sibling = new Graph.shape.activity.Lane(),
+                paper = this.paper(),
+                pool = this.pool();
+                
+            // create space above
+            pool.createSpaceAbove(this, sibling.height());
+                
+            // sync position 'above'
+            var top = (this.top() - sibling.height());
+            
+            sibling.attr({
+                width: this.props.width,
+                left: this.props.left,
+                top: top
+            });
+            
+            // sync pool
+            sibling.tree.pool = pool;
 
+            var result = pool.insert(sibling);
+            
+            if (result !== undefined) {
+                sibling.render(paper, 'before', this.component());
+            }
+            
+            sibling = null;
+        },
+        
+        addSiblingBellow: function() {
+            var sibling = new Graph.shape.activity.Lane(),
+                paper = this.paper(),
+                pool = this.pool();
+            
+            // create space
+            pool.createSpaceBellow(this, sibling.height());
+            
+            // sync position 'bellow'
+            var bottom = (this.top() + this.height());
+            
+            sibling.attr({
+                width: this.props.width,
+                left: this.props.left,
+                top: bottom
+            });
+            
+            // sync pool
+            sibling.tree.pool = pool;
+            
+            var result = pool.insert(sibling);
+            
+            if (result !== undefined) {
+                sibling.render(paper, 'after', this.component());
+            }
+            
+            sibling = null;
         },
 
         toString: function() {
@@ -16955,10 +18668,492 @@
             }
 
             Graph.registry.shape.unregister(this);
+        },
+        
+        onDragEnd: function(e) {
+            this.superclass.prototype.onDragEnd.call(this, e);
+
+            if ( ! e.batch) {
+                this.pool().translateBy(this, e.dx, e.dy);
+            }
+        },
+
+        onResize: function(e) {
+            this.superclass.prototype.onResize.call(this, e);
+            this.pool().resizeBy(this);
+        },
+
+        onAboveToolClick: function(e) {
+            this.addSiblingAbove();
+        },
+        
+        onBelowToolClick: function(e) {
+            this.addSiblingBellow();
+        },
+
+        onUpToolClick: function(e) {
+            this.pool().moveUp(this);
+        },
+
+        onDownToolClick: function(e) {
+            this.pool().moveDown(this);
+        },
+
+        onTransferStart: function(e) {
+
+        },
+
+        onTransferEnd: function(e) {
+            var delay;
+
+            _.delay(function(me){
+
+                clearTimeout(delay);
+                delay = null;
+
+                var children = me.children(),
+                    transfer = me.transfer;
+
+                var shapeMatrix, shapeComp;
+
+                console.log(me.contains(transfer.shape));
+
+                // handle shape
+                if (me.contains(transfer.shape)) {
+                    
+                    shapeComp = transfer.shape.component(); 
+                    
+                    if ( ! children.has(transfer.shape)) {
+                        me.addChild(transfer.shape);
+
+                        // sync matrix
+                        // shapeMatrix = transfer.shape.innerMatrix();
+
+                        // shapeComp.graph.matrix = shapeMatrix;
+                        // shapeComp.attr('transform', shapeMatrix.toValue());
+                        // shapeComp.dirty(true);
+
+                    } else {
+                        // shapeMatrix = shapeComp.matrix();
+                    }
+                    
+                    // update props
+                    // transfer.shape.data({
+                    //     left: shapeMatrix.props.e,
+                    //     top: shapeMatrix.props.f
+                    // });
+                    
+                    // invalidate
+                    transfer.shape.invalidate();
+
+                    // shapeMatrix = null;
+                } else {
+                    if (children.has(transfer.shape)) {
+                        me.removeChild(transfer.shape);
+
+                        // sync matrix
+                        
+                    }
+
+                    transfer.shape.invalidate();
+                }
+
+                /*console.log(me.contains(transfer.shape));
+
+                var parent;
+                
+                // handle shape
+                if (children.has(transfer.shape)) {
+                    if ( ! bbox.contains(transfer.shape.outerBBox(me))) {
+                        //me.removeChild(transfer.shape);
+                    } else {
+                        // just update matrix
+                        var matrix = transfer.shape.matrix();
+
+                        transfer.shape.data({
+                            left: matrix.props.e,
+                            top: matrix.props.f
+                        });
+                    }
+                } else {
+                    if (bbox.contains(transfer.shape.bbox())) {
+                        parent = transfer.shape.parent();
+                        if (parent) {
+                            //parent.removeChild(transfer.shape, false);
+                        }
+                        //me.addChild(transfer.shape);
+                        console.log(transfer.shape.outerBBox(me).toJson());
+                        console.log(bbox.contains(transfer.shape.outerBBox(me)));
+                    }
+                }
+
+                
+
+                // handle batch
+                _.forEach(me.transfer.batch, function(shape){
+                    if (children.has(shape)) {
+                        if ( ! bbox.contains(shape.innerBBox(me))) {
+                            me.removeChild(shape);
+                        }
+                    } else {
+                        if (bbox.contains(shape.outerBBox(me))) {
+                            parent = shape.parent();
+                            if (parent) {
+                                parent.removeChild(shape, false);
+                            }
+                            me.addChild(shape);
+                        }
+                    }
+                });*/
+
+                transfer.shape.off('dragend', transfer.stopHandler);
+                me.transfer = transfer = null;
+
+                console.log(me.children().items);
+
+            }, 0, this);
+
         }
 
     });
 
+    ///////// STATIC /////////
+    
+    Graph.shape.activity.Lane.toString = function() {
+        return 'function(options)';
+    };
+
+}());
+
+(function(){
+
+    /**
+     * Virtual pool for lanes
+     */
+
+    var Pool = Graph.shape.activity.Pool = function() {
+        this.guid = 'pool-' + (++Pool.guid);
+        
+        // tree nodes
+        this.lanes = (new Graph.collection.Tree([]))
+            .keygen(function(lane){ 
+                return lane.bbox.y;
+                // return (lane.bbox.y + (1e-9 * lane.bbox.x));
+            });
+        
+        // raw nodes
+        this.cached = {};
+    };
+
+    Pool.prototype.bbox = function() {
+        var nodes = this.lanes.toArray(),
+             x = [], 
+             y = [], 
+            x2 = [], 
+            y2 = [];
+
+        var bbox;
+
+        for (var i = nodes.length - 1; i >= 0; i--) {
+            bbox = nodes[i].bbox;
+
+            x.push(bbox.x);
+            y.push(bbox.y);
+
+            x2.push(bbox.x + bbox.width);
+            y2.push(bbox.y + bbox.height);
+        }
+
+         x = _.min(x);
+         y = _.min(y);
+        x2 = _.max(x2);
+        y2 = _.max(y2);
+
+        nodes = null;
+
+        return Graph.bbox({
+            x: x,
+            y: y,
+            x2: x2,
+            y2: y2,
+            width: x2 - x,
+            height: y2 - y
+        });
+    };
+    
+    Pool.prototype.get = function(index) {
+        var data = this.lanes.get(index);
+        if (data) {
+            return Graph.registry.shape.get(data.lane);
+        }
+        return null;
+    };
+
+    Pool.prototype.prev = function(lane) {
+        var index = this.index(lane),
+            prev = this.lanes.get(index - 1);
+            
+        if (prev) {
+            return Graph.registry.shape.get(prev.lane);
+        }
+        
+        return null;
+    };
+    
+    Pool.prototype.last = function() {
+        var index = this.count() - 1,
+            last = this.lanes.get(index);
+            
+        if (last) {
+            return Graph.registry.shape.get(last.lane);
+        }
+        
+        return null;
+    };
+    
+    /**
+     * Create new space
+     */
+    Pool.prototype.createSpaceAbove = function(lane, height) {
+        var laneIndex = this.index(lane),
+            prev = this.lanes.get(laneIndex - 1);
+
+        if (prev) {
+            this.lanes.bubble(prev, function(curr){
+                var shape = Graph.registry.shape.get(curr.lane);
+                if (shape) {
+                    shape.translate(0, -height);
+                    curr.bbox = shape.bbox().toJson();
+                }
+            });
+        }
+    };
+    
+    Pool.prototype.createSpaceBellow = function(lane, height) {
+        var laneIndex = this.index(lane),
+            next = this.lanes.get(laneIndex + 1);
+
+        if (next) {
+            this.lanes.cascade(next, function(curr){
+                var shape = Graph.registry.shape.get(curr.lane);
+                if (shape) {
+                    shape.translate(0, height);
+                    curr.bbox = shape.bbox().toJson();
+                }
+            });
+        }
+    };
+    
+    Pool.prototype.translateBy = function(lane, dx, dy) {
+        var root = this.lanes.root(),
+            guid = lane.guid();
+        
+        if (root) {
+            this.lanes.cascade(root, function(curr){
+                if (curr.lane == guid) {
+                    curr.bbox = lane.bbox().toJson();
+                } else {
+                    var shape = Graph.registry.shape.get(curr.lane);
+                    if (shape) {
+                        shape.translate(dx, dy);
+                        curr.bbox = shape.bbox().toJson();
+                    }
+                }
+            });
+        }
+    };
+
+    Pool.prototype.resizeBy = function(lane) {
+        var guid = lane.guid(),
+            bbox = lane.bbox().toJson(),
+            root = this.lanes.root(),
+            index = this.index(lane);
+            
+        if (root) {
+
+            // sample
+            var prev, next, dx1, dx2, dy1, dy2;
+
+            prev = this.lanes.get(index - 1);
+            next = this.lanes.get(index + 1);
+
+            dx1 = 0;
+            dy1 = 0;
+
+            dx2 = 0
+            dy2 = 0;
+
+            if (prev) {
+                dx1 = bbox.x - prev.bbox.x;
+                dy1 = bbox.y - (prev.bbox.y + prev.bbox.height);
+            }
+
+            if (next) {
+                dx2 = bbox.x - next.bbox.x;
+                dy2 = (bbox.y + bbox.height) - next.bbox.y;
+            }
+
+            this.lanes.cascade(root, function(curr, i){
+                if (curr.lane == guid) {
+                    curr.bbox = bbox;
+                } else {
+                    var shape = Graph.registry.shape.get(curr.lane);
+                    if (shape) {
+                        
+                        var group = shape.component(),
+                            block = shape.component('block');
+                        
+                        // up
+                        if (index > i) {
+                            shape.translate(dx1, dy1);
+                        } 
+                        // down
+                        else if (index < i) {
+                            shape.translate(dx2, dy2);
+                        }
+
+                        block.attr({
+                            width: bbox.width
+                        });
+
+                        block.dirty(true);
+
+                        shape.redraw();
+
+                        curr.bbox = shape.bbox().toJson();
+                    }
+                }
+            });
+        }
+
+        bbox = null;
+    };
+
+    Pool.prototype.bringToFront = function(lane) {
+        var sets = Graph.$('[data-pool="' + this.guid + '"]'),
+            last = sets.last();
+        
+        if (last.length()) {
+            if (last.node() != lane.component().node()) {
+                last.after(lane.component().elem);
+            }
+        }
+    };
+
+    Pool.prototype.moveUp = function(lane) {
+        var index = this.index(lane),
+            prev  = this.get(index - 1),
+            laneNode = this.lanes.get(index),
+            prevNode = this.lanes.get(index - 1);
+
+        if (prev) {
+            var laneBox = lane.bbox().toJson(),
+                prevBox = prev.bbox().toJson();
+
+            var dx1 = 0,
+                dy1 = prevBox.y - laneBox.y,
+                dx2 = 0,
+                dy2 = laneBox.y - prevBox.y;
+            
+            laneNode.bbox.y  += dy1;
+            laneNode.bbox.y2 += dy1;
+
+            prevNode.bbox.y  += dy2;
+            prevNode.bbox.y2 += dy2;
+
+            lane.translate(dx1, dy1);
+            prev.translate(dx2, dy2);
+
+            this.lanes.order();
+        }
+    };
+
+    Pool.prototype.moveDown = function(lane) {
+        var index = this.index(lane),
+            next  = this.get(index + 1),
+            laneNode = this.lanes.get(index),
+            nextNode = this.lanes.get(index + 1);
+
+        if (next) {
+            var laneBox = lane.bbox().toJson(),
+                nextBox = next.bbox().toJson();
+
+            var dx1 = 0,
+                dy1 = nextBox.y - laneBox.y,
+                dx2 = 0,
+                dy2 = laneBox.y - nextBox.y;
+            
+            laneNode.bbox.y  += dy1;
+            laneNode.bbox.y2 += dy1;
+
+            nextNode.bbox.y  += dy2;
+            nextNode.bbox.y2 += dy2;
+
+            lane.translate(dx1, dy1);
+            next.translate(dx2, dy2);
+
+            this.lanes.order();
+        }
+    };
+
+    Pool.prototype.count = function() {
+        return this.lanes.count();
+    };
+    
+    Pool.prototype.insert = function(lane) {
+        var guid = lane.guid();
+        var node, index;
+        
+        node = {
+            lane: guid,
+            bbox: lane.bbox().toJson()
+        };
+        
+        index = this.lanes.insert(node);
+        
+        if (index !== undefined) {
+            this.cached[guid] = node;
+            lane.component().elem.attr('data-pool', this.guid);
+        }
+        
+        node = null;
+        return index;
+    };
+
+    Pool.prototype.remove = function(lane) {
+        var guid = lane.guid(),
+            node = this.cached[guid];
+        
+        var index = this.lanes.remove(node);
+        
+        if (index !== undefined) {
+            delete this.cached[guid];
+        }
+        
+        node = null;
+        
+        return index;
+    };
+
+    Pool.prototype.index = function(lane) {
+        var guid = lane.guid(),
+            node = this.cached[guid];
+        
+        var index = this.lanes.index(node);
+        
+        node = null;
+        
+        return index;
+    };
+    
+    ///////// STATIC /////////
+    
+    Pool.guid = 0;
+
+    Pool.toString = function() {
+        return 'function(options)';
+    };
+    
 }());
 
 (function(){
@@ -16975,13 +19170,13 @@
         if (vector.isPaper()) {
             width  = vector.elem.width();
             height = vector.elem.height();
-            scale  = vector.layout().currentScale();
+            scale  = vector.layout().scale();
         } else {
             var bounds = vector.bbox().toJson();
             
             width  = bounds.width;
             height = bounds.height;
-            scale  = vector.matrix(true).scale();
+            scale  = vector.globalMatrix().scale();
         }
         
         _.assign(this.options, {
@@ -17034,6 +19229,23 @@
         exportImage(this.element, options, function(result){
             if (result) {
                 download(filename, result);
+            }
+        });
+    };
+
+    Exporter.prototype.exportBlob = function(callback) {
+        var options = _.extend({}, this.options);
+        
+        options.encoder = 'image/jpeg';
+        options.compression = 1;
+        options.background = '#ffffff';
+
+        exportImage(this.element, options, function(result){
+            if (result) {
+                var blob = createBlob(result);
+                callback && callback(blob);
+            } else {
+                callback && callback(false);
             }
         });
     };
@@ -17099,6 +19311,12 @@
             canvas.height = image.height;
             
             context = canvas.getContext('2d');
+
+            if (options.background) {
+                context.fillStyle = options.background;
+                context.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
             context.drawImage(image, 0, 0);
             
             try {
@@ -17202,78 +19420,191 @@
 
 (function(){
 
-    Graph.diagram.Diagram = Graph.extend({
-
+    Graph.pallet.Activity = Graph.extend({
+        
         props: {
-            name: null,
-            type: ''
+            guid: null,
+            paper: null
         },
-
-        constructor: function(paper) {
+        
+        components: {
+            pallet: null
+        },
+        
+        cached: {
             
         },
+        
+        constructor: function(options) {
+            _.assign(this.props, options || {});
+            this.props.guid = 'pallet-' + (++Graph.pallet.Activity.guid);
+            this.initComponent();
+        },
 
-        destroy: function() {
+        guid: function() {
+            return this.props.guid;
+        },
 
+        paper: function() {
+            return Graph.registry.vector.get(this.props.paper);
+        },
+
+        bindPaper: function(paper) {
+            this.props.paper = paper.guid();
+        },
+        
+        unbindPaper: function(paper) {
+            this.props.paper = null;
+        },
+
+        initComponent: function() {
+            var template, pallet;
+            
+            template = _.format(
+                '<svg class="graph-pallet" xmlns="{0}" xmlns:xlink="{1}" version="{2}" style="width: 100%; height: 100%">' + 
+                    '<defs>' + 
+                        '<marker id="marker-arrow-pallet" refX="11" refY="10" viewBox="0 0 20 20" markerWidth="10" markerHeight="10" orient="auto">' + 
+                            '<path d="M 1 5 L 11 10 L 1 15 Z" fill="#30D0C6" stroke-linecap="round" stroke-dasharray="10000, 1"/>' + 
+                        '</marker>' + 
+                    '</defs>' + 
+                    '<g class="graph-pallet-item" data-shape="activity.start" transform="matrix(1,0,0,1,40,0)">' + 
+                        '<circle cx="32" cy="32" r="30"/>' +
+                        '<text x="32" y="36">Start</text>' + 
+                    '</g>' + 
+                    '<g class="graph-pallet-item" data-shape="activity.final" transform="matrix(1,0,0,1,40,80)">' + 
+                        '<circle cx="32" cy="32" r="30"/>' + 
+                        '<circle cx="32" cy="32" r="24" class="full"/>' + 
+                        '<text x="32" y="36">Stop</text>' + 
+                    '</g>' + 
+                    '<g class="graph-pallet-item" data-shape="activity.action" transform="matrix(1,0,0,1,40,160)">' + 
+                        '<rect x="2" y="2" width="60" height="60" rx="7" ry="7"/>' + 
+                        '<text x="32" y="34">Action</text>' + 
+                    '</g>' + 
+                    '<g class="graph-pallet-item" data-shape="activity.router" transform="matrix(1,0,0,1,40,250)">' + 
+                        '<rect x="4" y="4" width="54" height="54" transform="rotate(45,32,32)"/>' + 
+                        '<text x="30" y="34">Route</text>' + 
+                    '</g>' + 
+                    '<g class="graph-pallet-item" data-shape="activity.join" transform="matrix(1,0,0,1,40,340)">' + 
+                        '<rect x="2" y="28" width="60" height="6" rx="0" ry="0" class="full"/>' + 
+                        '<path d="M 10  0 L 10 28"></path>' + 
+                        '<path d="M 54  0 L 54 28"></path>' + 
+                        '<path d="M 32 34 L 32 60" marker-end="url(#marker-arrow-pallet)"></path>' + 
+                        '<text x="32" y="20">Join</text>' + 
+                    '</g>' + 
+                    '<g class="graph-pallet-item" data-shape="activity.fork" transform="matrix(1,0,0,1,40,420)">' + 
+                        '<rect x="2" y="28" width="60" height="6" rx="0" ry="0" class="full"/>' + 
+                        '<path d="M 10 34 L 10 60" marker-end="url(#marker-arrow-pallet)"></path>' + 
+                        '<path d="M 54 34 L 54 60" marker-end="url(#marker-arrow-pallet)"></path>' + 
+                        '<path d="M 32  0 L 32 28"></path>' + 
+                        '<text x="32" y="50">Fork</text>' + 
+                    '</g>' + 
+                    '<g class="graph-pallet-item" data-shape="activity.lane" transform="matrix(1,0,0,1,40,500)">' + 
+                        '<rect x="2" y="2" width="60" height="60" rx="0" ry="0"/>' + 
+                        '<rect x="2" y="2" width="10" height="60" rx="0" ry="0"/>' + 
+                        '<text x="32" y="34">Role</text>' + 
+                    '</g>' + 
+                '</svg>',
+                Graph.config.xmlns.svg,
+                Graph.config.xmlns.xlink,
+                Graph.config.svg.version
+            );
+            
+            pallet = Graph.$(template);
+            
+            pallet.on('click', '[data-shape]', _.bind(this.onShapeClick, this));
+            
+            var me = this;
+
+            // setup draggable
+            var draggable = interact('.graph-pallet-item', pallet.node()).draggable({
+                manualStart: true,
+                onstart: function(e) {
+                    var target = Graph.$(e.target),
+                        transform = Graph.util.transform2segments(target.attr('transform'));
+
+                    transform = transform[0].slice(1);
+                    me.cached.matrix = Graph.factory(Graph.lang.Matrix, transform);
+
+                    target.addClass('grabbing');
+
+                    var paper = me.paper();
+                    if (paper) {
+                        var diagram = paper.diagram();
+                        console.log(diagram);
+                    }
+
+                    /*var paper = me.paper(),
+                        shape = Graph.shape(target.data('shape'));
+
+                    console.log(shape);*/
+
+                    transform = target = null;
+                    
+                },
+                onmove: function(e) {
+                    me.cached.matrix.translate(e.dx, e.dy);
+                    e.target.setAttribute('transform', me.cached.matrix.toValue());
+                },
+                onend: function(e) {
+                    var target = Graph.$(e.target);
+                    
+                    target.removeClass('grabbing');
+                    pallet.node().removeChild(me.cached.clone);
+
+                    me.cached.matrix = null;
+                    target = null;
+                }
+            })
+            .on('move', function(e){
+                var i = e.interaction;
+                if (i.pointerIsDown && ! i.interacting()) {
+                    var action = {name: 'drag'};
+
+                    // -- workaround for a bug in v1.2.6 of interact.js
+                    i.prepared.name = action.name;
+                    i.setEventXY(i.startCoords, i.pointers);
+
+                    me.cached.clone = e.currentTarget.cloneNode(true);
+                    pallet.node().appendChild(me.cached.clone);
+                    i.start(action, e.interactable, me.cached.clone);
+                }
+            });
+            
+            draggable.styleCursor(false);
+            
+            this.components.pallet = pallet;
+        },
+
+        render: function(container) {
+            container = Graph.$(container);
+            container.prepend(this.components.pallet);
+            container = null;
+        },
+        
+        onShapeClick: function(e) {
+            // var namespace = Graph.$(e.currentTarget).data('shape');
+            // var shape = Graph.shape(namespace, {});
+            // console.log(shape);
+        },
+
+        toString: function() {
+            return 'Graph.pallet.Activity';
         }
 
     });
 
+    Graph.pallet.Activity.guid = 0;
+
 }());
 
 (function(){
 
-    Graph.diagram.Command = Graph.extend({
+    Graph.diagram.Diagram = Graph.extend({
         
-        history: [],
-
-        add: function() {
-            
-        },
-
-        undo: function() {
-            
-        },
-
-        redo: function() {
+        constructor: function() {
 
         }
-
     });
-
-}());
-
-(function(){
-
-    var Modeler = Graph.diagram.Modeler = function(){};
-
-    Modeler.prototype.export = function(diagram) {
-
-    };
-
-    Modeler.prototype.import = function(diagram, model) {
-        
-    };
-}());
-
-(function(){
-
-    var Parser = Graph.diagram.Parser = function(){};
-
-    Parser.prototype.parse = function(diagram, data) {
-        
-    };
-}());
-
-(function(){
-
-    var Rules = Graph.diagram.Rules = function(){
-        this.rules = {};
-    };
-
-    Rules.prototype.add = function() {
-        
-    };
 
 }());
 
@@ -17282,90 +19613,75 @@
     Graph.popup.Dialog = Graph.extend({
 
         props: {
-            opened: false,
-            content: null,
-            buttons: null,
-            baseClass: ''
+            opened: false
         },
 
         components: {
-            popup: null,
-            container: null,
+            element: null,
             backdrop: null
         },
 
         handlers: {
-            backdropClick: null
+            backdrop_click: null
         },
 
-        constructor: function(container, options) {
-            if (_.isPlainObject(container)) {
-                options = container;
-                container = Graph.$('body');
-            }
+        constructor: function(element, options) {
+            var me = this, 
+                comp = me.components,
+                handlers = me.handlers;
 
-            _.assign(this.props, options || {});
+            comp.element = Graph.$(element);
 
-            this.components.container = container || Graph.$('body');
-            this.initComponent();
-        },
+            if (options.buttons) {
+                _.forEach(options.buttons, function(button, index){
+                    var element = Graph.$(button.element, comp.element);
+                    if (element.length()) {
+                        var name = 'button' + index,
+                            func = name + '_click';
 
-        initComponent: function() {
-            var me = this;
+                        comp[name] = element;
 
-            var popup = Graph.$('<div class="graph-popup-dialog"/>');
-            popup.addClass(this.props.baseClass);
-            console.log(this.props.baseClass);
-            me.components.popup = popup;
-        },
-
-        component: function() {
-            return this.components.popup;
-        },
-
-        content: function(content) {
-            var me = this;
-
-            if (content === undefined) {
-                return me.props.content;
-            }
-
-            if (_.isFunction(content)) {
-                Graph.when(content()).then(function(data){
-                    me.props.content = data;
-                    me.components.popup.html(data);
+                        if (_.isFunction(button.onclick)) {
+                            handlers[func] = _.bind(function(e){
+                                button.onclick.call(me, e);
+                            }, me);
+                            element.on('click', handlers[func]);
+                        }
+                        name = func = null;
+                    }
+                    element = null;
                 });
-            } else {
-                me.props.content = content;
-                me.components.popup.html(content);
             }
+        },
 
-            return this;
+        element: function() {
+            return this.components.element;
         },
 
         open: function() {
-            if (this.opened) {
+            if (this.props.opened) {
                 return;
             }
 
-            this.components.container.append(this.components.popup);
+            this.element().addClass('open');
             this.props.opened = true;
 
             this.center();
             this.backdrop();
-
-            return this;
         },
 
         close: function() {
-            var backdrop = this.components.backdrop;
+            var me = this,
+                comp = this.components,
+                handlers = this.handlers,
+                backdrop = comp.backdrop;
 
-            this.components.popup.detach();
+            this.element().removeClass('open');
             this.props.opened = false;
 
-            if (this.handlers.backdropClick) {
-                backdrop.off('click', this.handlers.backdropClick);
-                this.handlers.backdropClick = null;
+            if (handlers.backdrop_click) {
+                backdrop.off('click', handlers.backdrop_click);
+                handlers.backdrop_click = null;
 
                 var backdropUser = +backdrop.data('user');
 
@@ -17379,15 +19695,28 @@
                 backdrop.data('user', backdropUser);
             }
 
+            _.forOwn(handlers, function(handler, name){
+                var tmp = _.split(name, '_'),
+                    key = tmp[0],
+                    evt = tmp[1];
+
+                if (handler && comp[key] && evt) {
+                    comp[key].off(evt, handler);
+                    handlers[name] = null;
+                }
+                
+                tmp = key = evt = null;
+            });
+
             this.fire('close');
         },
 
         center: _.debounce(function() {
-            var popup = this.components.popup,
-                width = popup.width(),
-                height = popup.height();
+            var element = this.element(),
+                width = element.width(),
+                height = element.height();
 
-            popup.css({
+            element.css({
                 'top': '50%',
                 'left': '50%',
                 'margin-top': -height / 2,
@@ -17397,37 +19726,51 @@
 
         backdrop: function() {
             var me = this,
-                backdrop = Graph.$('.graph-popup-backdrop');
+                backdrop = Graph.$('.graph-dialog-backdrop');
 
             if ( ! backdrop.length()) {
-                backdrop = Graph.$('<div class="graph-popup-backdrop"/>');
+                backdrop = Graph.$('<div class="graph-dialog-backdrop"/>');
                 backdrop.data('user', 0);
                 backdrop.on('click', function(e){
                     e.stopPropagation();
                 });
             }
 
-            me.handlers.backdropClick = function() {
+            me.handlers.backdrop_click = function() {
                 me.close();
             };
 
-            backdrop.on('click', me.handlers.backdropClick);
+            backdrop.on('click', me.handlers.backdrop_click);
 
             var backdropUser = +backdrop.data('user');
 
             backdropUser++;
             backdrop.data('user', backdropUser);
 
-            me.components.popup.before(backdrop);
+            me.components.element.before(backdrop);
             me.components.backdrop = backdrop;
         },
 
+        toString: function() {
+            return 'Graph.popup.Dialog';
+        },
+
         destroy: function() {
-            this.components.popup.remove();
-            this.components.popup = null;
-            this.components.container = null;
+            this.components.element = null;
         }
 
     });
+
+    ///////// STATICS /////////
+    
+    Graph.popup.Dialog.toString = function() {
+        return 'function(element, options)';
+    };
+
+    ///////// SHORTCUT /////////
+    
+    Graph.dialog = function(element, options){
+        return new Graph.popup.Dialog(element, options);
+    };
 
 }());

@@ -34,7 +34,7 @@
 
         constructor: function(width, height, options) {
             var me = this;
-
+            
             me.superclass.prototype.constructor.call(me, 'svg', {
                 'xmlns': Graph.config.xmlns.svg,
                 'xmlns:link': Graph.config.xmlns.xlink,
@@ -271,6 +271,12 @@
             alert('save');
         },
 
+        diagram: function(diagram) {
+            if (diagram !== undefined) {
+
+            }
+        },
+
         toString: function() {
             return 'Graph.svg.Paper';
         },
@@ -315,6 +321,11 @@
             var exporter = new Graph.data.Exporter(this);
             exporter.exportPNG(filename);
             exporter = null;
+        },
+        
+        saveAsBlob: function(callback) {
+            var exporter = new Graph.data.Exporter(this);
+            return exporter.exportBlob(callback);
         },
 
         /**

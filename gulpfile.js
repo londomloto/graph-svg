@@ -15,9 +15,11 @@ gulp.task('build', function(cb){
             'src/core.js',
             'src/util.js',
 
+            'src/i18n/loader.js',
+
+            'src/lang/class.js',
             'src/lang/error.js',
             'src/lang/event.js',
-            'src/lang/class.js',
             'src/lang/point.js',
             'src/lang/line.js',
             'src/lang/curve.js',
@@ -27,6 +29,8 @@ gulp.task('build', function(cb){
 
             'src/collection/point.js',
             'src/collection/vector.js',
+            'src/collection/shape.js',
+            'src/collection/tree.js',
 
             'src/dom/element.js',
 
@@ -57,8 +61,6 @@ gulp.task('build', function(cb){
             'src/link/directed.js',
             'src/link/orthogonal.js',
 
-            'src/util/spotlight.js',
-            'src/util/toolpad.js',
             'src/util/sweeplink.js',
 
             'src/plugin/plugin.js',
@@ -79,6 +81,7 @@ gulp.task('build', function(cb){
             'src/plugin/pencil.js',
             'src/plugin/editor.js',
             'src/plugin/snapper.js',
+            'src/plugin/toolpad.js',
 
             'src/shape/shape.js',
             'src/shape/activity/start.js',
@@ -88,9 +91,12 @@ gulp.task('build', function(cb){
             'src/shape/activity/fork.js',
             'src/shape/activity/join.js',
             'src/shape/activity/lane.js',
+            'src/shape/activity/pool.js',
 
             'src/data/exporter.js',
             'src/data/importer.js',
+
+            'src/pallet/activity.js',
 
             'src/diagram/diagram.js',
             'src/diagram/command.js',
@@ -98,7 +104,7 @@ gulp.task('build', function(cb){
             'src/diagram/parser.js',
             'src/diagram/rules.js',
 
-            'src/popup/dialog.js',
+            'src/popup/dialog.js'
             
         ]),
         sourcemaps.init(),

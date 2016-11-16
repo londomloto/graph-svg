@@ -23,6 +23,10 @@ h5 {
     font-weight: 400;
 }
 
+.e-clearfix {
+    clear: both;
+}
+
 .e-hidden {
     display: none;
 }
@@ -135,6 +139,12 @@ h5 {
     margin: 15px 0 !important;
     color: #fff;
     text-decoration: none;
+    text-transform: none;
+}
+
+.e-logo-text:hover {
+    text-decoration: none;
+    color: #fff;
 }
 
 /** page */
@@ -199,11 +209,36 @@ h5 {
     height: 600px;
 }
 
+/** title */
+.e-title {
+    float: left;
+    margin-top: 15px;
+    margin-left: 15px;
+}
+
+.e-title h4, 
+.e-title p {
+    padding: 0;
+    margin: 0;
+    text-align: left;
+    display: block;
+    text-transform: none;
+}
+
+.e-title h4 {
+    color: #3B5998;
+}
+
+.e-title p {
+    font-size: 14px;
+}
+
 /** toolbar */
 .e-toolbar {
-    text-align: right;
-    margin-top: 10px;
-    padding: 5px;
+    float: right;
+    padding: 15px 15px 5px 15px;
+    height: 70px;
+    border-left: solid 1px #dfdfdf;
 }
 
 .e-toolbar a {
@@ -228,14 +263,6 @@ h5 {
 .e-toolbar a.active:hover {
     color: #fff;
     background-color: orange;
-}
-
-.e-title {
-    display: block;
-    text-align: center;
-    margin: 0;
-    font-size: 14px;
-    color: #4A4D6E;
 }
 
 /** COMMON */

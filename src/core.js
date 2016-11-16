@@ -390,8 +390,11 @@
     /**
      * Diagram
      */
-    Graph.diagram = function() {
-
+    Graph.diagram = function(name, options) {
+        var clazz, diagram;
+        clazz = Graph.diagram[_.capitalize(name)];
+        diagram = Graph.factory(clazz, [options]);
+        console.log(diagram);
     };
 
     /**

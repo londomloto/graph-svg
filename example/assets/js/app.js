@@ -70,7 +70,8 @@ Graph(function(){
     v2.connectable();
     
     // paper.connect(v1, v2);
-    
+    var diagram = Graph.diagram('activity');
+    console.log(diagram);
 
     ///////////////////////////////////////////
     /// EXAMPLE DATA
