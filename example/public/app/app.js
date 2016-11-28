@@ -85,6 +85,8 @@ Graph(function(){
                 desc: desc
             });
 
+            console.log(diagram);
+
             app.hideModal('#create-diagram');
         },
         updateDiagram: function() {

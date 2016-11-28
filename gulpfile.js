@@ -48,6 +48,7 @@ gulp.task('build', function(cb){
             'src/registry/vector.js',
             'src/registry/link.js',
             'src/registry/shape.js',
+            'src/registry/pallet.js',
 
             'src/layout/layout.js',
 

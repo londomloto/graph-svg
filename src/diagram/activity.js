@@ -6,7 +6,11 @@
         toString: function() {
             return 'Graph.diagram.Activity';
         }
-
+        
     });
+
+    Graph.diagram.Activity.toString = function() {
+        return 'function(options)';
+    };
 
 }());
