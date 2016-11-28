@@ -486,6 +486,12 @@
         Graph.setup(GLOBAL.graphConfig);
     }
 
+    ///////////////////////////// I18N /////////////////////////////
+    
+    Graph._ = function(message) {
+        return message;
+    };
+
     /////////////////////////// CORE NAMESPACES ////////////////////////////
     
     Graph.ns('Graph.lang');

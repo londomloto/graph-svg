@@ -36,6 +36,7 @@
                 
             } else {
                 proto[name] = value;
+                
 
                 // NOTE: perfomance penalty!!!
                 // ---------------------------
@@ -94,9 +95,9 @@
 
             inherits = superdef = classdef = null;
             
-            // if ( ! initializing && init) {
-            init && init.apply(me, arguments);
-            // }
+            if ( ! initializing && init) {
+                init && init.apply(me, arguments);
+            }
         };
 
         // statics

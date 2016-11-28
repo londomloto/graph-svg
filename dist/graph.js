@@ -653,6 +653,12 @@
         Graph.setup(GLOBAL.graphConfig);
     }
 
+    ///////////////////////////// I18N /////////////////////////////
+    
+    Graph._ = function(message) {
+        return message;
+    };
+
     /////////////////////////// CORE NAMESPACES ////////////////////////////
     
     Graph.ns('Graph.lang');
@@ -1568,57 +1574,6 @@
 }());
 
 (function(){
-
-    var isLocal = /file/.test(location.protocol);
-    var i18n;
-
-    if (isLocal) {
-        i18n = {
-            translate: function(message) {
-                return {
-                    fetch: function() {
-                        return message;
-                    }
-                };
-            }
-        };
-    } else {
-        
-        $.ajax({
-            url: Graph.config.base + 'i18n/languages/' + Graph.config.locale + '.json',
-            type: 'GET',
-            dataType: 'json',
-            async: false
-        })
-        .done(function(json){
-            var data = {
-                graph: {
-                    '': {
-                        domain: 'graph',
-                        lang: Graph.config.locale,
-                        plural_forms: 'nplurals=2; plural=(n != 1)'
-                    }
-                }
-            };
-
-            _.assign(data.graph, json);
-            
-            i18n = new Jed({
-                domain: 'graph',
-                locale_data: data
-            });
-            
-        });
-        
-    }
-
-    Graph._ = function(message) {
-        return i18n.translate(message).fetch();
-    };
-
-}());
-
-(function(){
     
     var initializing = false;
     // var inherit = /xyz/.test(function(){ xyz; }) ? /\$super/ : /.*/;
@@ -1655,6 +1610,7 @@
                 
             } else {
                 proto[name] = value;
+                
 
                 // NOTE: perfomance penalty!!!
                 // ---------------------------
@@ -1713,9 +1669,9 @@
 
             inherits = superdef = classdef = null;
             
-            // if ( ! initializing && init) {
-            init && init.apply(me, arguments);
-            // }
+            if ( ! initializing && init) {
+                init && init.apply(me, arguments);
+            }
         };
 
         // statics
@@ -7343,6 +7299,11 @@
             viewport: null
         },
 
+        drawing: {
+            pallets: null,
+            diagram: null
+        },
+
         constructor: function(width, height, options) {
             var me = this;
             
@@ -7384,6 +7345,9 @@
             Graph.topic.subscribe('link/update', _.bind(me.listenLinkUpdate, me));
             Graph.topic.subscribe('link/remove', _.bind(me.listenLinkRemove, me));
             Graph.topic.subscribe('shape/draw',  _.bind(me.listenShapeDraw, me));
+
+            // drawings
+            me.drawing.pallets = [];
         },
 
         initLayout: function() {
@@ -7551,11 +7515,16 @@
         },
         
         addPallet: function(pallet) {
-            pallet.bindPaper(this);
+            var guid = pallet.guid();
+            this.drawing.pallets.push(guid);
         },
         
         removePallet: function(pallet) {
-            pallet.unbindPaper(this);
+            var guid = pallet.guid();
+            var index = _.indexOf(this.drawing.pallets, guid);
+            if (index > -1) {
+                this.drawing.pallets.splice(index, 1);
+            }
         },
 
         parse: function(json) {
@@ -7582,10 +7551,12 @@
             alert('save');
         },
 
-        diagram: function(diagram) {
-            if (diagram !== undefined) {
-
-            }
+        diagram: function(type, options) {
+            var clazz = Graph.diagram[_.capitalize(type)];
+            var diagram = Graph.factory(clazz, options || {});
+            
+            this.drawing.diagram = diagram;
+            return diagram;
         },
 
         toString: function() {
@@ -7705,122 +7676,115 @@
     
     var storage = {},
         context = {};
-    
-    var Registry = Graph.extend({
+
+    var Registry = function() {
+
+    };
+
+    Registry.prototype.constructor = Registry;
+
+    Registry.prototype.register = function(vector) {
+        var id = vector.guid(), found = this.get(id);
         
-        context: {},
+        if (found !== vector) {
+            // vector.on('resize', function(){
+            //     if (vector.isConnectable()) {
+            //         var delay = _.delay(function(){
+            //             clearTimeout(delay);
+            //             Graph.registry.link.synchronize(vector);
+            //         }, 1);
+            //     }
+            // });
 
-        constructor: function() {
-            this.context = context;
-        },
-
-        register: function(vector) {
-            var id = vector.guid(), found = this.get(id);
-            
-            if (found !== vector) {
-                // vector.on('resize', function(){
-                //     if (vector.isConnectable()) {
-                //         var delay = _.delay(function(){
-                //             clearTimeout(delay);
-                //             Graph.registry.link.synchronize(vector);
-                //         }, 1);
-                //     }
-                // });
-
-                // vector.on('translate', function(){
-                //     if (vector.isConnectable()) {
-                //         var delay = _.delay(function(){
-                //             clearTimeout(delay);
-                //             Graph.registry.link.synchronize(vector);
-                //         }, 1);
-                //     }
-                // });
-            }
-
-            storage[id] = vector;
-        },
-
-        unregister: function(vector) {
-            var id = vector.guid();
-            if (storage[id]) {
-                delete storage[id];
-            }
-
-            if (context[id]) {
-                delete context[id];
-            }
-        },
-
-        setContext: function(id, scope) {
-            if (storage[id]) {
-                context[id] = scope;
-            }
-        },
-
-        count: function() {
-            return _.keys(storage).length;
-        },
-
-        toArray: function() {
-            var keys = _.keys(storage);
-            return _.map(keys, function(k){
-                return storage[k];
-            });
-        },
-
-        get: function(key) {
-
-            if (_.isUndefined(key)) {
-                return this.toArray();
-            }
-
-            if (key instanceof SVGElement) {
-                if (key.tagName == 'tspan') {
-                    // we only interest to text
-                    key = key.parentNode;
-                }
-                key = Graph.$(key).data(Graph.string.ID_VECTOR);
-            } else if (key instanceof Graph.dom.Element) {
-                key = key.data(Graph.string.ID_VECTOR);
-            }
-            return storage[key];
-        },
-
-        collect: function(scope) {
-            var vectors = [];
-            for (var id in context) {
-                if (context[id] == scope && storage[id]) {
-                    vectors.push(storage[id]);
-                }
-            }
-            return vectors;
-        },
-
-        wipe: function(paper) {
-            var pid = paper.guid();
-
-            for (var id in storage) {
-                if (storage.hasOwnProperty(id)) {
-                    if (storage[id].tree.paper == pid) {
-                        delete storage[id];
-                    }
-                }
-            }
-
-            if (storage[pid]) {
-                delete storage[pid];
-            }
-        },
-        
-        toString: function() {
-            return 'Graph.registry.Vector';
+            // vector.on('translate', function(){
+            //     if (vector.isConnectable()) {
+            //         var delay = _.delay(function(){
+            //             clearTimeout(delay);
+            //             Graph.registry.link.synchronize(vector);
+            //         }, 1);
+            //     }
+            // });
         }
 
-    });
+        storage[id] = vector;
+    };
 
-    /**
-     * Singleton vector manager
-     */
+    Registry.prototype.unregister = function(vector) {
+        var id = vector.guid();
+        if (storage[id]) {
+            delete storage[id];
+        }
+
+        if (context[id]) {
+            delete context[id];
+        }
+    };
+
+    Registry.prototype.setContext = function(id, scope) {
+        if (storage[id]) {
+            context[id] = scope;
+        }
+    };
+
+    Registry.prototype.count = function() {
+        return _.keys(storage).length;
+    };
+
+    Registry.prototype.toArray = function() {
+        var keys = _.keys(storage);
+        return _.map(keys, function(k){
+            return storage[k];
+        });
+    };
+
+    Registry.prototype.get = function(key) {
+
+        if (_.isUndefined(key)) {
+            return this.toArray();
+        }
+
+        if (key instanceof SVGElement) {
+            if (key.tagName == 'tspan') {
+                // we only interest to text
+                key = key.parentNode;
+            }
+            key = Graph.$(key).data(Graph.string.ID_VECTOR);
+        } else if (key instanceof Graph.dom.Element) {
+            key = key.data(Graph.string.ID_VECTOR);
+        }
+        return storage[key];
+    };
+
+    Registry.prototype.collect = function(scope) {
+        var vectors = [];
+        for (var id in context) {
+            if (context[id] == scope && storage[id]) {
+                vectors.push(storage[id]);
+            }
+        }
+        return vectors;
+    };
+
+    Registry.prototype.wipe = function(paper) {
+        var pid = paper.guid();
+
+        for (var id in storage) {
+            if (storage.hasOwnProperty(id)) {
+                if (storage[id].tree.paper == pid) {
+                    delete storage[id];
+                }
+            }
+        }
+
+        if (storage[pid]) {
+            delete storage[pid];
+        }
+    };
+
+    Registry.prototype.toString = function() {
+        return 'Graph.registry.Vector';
+    };
+    
     Graph.registry.vector = new Registry();
 
 }());
@@ -7830,85 +7794,78 @@
     var storage = {},
         context = {};
 
-    var Registry = Graph.extend({
-
-        context: {},
-
-        constructor: function() {
-            this.context = context;
-        },
-
-        register: function(link) {
-            var id = link.guid();
-            storage[id] = link;
-        },
-
-        unregister: function(link) {
-            var id = link.guid();
-            
-            if (storage[id]) {
-                delete storage[id];
-            }
-
-            if (context[id]) {
-                delete context[id];
-            }
-        },
-
-        setContext: function(id, scope) {
-            if (storage[id]) {
-                context[id] = scope;
-            }
-        },
-
-        count: function() {
-            return _.keys(storage).length;
-        },
-
-        has: function(key) {
-            return storage[key] !== undefined;
-        },  
-
-        get: function(key) {
-            if (key === undefined) {
-                return this.toArray();
-            }
-
-            if (key instanceof SVGElement) {
-                key = Graph.$(key).data(Graph.string.ID_LINK);
-            } else if (key instanceof Graph.dom.Element) {
-                key = key.data(Graph.string.ID_LINK);
-            }
-
-            return storage[key];
-        },
-
-        collect: function(scope) {
-            var links = [];
-            for (var id in context) {
-                if (context[id] == scope && storage[id]) {
-                    links.push(storage[id]);
-                }
-            }
-            return links;
-        },
+    var Registry = function() {
         
-        toArray: function() {
-            var keys = _.keys(storage);
-            return _.map(keys, function(k){
-                return storage[k];
-            });
-        },
+    };
 
-        toString: function() {
-            return 'Graph.registry.Link';
+    Registry.prototype.constructor = Registry;
+
+    Registry.prototype.register = function(link) {
+        var id = link.guid();
+        storage[id] = link;
+    };
+
+    Registry.prototype.unregister = function(link) {
+        var id = link.guid();
+            
+        if (storage[id]) {
+            delete storage[id];
         }
 
-    });
+        if (context[id]) {
+            delete context[id];
+        }
+    };
 
-    /**
-     * Singleton link manager
-     */
+    Registry.prototype.setContext = function(id, scope) {
+        if (storage[id]) {
+            context[id] = scope;
+        }
+    };
+
+    Registry.prototype.count = function() {
+        return _.keys(storage).length;
+    };
+
+    Registry.prototype.has = function(key) {
+        return storage[key] !== undefined;
+    };
+
+    Registry.prototype.get = function(key) {
+        if (key === undefined) {
+            return this.toArray();
+        }
+
+        if (key instanceof SVGElement) {
+            key = Graph.$(key).data(Graph.string.ID_LINK);
+        } else if (key instanceof Graph.dom.Element) {
+            key = key.data(Graph.string.ID_LINK);
+        }
+
+        return storage[key];
+    };
+
+    Registry.prototype.collect = function(scope) {
+        var links = [];
+        for (var id in context) {
+            if (context[id] == scope && storage[id]) {
+                links.push(storage[id]);
+            }
+        }
+        return links;
+    };
+
+    Registry.prototype.toArray = function() {
+        var keys = _.keys(storage);
+        return _.map(keys, function(k){
+            return storage[k];
+        });
+    };
+
+    Registry.prototype.toString = function() {
+        return 'Graph.registry.Link';
+    };
+
     Graph.registry.link = new Registry();
 
 }());
@@ -7917,64 +7874,60 @@
 
     var storage = {};
 
-    var Registry = Graph.extend({
+    var Registry = function() {
         
-        storage: {},
+    };
 
-        constructor: function() {
-            this.storage = storage;        
-        },
+    Registry.prototype.constructor = Registry;
 
-        register: function(shape) {
-            var id = shape.guid();
-            storage[id] = shape;
-        },
+    Registry.prototype.register = function(shape) {
+        var id = shape.guid();
+        storage[id] = shape;
+    };
 
-        unregister: function(shape) {
-            var id = shape.guid();
-            if (storage[id]) {
-                storage[id] = null;
-                delete storage[id];
-            }
-        },
+    Registry.prototype.unregister = function(shape) {
+        var id = shape.guid();
+        if (storage[id]) {
+            storage[id] = null;
+            delete storage[id];
+        }
+    };
 
-        count: function() {
-            return _.keys(storage).length;
-        },
+    Registry.prototype.count = function() {
+        return _.keys(storage).length;
+    };
 
-        toArray: function() {
-            var keys = _.keys(storage);
-            return _.map(keys, function(k){
-                return storage[k];
-            });
-        },
+    Registry.prototype.toArray = function() {
+        var keys = _.keys(storage);
+        return _.map(keys, function(k){
+            return storage[k];
+        });
+    };
 
-        get: function(key) {
+    Registry.prototype.get = function(key) {
 
-            if (_.isUndefined(key)) {
-                return this.toArray();
-            }
-
-            if (key instanceof SVGElement) {
-                if (key.tagName == 'tspan') {
-                    // we only interest to text
-                    key = key.parentNode;
-                }
-                key = Graph.$(key).data(Graph.string.ID_SHAPE);
-            } else if (key instanceof Graph.dom.Element) {
-                key = key.data(Graph.string.ID_SHAPE);
-            } else if (key instanceof Graph.svg.Vector) {
-                key = key.elem.data(Graph.string.ID_SHAPE);
-            }
-            return storage[key];
-        },
-
-        toString: function() {
-            return 'Graph.registry.Shape';
+        if (_.isUndefined(key)) {
+            return this.toArray();
         }
 
-    });
+        if (key instanceof SVGElement) {
+            if (key.tagName == 'tspan') {
+                // we only interest to text
+                key = key.parentNode;
+            }
+            key = Graph.$(key).data(Graph.string.ID_SHAPE);
+        } else if (key instanceof Graph.dom.Element) {
+            key = key.data(Graph.string.ID_SHAPE);
+        } else if (key instanceof Graph.svg.Vector) {
+            key = key.elem.data(Graph.string.ID_SHAPE);
+        }
+        return storage[key];
+    };
 
+    Registry.prototype.toString = function() {
+        return 'Graph.registry.Shape';
+    };
+    
     Graph.registry.shape = new Registry();
 
 }());
@@ -19423,8 +19376,7 @@
     Graph.pallet.Activity = Graph.extend({
         
         props: {
-            guid: null,
-            paper: null
+            guid: null
         },
         
         components: {
@@ -19439,22 +19391,12 @@
             _.assign(this.props, options || {});
             this.props.guid = 'pallet-' + (++Graph.pallet.Activity.guid);
             this.initComponent();
+
+            Graph.registry.pallet.register(this);
         },
 
         guid: function() {
             return this.props.guid;
-        },
-
-        paper: function() {
-            return Graph.registry.vector.get(this.props.paper);
-        },
-
-        bindPaper: function(paper) {
-            this.props.paper = paper.guid();
-        },
-        
-        unbindPaper: function(paper) {
-            this.props.paper = null;
         },
 
         initComponent: function() {
@@ -19526,18 +19468,6 @@
                     me.cached.matrix = Graph.factory(Graph.lang.Matrix, transform);
 
                     target.addClass('grabbing');
-
-                    var paper = me.paper();
-                    if (paper) {
-                        var diagram = paper.diagram();
-                        console.log(diagram);
-                    }
-
-                    /*var paper = me.paper(),
-                        shape = Graph.shape(target.data('shape'));
-
-                    console.log(shape);*/
-
                     transform = target = null;
                     
                 },
@@ -19582,9 +19512,7 @@
         },
         
         onShapeClick: function(e) {
-            // var namespace = Graph.$(e.currentTarget).data('shape');
-            // var shape = Graph.shape(namespace, {});
-            // console.log(shape);
+            
         },
 
         toString: function() {

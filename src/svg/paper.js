@@ -32,6 +32,11 @@
             viewport: null
         },
 
+        drawing: {
+            pallets: null,
+            diagram: null
+        },
+
         constructor: function(width, height, options) {
             var me = this;
             
@@ -73,6 +78,9 @@
             Graph.topic.subscribe('link/update', _.bind(me.listenLinkUpdate, me));
             Graph.topic.subscribe('link/remove', _.bind(me.listenLinkRemove, me));
             Graph.topic.subscribe('shape/draw',  _.bind(me.listenShapeDraw, me));
+
+            // drawings
+            me.drawing.pallets = [];
         },
 
         initLayout: function() {
@@ -240,11 +248,16 @@
         },
         
         addPallet: function(pallet) {
-            pallet.bindPaper(this);
+            var guid = pallet.guid();
+            this.drawing.pallets.push(guid);
         },
         
         removePallet: function(pallet) {
-            pallet.unbindPaper(this);
+            var guid = pallet.guid();
+            var index = _.indexOf(this.drawing.pallets, guid);
+            if (index > -1) {
+                this.drawing.pallets.splice(index, 1);
+            }
         },
 
         parse: function(json) {
@@ -271,10 +284,12 @@
             alert('save');
         },
 
-        diagram: function(diagram) {
-            if (diagram !== undefined) {
-
-            }
+        diagram: function(type, options) {
+            var clazz = Graph.diagram[_.capitalize(type)];
+            var diagram = Graph.factory(clazz, options || {});
+            
+            this.drawing.diagram = diagram;
+            return diagram;
         },
 
         toString: function() {

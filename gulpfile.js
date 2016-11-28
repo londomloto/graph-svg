@@ -14,9 +14,7 @@ gulp.task('build', function(cb){
             'src/poly.js',
             'src/core.js',
             'src/util.js',
-
-            'src/i18n/loader.js',
-
+            
             'src/lang/class.js',
             'src/lang/error.js',
             'src/lang/event.js',

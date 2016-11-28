@@ -4,8 +4,7 @@
     Graph.pallet.Activity = Graph.extend({
         
         props: {
-            guid: null,
-            paper: null
+            guid: null
         },
         
         components: {
@@ -20,22 +19,12 @@
             _.assign(this.props, options || {});
             this.props.guid = 'pallet-' + (++Graph.pallet.Activity.guid);
             this.initComponent();
+
+            Graph.registry.pallet.register(this);
         },
 
         guid: function() {
             return this.props.guid;
-        },
-
-        paper: function() {
-            return Graph.registry.vector.get(this.props.paper);
-        },
-
-        bindPaper: function(paper) {
-            this.props.paper = paper.guid();
-        },
-        
-        unbindPaper: function(paper) {
-            this.props.paper = null;
         },
 
         initComponent: function() {
@@ -107,18 +96,6 @@
                     me.cached.matrix = Graph.factory(Graph.lang.Matrix, transform);
 
                     target.addClass('grabbing');
-
-                    var paper = me.paper();
-                    if (paper) {
-                        var diagram = paper.diagram();
-                        console.log(diagram);
-                    }
-
-                    /*var paper = me.paper(),
-                        shape = Graph.shape(target.data('shape'));
-
-                    console.log(shape);*/
-
                     transform = target = null;
                     
                 },
@@ -163,9 +140,7 @@
         },
         
         onShapeClick: function(e) {
-            // var namespace = Graph.$(e.currentTarget).data('shape');
-            // var shape = Graph.shape(namespace, {});
-            // console.log(shape);
+            
         },
 
         toString: function() {
