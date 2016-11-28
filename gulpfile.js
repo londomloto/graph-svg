@@ -14,7 +14,7 @@ gulp.task('build', function(cb){
             'src/poly.js',
             'src/core.js',
             'src/util.js',
-            
+
             'src/lang/class.js',
             'src/lang/error.js',
             'src/lang/event.js',
@@ -51,7 +51,7 @@ gulp.task('build', function(cb){
             'src/registry/pallet.js',
 
             'src/layout/layout.js',
-
+            
             'src/router/router.js',
             'src/router/directed.js',
             'src/router/orthogonal.js',
@@ -59,7 +59,7 @@ gulp.task('build', function(cb){
             'src/link/link.js',
             'src/link/directed.js',
             'src/link/orthogonal.js',
-
+            
             'src/util/sweeplink.js',
 
             'src/plugin/plugin.js',
@@ -81,7 +81,7 @@ gulp.task('build', function(cb){
             'src/plugin/editor.js',
             'src/plugin/snapper.js',
             'src/plugin/toolpad.js',
-
+            
             'src/shape/shape.js',
             'src/shape/activity/start.js',
             'src/shape/activity/final.js',
@@ -98,11 +98,8 @@ gulp.task('build', function(cb){
             'src/pallet/activity.js',
 
             'src/diagram/diagram.js',
-            'src/diagram/command.js',
-            'src/diagram/modeler.js',
-            'src/diagram/parser.js',
-            'src/diagram/rules.js',
-
+            'src/diagram/activity.js',
+            
             'src/popup/dialog.js'
             
         ]),
