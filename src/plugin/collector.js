@@ -291,7 +291,6 @@
             delete vector.batch;
 
             vector.deselect(batch);
-
             offset = _.indexOf(this.collection, vector);
 
             if (offset > -1) {

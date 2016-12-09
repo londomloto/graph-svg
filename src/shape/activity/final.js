@@ -29,19 +29,29 @@
                 cy = me.props.height / 2;
 
             block = (new Graph.svg.Ellipse(cx, cy, cx, cy))
-                .addClass('comp-block')
+                .addClass(Graph.styles.SHAPE_BLOCK)
                 .data('text', me.props.label)
                 .render(shape);
 
-            block.draggable({ghost: true});
-            block.connectable();
+            block.draggable({
+                ghost: true, 
+                dragClass: Graph.styles.SHAPE_DRAG
+            });
+            
+            block.connectable({wiring: 'h:v'});
             block.resizable();
-            block.editable();
+            block.editable(); 
+            block.snappable();  
 
-            block.on('edit',    _.bind(me.onLabelEdit, me));
-            block.on('dragend', _.bind(me.onDragEnd, me));
-            block.on('resize',  _.bind(me.onResize, me));
-            block.on('remove',  _.bind(me.onRemove, me));
+            block.elem.data(Graph.string.ID_SHAPE, this.guid());
+
+            block.on('edit.shape',      _.bind(me.onLabelEdit, me));
+            block.on('dragstart.shape', _.bind(me.onDragStart, me));
+            block.on('dragend.shape',   _.bind(me.onDragEnd, me));
+            block.on('resize.shape',    _.bind(me.onResize, me));
+            block.on('remove.shape',    _.bind(me.onRemove, me));
+            block.on('select.shape',    _.bind(me.onSelect, me));
+            block.on('deselect.shape',  _.bind(me.onDeselect, me));
 
             inner = (new Graph.svg.Ellipse(cx, cy, cx - 6, cy - 6))
                 .addClass('comp-inner')
@@ -50,6 +60,7 @@
                 .render(shape);
 
             label = (new Graph.svg.Text(cx, cy, me.props.label))
+                .addClass(Graph.styles.SHAPE_LABEL)
                 .addClass('comp-label')
                 .selectable(false)
                 .clickable(false)
@@ -60,7 +71,7 @@
             comp.label = label.guid();
             comp.inner = inner.guid();
 
-            shape = block = label = null;
+            shape = block = label = inner = null;
         },
 
         redraw: function() {
@@ -141,8 +152,5 @@
 
     ///////// STATIC /////////
     
-    Graph.shape.activity.Final.toString = function() {
-        return 'function(options)';
-    };
 
 }());

@@ -119,9 +119,5 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Rect.toString = function() {
-        return 'function(x, y, width, height, r)';
-    };
 
 }());

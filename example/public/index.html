@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html data-ng-app="app" data-ng-controller="AppController as vm" lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimal-ui" />
@@ -28,7 +28,7 @@
                     </a>
                 </div>
                 <div flex class="hide-scroll">
-                    <div data-ui-pallet class="ui-pallet">
+                    <div data-uipallet class="ui-pallet">
                         
                     </div>
                 </div>
@@ -47,27 +47,30 @@
                         <span class="text-sm _300">Type your example diagram description here.</span>
                     </div>
                     <div class="ui-toolbar hidden-sm-down">
-                        <a href="javascript:;" data-click="showModal('#create-diagram')" title="New diagram"><i class="ion-android-add"></i></a>
-                        <a href="javascript:;" data-click="updateDiagram()" title="Save diagram"><i class="ion-android-done"></i></a>
+                        <a href="javascript:;" data-ng-click="open()" title="Open diagram"><i class="ion-folder"></i></a>
+                    </div>
+                    <div class="ui-toolbar hidden-sm-down">
+                        <a href="javascript:;" data-ng-click="create()" title="New diagram"><i class="ion-android-add"></i></a>
+                        <a href="javascript:;" data-ng-click="update()" title="Save diagram"><i class="ion-android-done"></i></a>
                     </div>
                     <div class="ui-toolbar">
-                        <a href="javascript:;" data-tool="panzoom" data-click="toggleTool('panzoom')" title="Activate hand tool"><i class="bpmn-icon-hand-tool"></i></a>
-                        <a href="javascript:;" data-tool="collector" data-click="toggleTool('collector')" title="Activate lasso tool"><i class="bpmn-icon-lasso-tool"></i></a>
-                        <a href="javascript:;" data-tool="linker" data-click="toggleTool('linker')" title="Activate link tool"><i class="bpmn-icon-connection-multi"></i></a>
-                        <a href="javascript:;" data-click="trash()" title="Delete selection"><i class="bpmn-icon-trash"></i></a>
-                        <a href="javascript:;" data-click="export()" title="Save as Image"><i class="ion-ios-printer-outline"></i></a>
-                        <a href="javascript:;" data-click="config()" title="Editor config"><i class="ion-ios-gear-outline"></i></a>
+                        <a data-uitool="panzoom" data-ng-click="activateTool('panzoom')" href="javascript:;" title="Activate hand tool"><i class="bpmn-icon-hand-tool"></i></a>
+                        <a data-uitool="collector" data-ng-click="activateTool('collector')" href="javascript:;" title="Activate lasso tool"><i class="bpmn-icon-lasso-tool"></i></a>
+                        <a data-uitool="linker" data-ng-click="activateTool('linker')" href="javascript:;" title="Activate link tool"><i class="bpmn-icon-connection-multi"></i></a>
+                        <a href="javascript:;" data-ng-click="trash()" title="Delete selection"><i class="bpmn-icon-trash"></i></a>
+                        <a href="javascript:;" data-ng-click="export()" title="Save as Image"><i class="ion-ios-printer-outline"></i></a>
+                        <a href="javascript:;" data-ng-click="config()" title="Editor config"><i class="ion-ios-gear-outline"></i></a>
                     </div>
                 </div>
             </div>
             <div class="app-body">
-                <div data-ui-paper class="ui-paper"></div>
+                <div data-uipaper class="ui-paper"></div>
             </div>
         </div>
     </div>
 
     <!-- MODALS -->
-    <div id="create-diagram" class="modal fade animate">
+    <div data-uimodal="create-diagram" class="modal fade animate">
         <div class="modal-dialog zoom">
             <div class="modal-content">
                 <div class="modal-header">
@@ -85,11 +88,47 @@
                 </div>
                 <div class="modal-footer">
                     <button data-click="createDiagram()" class="btn primary">Save Diagram</button>
-                    <button data-click="hideModal('#create-diagram')" class="btn white">Close</button>
+                    <button data-ng-click="hideModal('create-diagram')" class="btn white">Close</button>
                 </div>
             </div>
         </div>
     </div>
+
+    <div data-uimodal="open-diagram" class="modal fade animate">
+        <div class="modal-dialog modal-lg zoom">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4>Open diagram</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-xs-6 col-sm-4 col-md-3" data-ng-repeat="item in diagrams track by item.id">
+                            <div class="box dker">
+                                <div class="box-header">
+                                    <h3 class="_600">{{ item.name }}</h3>
+                                    <small>Activity Diagram</small>
+                                </div>
+                                <div class="box-tool">
+                                    <ul class="nav">
+                                        <li class="nav-item inline">
+                                          <a class="nav-link text-muted">
+                                            <i class="ion-close-round" style="font-size: 14px;"></i>
+                                          </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="box-body p-t-0">
+                                    <button class="btn btn-xs btn-outline b-info text-info">Open diagram</button>
+                                    <!-- <p class="m-a-0">{{ item.description }}</p> -->
+                                </div>
+                              </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>    
     <!-- END OF MODALS -->
 
     <script>
@@ -103,6 +142,7 @@
     <script src="../../vendor/interact/interact.min.js"></script>
     <script src="assets/vendor/tether/tether.min.js"></script>
     <script src="assets/vendor/bootstrap/js/bootstrap.js"></script>
+    <script src="assets/vendor/angular/angular.min.js"></script>
     
     <script src="../../src/poly.js"></script>
     <script src="../../src/core.js"></script>

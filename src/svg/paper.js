@@ -37,9 +37,8 @@
             diagram: null
         },
 
-        constructor: function(width, height, options) {
+        constructor: function (width, height, options) {
             var me = this;
-            
             me.superclass.prototype.constructor.call(me, 'svg', {
                 'xmlns': Graph.config.xmlns.svg,
                 'xmlns:link': Graph.config.xmlns.xlink,
@@ -108,7 +107,7 @@
 
             // render viewport
             viewport.tree.paper = viewport.tree.parent = this.guid();
-            viewport.translate(0.5, 0.5).commit();
+            // viewport.translate(0.5, 0.5).commit();
 
             this.elem.append(viewport.elem);
             this.children().push(viewport);
@@ -250,6 +249,21 @@
         addPallet: function(pallet) {
             var guid = pallet.guid();
             this.drawing.pallets.push(guid);
+
+            // bind pallet events
+            pallet.on({
+                drawstart: function(e) {
+                    console.log(e.shape);
+                    var shape = e.shape,
+                        clazz = Graph.ns(shape);
+
+                    shape = Graph.factory(clazz);
+                    console.log(shape);
+                },
+                drawend: function() {
+                    console.log('y');
+                }
+            });
         },
         
         removePallet: function(pallet) {
@@ -367,10 +381,6 @@
     });
 
     ///////// STATICS /////////
-    
-    Paper.toString = function() {
-        return 'function( width, height )';
-    };
 
     ///////// EXTENSIONS /////////
 

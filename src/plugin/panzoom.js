@@ -157,7 +157,7 @@
             viewport.reset();
 
             matrix = Graph.matrix();
-            matrix.translate(.5, .5);
+            // matrix.translate(.5, .5);
 
             viewport.attr('transform', matrix.toValue());
             viewport.graph.matrix = matrix;
@@ -195,7 +195,7 @@
             this.onBeforeZoom(paper);
 
             matrixScale.scale(scale, scale, origin.x, origin.y);
-
+            
             viewport.attr('transform', matrixScale.toValue());
             viewport.graph.matrix = matrixScale;
 
@@ -402,7 +402,11 @@
 
         onScroll: _.debounce(function() {
 
-        }, 300)
+        }, 300),
+
+        toString: function() {
+            return 'Graph.plugin.Panzoom';
+        }
 
     });
 

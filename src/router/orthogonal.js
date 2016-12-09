@@ -735,9 +735,5 @@
     });
 
     ///////// STATICS /////////
-    
-    Graph.router.Orthogonal.toString = function() {
-        return 'function(domain, source, target, options)';
-    };
 
 }());

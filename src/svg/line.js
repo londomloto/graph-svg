@@ -52,8 +52,4 @@
 
     ///////// STATIC /////////
     
-    Graph.svg.Line.toString = function() {
-        return "function(x1, y1, x2, y2)";
-    };
-
 }());

@@ -333,8 +333,17 @@
             });
         },
 
-        bound: function(bound) {
+        restrict: function(options) {
+            var vendor = this.vector().interactable().vendor();
             
+            if (vendor) {
+                options = options || {};
+                vendor.setPerAction('drag', {
+                    restrict: {
+                        restriction: options
+                    }
+                });
+            }
         },
 
         onVectorRender: function() {
@@ -562,6 +571,10 @@
 
             me.components.holder = null;
             me.listeners = {};
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Dragger';
         }
     });
 

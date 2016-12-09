@@ -32,15 +32,12 @@
         },
 
         cached: {
-            innerMatrix: null,
-            outerMatrix: null,
-            innerBBox: null,
-            outerBBox: null
+            
         },
 
         constructor: function(options) {
             var guid;
-
+            
             _.assign(this.props, options || {});
 
             guid = 'graph-shape-' + (++Shape.guid);
@@ -122,10 +119,7 @@
         },
 
         invalidate: function() {
-            this.cached.innerMatrix = null;
-            this.cached.outerMatrix = null;
-            this.cached.innerBBox = null;
-            this.cached.outerBBox = null;
+            
         },
 
         provider: function(plugin) {    
@@ -158,121 +152,29 @@
             return this.tree.children;
         },
 
-        addChild: function(shape) {
-            var parent = shape.parent();
+        addChild: function(child) {
+            var children = this.children(),
+                parent = child.parent();
 
-            if (parent) {
-                parent.removeChild(shape);
+            if (parent && parent.guid() != this.guid()) {
+                parent.removeChild(child);
             }
 
-            this.children().push(shape);
-            shape.tree.parent = this.guid();
-
-            if (this.components.child) {
-                this.component('child').append(shape.component());
-            }
-
-            return this;
-        },
-
-        removeChild: function(shape) {
-            this.children().pull(shape);
-            shape.tree.parent = null;
-
-            var paper = shape.paper();
-
-            if (paper) {
-                paper.viewport().append(shape.component());
-            }
-
-            return this;
-        },
-        
-        addChild_: function(child, relocate) {
-            this.children().push(child);
-            child.tree.parent = this.guid();
-
-            if (this.components.child) {
-                var context = this.component(),
-                    target = this.component('child'),
-                    source = child.component();
-                
-                // sync vector tree
-                target.children().push(source);
-                source.tree.parent = target.guid();
-
-                relocate = _.defaultTo(relocate, true);
-
-                if (relocate) {
-
-                    target.elem.append(source.elem);
-
-                    var matrix = source.innerMatrix(context);
-
-                    source.graph.matrix = matrix;
-                    source.attr('transform', matrix.toValue());
-                    source.dirty(true);
-
-                    // update child props
-                    _.assign(child.props, {
-                        left: matrix.props.e,
-                        top:  matrix.props.f
-                    });
-
-                    matrix = null;
-                }
+            if ( ! children.has(child)) {
+                children.push(child);
+                child.tree.parent = this.guid();
             }
         },
 
-        removeChild_: function(child, relocate) {
-            // sync shape tree
-            this.children().pull(child);
-            child.tree.parent = null;
-
-            // sync vector tree => revert back to paper
-            var paper = child.paper();
-
-            if (paper) {
-                var source = child.component(),
-                    target = paper.viewport();
-
-                // need relocate node ?
-                relocate = _.defaultTo(relocate, true);
-
-                if (relocate) {
-                    var context = this.component(),
-                        srcmat = Graph.matrix();
-
-                    source.bubble(function(curr){
-                        srcmat.multiply(curr.matrix());
-                        if (curr === context) {
-                            return false;
-                        }
-                    });
-
-                    source.graph.matrix = srcmat;
-                    source.attr('transform', srcmat.toValue());
-                    source.dirty(true);
-
-                    // update child props
-                    _.assign(child.props, {
-                        left: srcmat.props.e,
-                        top: srcmat.props.f
-                    });
-
-                    srcmat = null;
-
-                    target.children().push(source);
-                    source.tree.parent = target.guid();    
-                    target.elem.append(source.elem);
-
-                } else {
-                    target.children().push(source);
-                    source.tree.parent = target.guid();    
-                }
+        removeChild: function(child) {
+            var children = this.children();
+            
+            if (children.has(child)) {
+                children.pull(child);
+                child.tree.parent = null;
             }
         },
-        
+
         guid: function() {
             return this.props.guid;
         },
@@ -299,80 +201,6 @@
             return this.component().matrix();
         },
 
-        innerMatrix: function() {
-            var paper = this.paper();
-            var matrix;
-
-            if (paper) {
-                matrix = this.cached.innerMatrix;
-
-                if ( ! matrix) {
-
-                    var context = paper.viewport(),
-                        contextId = context.guid(),
-                        current = this.component(),
-                        currentId = current.guid(),
-                        component = this.component(),
-                        outerMatrix = Graph.matrix();
-
-                    component.bubble(function(curr){
-                        var guid = curr.guid();
-
-                        if (guid == contextId) {
-                            return false;
-                        }
-
-                        if (guid != currentId) {
-                            outerMatrix.multiply(curr.matrix());    
-                        }
-                    });
-
-                    outerMatrix.invert();
-                    matrix = component.matrix().clone().multiply(outerMatrix);
-
-                    this.cached.innerMatrix = matrix;
-
-                    outerMatrix = null;
-                }
-            } else {
-                matrix = this.matrix();
-            }
-
-            return matrix.clone();
-        },
-
-        outerMatrix: function() {
-            var paper = this.paper();
-            var matrix;
-
-            if (paper) {
-                matrix = this.cached.outerMatrix;
-
-                if ( ! matrix) {
-                    var context = paper.viewport(),
-                        contextId = context.guid(),
-                        component = this.component();
-
-                    matrix = Graph.matrix();
-
-                    component.bubble(function(curr){
-                        if (curr.guid() == contextId) {
-                            return false;
-                        }
-                        matrix.multiply(curr.matrix());
-                    });
-
-                    this.cached.outerMatrix = matrix;
-
-                    context = component = null;
-                }
-            } else {
-                matrix = this.matrix();
-            }
-
-            return matrix.clone();
-        },
-
         bbox: function() {
             return Graph.bbox({
                  x: this.props.left,
@@ -382,33 +210,6 @@
                 width: this.props.width,
                 height: this.props.height
             });
-        },
-
-        innerBBox: function() {
-            var bbox = this.cached.innerBBox;
-        },
-
-        outerBBox: function() {
-            var bbox = this.cached.outerBBox;
-
-            if ( ! bbox) {
-                var matrix = this.outerMatrix(),
-                    path = this.component().pathinfo().transform(matrix);
-
-                bbox = path.bbox();
-                this.cached.outerBBox = bbox;
-            }
-
-            return bbox.clone();
-        },
-
-        contains: function(shape) {
-            var bbox1, bbox2;
-
-            bbox1 = this.outerBBox();
-            bbox2 = shape.outerBBox();
-
-            return bbox1.contains(bbox2);
         },
 
         render: function(paper) {
@@ -453,6 +254,10 @@
             });
         },
 
+        cascade: function(handler) {
+            cascade(this, handler);
+        },
+
         sendToBack: function() {
             var paper = this.paper();
         },
@@ -490,6 +295,13 @@
             }
             
             return this.attr('height', value);
+        },
+
+        width: function(value) {
+            if (value === undefined) {
+                return this.props.width;
+            }
+            return this.attr('width', value);
         },
 
         left: function(value) {
@@ -606,14 +418,26 @@
     
     Shape.guid = 0;
 
-    Shape.toString = function() {
-        return 'function(options)';
-    };
-
     ///////// EXTENSION /////////
     
     Graph.isShape = function(obj) {
         return obj instanceof Graph.shape.Shape;
     };
+
+    ///////// HELPERS /////////
+    
+    function cascade(shape, handler) {
+        var child = shape.children().toArray();
+        var result; 
+
+        result = handler.call(shape, shape);
+        result = _.defaultTo(result, true);
+
+        if (result && child.length) {
+            _.forEach(child, function(curr){
+                cascade(curr, handler);
+            });
+        }
+    }
 
 }());

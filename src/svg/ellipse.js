@@ -93,9 +93,5 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Ellipse.toString = function() {
-        return "function(cx, cy, rx, ry)";
-    };
 
 }());

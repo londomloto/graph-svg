@@ -108,13 +108,16 @@
                 .addClass(Graph.styles.SHAPE_BLOCK)
                 .render(shape);
 
-            block.resizable();
+            block.resizable({
+                minWidth: 200
+            });
 
             block.draggable({
                 ghost: true,
                 batchSync: false
             });
 
+            block.on('dragstart.shape', _.bind(me.onDragStart, me));
             block.on('dragend.shape', _.bind(me.onDragEnd, me));
             block.on('resize.shape', _.bind(me.onResize, me));
             block.on('remove.shape',  _.bind(me.onRemove, me));
@@ -178,6 +181,8 @@
             .on('dragenter', function laneDragEnter(e){
                 var vector, shape, batch;
 
+                comp.addClass('receiving');
+
                 if ( ! me.transfer) {
                     vector = Graph.registry.vector.get(e.relatedTarget);
 
@@ -188,50 +193,73 @@
                         if (shape) {
                             me.transfer = {
                                 shape: shape,
-                                batch: [],
-                                startHandler: _.bind(me.onTransferStart, me),
-                                stopHandler: _.bind(me.onTransferEnd, me)
+                                batch: []
                             };
 
-                            shape.on('dragend', me.transfer.stopHandler);
+                            me.transfer.shape.on('dragend', onTransferEnd);
+                            me.transfer.batch = [shape];
 
-                            // handle batch
                             if (vector.lasso) {
                                 batch = vector.lasso.collection.slice();
+
                                 _.forEach(batch, function(v){
                                     var s = Graph.registry.shape.get(v);
-                                    if (s && s !== shape) {
-                                        me.transfer.batch.push(s);
+                                    if (s && s.guid() != shape.guid()) {
+                                        me.transfer.batch.push(s);    
                                     }
                                 });
+                                    
                                 batch = null;
                             }
-
-                            // handle shape
-                            if ( ! children.has(shape)) {
-                                me.transfer.trans = TRANSFER_RECEIVE;
-                                comp.addClass('receiving');
-                            }
                         }
-                    }
-                } else {
-                    if (me.transfer.trans == TRANSFER_RECEIVE) {
-                        comp.addClass('receiving');
                     }
                 }
             })
             .on('dragleave', function laneDragLeave(e){
-                if (me.transfer) {
-                    comp.removeClass('receiving');
-                }
+                comp.removeClass('receiving');
             })
             .on('drop', function laneDrop(e){
                 if (me.transfer) {
-                    comp.removeClass('receiving');
+                    var delay;
+
+                    delay = _.delay(function(){
+                        clearTimeout(delay);
+                        delay = null;
+
+                        var placeTarget = me.component('child');
+
+                        _.forEach(me.transfer.batch, function(shape){
+                            var shapeComponent = shape.component();
+
+                            shapeComponent.relocate(placeTarget);
+                            me.addChild(shape);
+                        });
+
+                        me.autoResize();
+                    }, 0);
+                    
                 }
+
+                comp.removeClass('receiving');
             });
 
             block = null;
+
+            /////////
+            
+            function onTransferEnd() {
+                var delay;
+
+                delay = _.delay(function(){
+
+                    clearTimeout(delay);
+                    delay = null;
+
+                    me.transfer.shape.off('dragend', onTransferEnd);
+                    me.transfer = null;
+
+                }, 0);
+            }
         },
 
         pool: function() {
@@ -381,7 +409,7 @@
                 sibling.render(paper, 'before', this.component());
             }
             
-            sibling = null;
+            return sibling;
         },
         
         addSiblingBellow: function() {
@@ -410,7 +438,74 @@
                 sibling.render(paper, 'after', this.component());
             }
             
-            sibling = null;
+            return sibling;
+        },
+
+        autoResize: function() {
+
+            var shapeComponent = this.component(),
+                blockComponent = this.component('block');
+
+            if (blockComponent.isSelected()) {
+                blockComponent.deselect();
+            }
+
+            var bbox = this.bbox().toJson(),
+                actualBBox = shapeComponent.bbox().toJson(),
+                blockComponent = this.component('block'),
+                childComponent = this.component('child'),
+                
+                offset = {
+                    top: 20,
+                    bottom: 20,
+                    left: 40,
+                    right: 20
+                },
+                
+                padding = {
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    right: 0
+                };
+
+            var bounds = _.extend({}, bbox);
+
+            if (actualBBox.y - bbox.y < padding.top) {
+                bounds.y = actualBBox.y - offset.top;
+            }
+
+            if (actualBBox.x - bbox.x < padding.left) {
+                bounds.x = actualBBox.x - offset.left;
+            }
+
+            if ((bbox.x + bbox.width) - (actualBBox.x + actualBBox.width) < padding.right) {
+                bounds.x2 = (actualBBox.x + actualBBox.width) + offset.right;
+            }
+
+            if ((bbox.y + bbox.height) - (actualBBox.y + actualBBox.height) < padding.bottom) {
+                bounds.y2 = (actualBBox.y + actualBBox.height) + offset.bottom;
+            }
+
+            var dx = bounds.x - bbox.x,
+                dy = bounds.y - bbox.y;
+
+            var width = bounds.x2 - bounds.x,
+                height = bounds.y2 - bounds.y;
+
+            // preserver child component
+            childComponent.translate(Math.abs(dx), Math.abs(dy)).commit();
+
+            this.translate(dx, dy);
+            // this.pool().translateBy(this, dx, dy);
+
+            this.attr({
+                width: width,
+                height: height
+            });
+
+            this.pool().resizeBy(this);
+
         },
 
         toString: function() {
@@ -433,7 +528,31 @@
 
             Graph.registry.shape.unregister(this);
         },
-        
+
+        onSelect: function() {
+            this.superclass.prototype.onSelect.call(this, arguments);
+            
+            var me = this,
+                guid = me.guid();
+
+            var delay = _.delay(function(){
+                
+                clearTimeout(delay);
+                delay = null;
+
+                me.cascade(function(curr){
+                    if (curr.guid() != guid) {
+                        var vector = curr.provider('dragger');
+                        if (vector && vector.lasso) {
+                            vector.lasso.decollect(vector);
+                        }
+                    }
+                });
+
+            }, 0)
+
+        },
+
         onDragEnd: function(e) {
             this.superclass.prototype.onDragEnd.call(this, e);
 
@@ -461,130 +580,10 @@
 
         onDownToolClick: function(e) {
             this.pool().moveDown(this);
-        },
-
-        onTransferStart: function(e) {
-
-        },
-
-        onTransferEnd: function(e) {
-            var delay;
-
-            _.delay(function(me){
-
-                clearTimeout(delay);
-                delay = null;
-
-                var children = me.children(),
-                    transfer = me.transfer;
-
-                var shapeMatrix, shapeComp;
-
-                console.log(me.contains(transfer.shape));
-
-                // handle shape
-                if (me.contains(transfer.shape)) {
-                    
-                    shapeComp = transfer.shape.component(); 
-                    
-                    if ( ! children.has(transfer.shape)) {
-                        me.addChild(transfer.shape);
-
-                        // sync matrix
-                        // shapeMatrix = transfer.shape.innerMatrix();
-
-                        // shapeComp.graph.matrix = shapeMatrix;
-                        // shapeComp.attr('transform', shapeMatrix.toValue());
-                        // shapeComp.dirty(true);
-
-                    } else {
-                        // shapeMatrix = shapeComp.matrix();
-                    }
-                    
-                    // update props
-                    // transfer.shape.data({
-                    //     left: shapeMatrix.props.e,
-                    //     top: shapeMatrix.props.f
-                    // });
-                    
-                    // invalidate
-                    transfer.shape.invalidate();
-
-                    // shapeMatrix = null;
-                } else {
-                    if (children.has(transfer.shape)) {
-                        me.removeChild(transfer.shape);
-
-                        // sync matrix
-                        
-                    }
-
-                    transfer.shape.invalidate();
-                }
-
-                /*console.log(me.contains(transfer.shape));
-
-                var parent;
-                
-                // handle shape
-                if (children.has(transfer.shape)) {
-                    if ( ! bbox.contains(transfer.shape.outerBBox(me))) {
-                        //me.removeChild(transfer.shape);
-                    } else {
-                        // just update matrix
-                        var matrix = transfer.shape.matrix();
-
-                        transfer.shape.data({
-                            left: matrix.props.e,
-                            top: matrix.props.f
-                        });
-                    }
-                } else {
-                    if (bbox.contains(transfer.shape.bbox())) {
-                        parent = transfer.shape.parent();
-                        if (parent) {
-                            //parent.removeChild(transfer.shape, false);
-                        }
-                        //me.addChild(transfer.shape);
-                        console.log(transfer.shape.outerBBox(me).toJson());
-                        console.log(bbox.contains(transfer.shape.outerBBox(me)));
-                    }
-                }
-
-                
-
-                // handle batch
-                _.forEach(me.transfer.batch, function(shape){
-                    if (children.has(shape)) {
-                        if ( ! bbox.contains(shape.innerBBox(me))) {
-                            me.removeChild(shape);
-                        }
-                    } else {
-                        if (bbox.contains(shape.outerBBox(me))) {
-                            parent = shape.parent();
-                            if (parent) {
-                                parent.removeChild(shape, false);
-                            }
-                            me.addChild(shape);
-                        }
-                    }
-                });*/
-
-                transfer.shape.off('dragend', transfer.stopHandler);
-                me.transfer = transfer = null;
-
-                console.log(me.children().items);
-
-            }, 0, this);
-
         }
 
     });
 
     ///////// STATIC /////////
-    
-    Graph.shape.activity.Lane.toString = function() {
-        return 'function(options)';
-    };
 
 }());

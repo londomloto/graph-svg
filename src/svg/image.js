@@ -131,9 +131,5 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Image.toString = function() {
-        return 'function(src, x, y, width, height)';
-    };
 
 }());

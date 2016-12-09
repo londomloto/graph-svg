@@ -19,8 +19,4 @@
         }
     });
 
-    Graph.diagram.Diagram.toString = function() {
-        return 'function(options)';
-    };
-
 }());

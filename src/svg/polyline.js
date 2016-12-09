@@ -42,9 +42,5 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Polyline.toString = function() {
-        return 'function(points)';
-    };
 
 }());

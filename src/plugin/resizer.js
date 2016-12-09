@@ -10,7 +10,9 @@
             suspended: true,
             handleImage: Graph.config.base + 'img/resize-control.png',
             handleSize: 17,
-            rendered: false
+            rendered: false,
+            minWidth: null,
+            minHeight: null
         },
 
         components: {
@@ -157,10 +159,9 @@
                 me.redraw();
                 return;
             }
-            
+
             me.holder().render(me.vector().parent());
             me.props.rendered = true;
-
             me.redraw();
         },
 
@@ -329,7 +330,6 @@
             }
 
             if (this.props.suspended) {
-
                 this.props.suspended = false;
 
                 if ( ! this.props.rendered) {
@@ -361,6 +361,18 @@
                 handle.draggable().snap(snapping);    
             }
             
+            // set restriction
+            if ( ! _.isNull(me.props.minWidth) || ! _.isNull(me.props.minHeight)) {
+                handle.draggable().restrict(function(x, y){
+                    return {
+                        x: 800, 
+                        y: 0,
+                        width: 1000,
+                        height: 1000
+                    }
+                });
+            }
+
             handle.show();
             handle.removeClass('dragging');
         },
@@ -502,6 +514,10 @@
             
             me.redraw();
             me.fire('resize', resize);
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Resizer';
         },
 
         destroy: function() {

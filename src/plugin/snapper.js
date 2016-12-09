@@ -4,7 +4,7 @@
     Graph.plugin.Snapper = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
-            enabled: true,
+            enabled: false,
             suspended: true,
             rendered: false,
             vector: null,
@@ -159,6 +159,10 @@
             }
         },
 
+        refresh: function(client) {
+
+        },
+
         getClientCenter: function(client) {
             var clientId = client.guid(),
                 contextId = this.props.context,
@@ -251,6 +255,7 @@
                 if (_.indexOf(snapy, vy) === -1) {
                     snapy.push(vy);
                 }
+
             });
 
             client.draggable().snap([
@@ -340,6 +345,10 @@
                 }
                 delete this.clients[guid];
             }
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Snapper';
         }
 
     });

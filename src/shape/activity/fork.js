@@ -23,14 +23,14 @@
                 .selectable(false);
 
             comp.shape = shape.guid();
+        },
+
+        toString: function() {
+            return 'Graph.shape.activity.Fork';
         }
 
     });
 
     ///////// STATIC /////////
-    
-    Graph.shape.activity.Fork.toString = function() {
-        return 'function(options)';
-    };
 
 }());

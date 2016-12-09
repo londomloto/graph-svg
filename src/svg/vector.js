@@ -65,6 +65,8 @@
         cached: {
             bbox: null,
             originalBBox: null,
+            globalMatrix: null,
+            relativeMatrix: null,
             position: null,
             offset: null
         },
@@ -115,6 +117,30 @@
 
         matrix: function() {
             return this.graph.matrix;
+        },
+
+        relativeMatrix: function() {
+            var matrix = this.cached.relativeMatrix;
+            if ( ! matrix) {
+                var paper = this.paper();
+                if (paper) {
+                    var viewport = paper.viewport(),
+                        viewportGuid = viewport.guid();
+
+                    matrix = Graph.matrix();
+
+                    this.bubble(function(curr){
+                        matrix.multiply(curr.matrix());
+                        if (curr.guid() == viewportGuid) {
+                            return false;
+                        }
+                    });
+                } else {
+                    matrix = this.matrix();
+                }
+                this.cached.matrix = matrix;
+            }
+            return matrix;
         },
 
         globalMatrix: function() {
@@ -824,6 +850,32 @@
         prepend: function(vector) {
             return this.attach(vector, 'prepend');
         },
+
+        relocate: function(target) {
+            if (target.isPaper()) {
+                target = target.viewport();
+            }
+
+            var resetMatrix = this.relativeMatrix().clone();
+
+            this.graph.matrix = resetMatrix;
+            this.attr('transform', resetMatrix.toValue());
+            this.dirty(true);
+            
+            // append to target
+            target.append(this);
+
+            var targetMatrix = target.relativeMatrix().clone(),
+                applyMatrix = this.matrix().clone();
+
+            applyMatrix.multiply(targetMatrix.invert());
+
+            this.graph.matrix = applyMatrix;
+            this.attr('transform', applyMatrix.toValue());
+
+            // flag as dirty
+            this.dirty(true);
+        },
         
         ancestors: function() {
             var ancestors = [], guid = this.guid();
@@ -927,7 +979,7 @@
         select: function(batch) {
             this.addClass('graph-selected');
             this.props.selected = true;
-
+            
             batch = _.defaultTo(batch, false);
             this.fire('select', {batch: batch});
 
@@ -936,11 +988,12 @@
                     this.plugins.resizer.resume();
                 }
             }
-
+            
             return this;
         },
 
         deselect: function(batch) {
+
             this.removeClass('graph-selected');
             this.props.selected = false;
 
@@ -1048,6 +1101,10 @@
 
         isRendered: function() {
             return this.props.rendered;
+        },
+
+        isSelected: function() {
+            return this.props.selected === true;
         },
 
         ///////// TOOLS //////////
@@ -1171,10 +1228,6 @@
 
     ///////// STATICS /////////
     
-    Vector.toString = function() {
-        return 'function(tag)';
-    };
-
     Vector.guid = 0;
 
     ///////// LANGUAGE CHECK /////////

@@ -104,9 +104,5 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Circle.toString = function() {
-        return "function(cx, cy, r)";
-    };  
 
 }());

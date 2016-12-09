@@ -40,9 +40,5 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Group.toString = function() {
-        return 'function(x, y)';
-    };
 
 }());

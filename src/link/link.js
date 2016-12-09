@@ -697,10 +697,6 @@
     
     Link.guid = 0;
 
-    Link.toString = function() {
-        return 'function(router, options)';
-    };
-
     ///////// HELPERS /////////
     
     function getHandler(scope, resource, handler) {

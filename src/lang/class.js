@@ -1,285 +1,248 @@
 
 (function(){
-    
-    var initializing = false;
-    // var inherit = /xyz/.test(function(){ xyz; }) ? /\$super/ : /.*/;
+
     var Class = Graph.lang.Class = function() {};
 
+    Class.defaults  = {};
+
     Class.prototype.constructor = Class;
+
     Class.prototype.toString = function() {
         return 'Graph.lang.Class';
     };
-
-    Class.defaults = {};
-
+    
     Class.extend = function(config) {
-        var $super, proto, name, value, defaults;
-        
-        $super = this.prototype;
-        defaults = {};
-        
-        initializing = true;
-        
-        // proto = new this();
-        proto = Object.create($super);
+        var _super, _proto, _constructor, _definition, _class, _classdef;
+            
+        _super = this.prototype;
+        _proto = Object.create(_super);
 
-        initializing = false;
-        
-        var name;
+        _classdef = {};
 
-        for (name in config) {
-            value = config[name];
-            if ( ! _.isFunction(value)) {
-
-                proto[name] = value;
-                defaults[name] = value;
-                
+        _.forOwn(config, function(v, k){
+            _proto[k] = v;
+            if (_.isFunction(v)) {
+                if (k == 'constructor') {
+                    _constructor = v;
+                }
             } else {
-                proto[name] = value;
-                
-
-                // NOTE: perfomance penalty!!!
-                // ---------------------------
-                // proto[name] = _.isFunction($super[name])  && inherit.test(value) 
-                //     ? (function(name, func){
-                //         return function() {
-                //             var tmp, ret;
-                //             tmp = this.$super;
-                //             this.$super = $super[name];
-                //             ret = func.apply(this, arguments);
-                //             this.$super = tmp;
-                //             return ret;
-                //         };
-                //     }(name, value)) : value;
+                _classdef[k] = _.cloneDeep(v);
             }
+        });
+
+        if ( ! _constructor) {
+            _constructor = _super.constructor;
         }
 
-        var clazz, init;
+        _class = function() {
 
-        if ( ! _.isUndefined(proto.constructor)) {
-            init = proto.constructor;
-            delete proto.constructor;
-        }
+            if ( ! this.constructed) {
+                this.constructed = true;
+                this.listeners = {};
 
-        clazz = function() {
+                var _superclass = this.superclass;
+                var _superdef, key, val;
 
-            var me = this;
-            var prop, value;
-
-            me.listeners = {};
-
-            var classdef = me.constructor.defaults,
-                superdef = me.superclass.defaults;
-
-            var inherits = {};
-
-            if (superdef) {
-                for(prop in superdef) {
-                    me[prop] = _.cloneDeep(superdef[prop]);
-                    inherits[prop] = true;
+                for (key in _classdef) {
+                    this[key] = _.cloneDeep(_classdef[key]);
                 }
-            }
 
-            if (classdef) {
-                for(prop in classdef) {
-                    value = _.cloneDeep(classdef[prop]);
-                    if (inherits[prop]) {
-                        if (_.isPlainObject(value) || _.isArray(value)) {
-                            _.assign(me[prop], value);
-                        }
-                    } else {
-                        me[prop] = value;    
-                    }
-                }
-            }
-
-            inherits = superdef = classdef = null;
-            
-            if ( ! initializing && init) {
-                init && init.apply(me, arguments);
-            }
-        };
-
-        // statics
-        clazz.extend = Class.extend;
-        clazz.defaults = defaults;
-
-        // instance
-        clazz.prototype = proto;
-        clazz.prototype.constructor = clazz;
-        clazz.prototype.superclass = $super.constructor;
-        
-        clazz.prototype.on = function(type, handler, once) {
-            var me = this, data;
-
-            if (_.isPlainObject(type)) {
-                _.forOwn(type, function(h, t){
-                    if (_.isPlainObject(h)) {
-                        var o = h;
-                        h = o.handler;
-                        s = o.once;
-                        me.on(t, h, s);
-                    } else {
-                        me.on(t, h, false);
-                    }
-                });
-                return me;
-            }
-
-            var part = _.split(type, '.'),
-                fire = part.shift();
-
-            me.listeners[fire] = me.listeners[fire] || [];
-            
-            once = _.defaultTo(once, false);
-
-            data = {
-                type: type,
-                once: once,
-                orig: handler,
-                func: _.bind(handler, this)
-            };
-
-            me.listeners[fire].push(data);
-            return this;
-        };
-
-        clazz.prototype.one = function(type, handler) {
-            var me = this;
-
-            if (_.isPlainObject(type)) {
-                _.forOwn(type, function(h, t){
-                    me.on(t, h, true);
-                });
-                return me;
-            }
-
-            return me.on(type, handler, true);
-        };
-
-        /**
-         * Unregister event handler
-         */
-        clazz.prototype.off = function(type, handler) {
-            var part, fire, lsnr, rgex;
-            
-            part = _.split(type, '.');
-            fire = part.shift();
-            lsnr = fire ? (this.listeners[fire] || []).slice() : [];
-
-            var cached = Graph.lookup('Regex.event', type);
-            
-            if (cached.rgex) {
-                rgex = cached.rgex;
-            } else {
-                rgex = new RegExp(_.escapeRegExp(type), 'i');
-                cached.rgex = rgex;
-            }
-            
-            if (lsnr.length) {
-                for (var i = lsnr.length - 1; i >= 0; i--) {
-                    if (handler) {
-                        if (rgex.test(lsnr[i].type) && lsnr[i].orig === handler) {
-                            this.listeners[fire].splice(i, 1);
-                        }
-                    } else {
-                        if (rgex.test(lsnr[i].type)) {
-                            this.listeners[fire].splice(i, 1);
-                        }
-                    }
-                }
-            } else {
-                var me = this;
-                for (fire in me.listeners) {
-                    (function(lsnr){
-                        for (var i = lsnr.length - 1; i >= 0; i--) {
-                            if (handler) {
-                                if (rgex.test(lsnr[i].type) && lsnr[i].orig === handler) {
-                                    lsnr.splice(i, 1);
-                                }
+                while(_superclass) {
+                    _superdef = _superclass.defaults;
+                    
+                    if (_superdef) {
+                        for (key in _superdef) {
+                            if (this[key] !== undefined) {
+                                this[key] = _.merge(_.cloneDeep(_superdef[key]), this[key]);
                             } else {
-                                if (rgex.test(lsnr[i].type)) {
-                                    lsnr.splice(i, 1);
-                                }
+                                this[key] = _.cloneDeep(_superdef[key]);
                             }
                         }
-                    }(me.listeners[fire]))
+                    }
+
+                    _superclass = _superclass.prototype.superclass;
                 }
             }
 
-            rgex = null;
-            lsnr = null;
-            
+            if (_constructor) {
+                _constructor.apply(this, arguments);
+            }
+        }
+
+        _definition = _constructor.toString().match(/(function)?\s?([^\{=]+)/);
+        _definition = 'function ' + _definition[2];
+        
+        _class.toString = function() {
+            return _definition;
+        };
+
+        _class.extend = _super.constructor.extend;
+        _class.defaults = _classdef;
+
+        _class.prototype = _proto;
+        _class.prototype.constructor = _class;
+        _class.prototype.superclass = _super.constructor;
+        _class.prototype.constructed = false;
+
+        _class.prototype.on = function(eventType, handler, once, priority) {
+            if (_.isPlainObject(eventType)) {
+                var key, val;
+                for (key in eventType) {
+                    val = eventType[key];
+                    if (_.isFunction(val)) {
+                        bind(this, key, val);
+                    } else {
+                        bind(this, key, val['handler'], val['once'], val['priority']);
+                    }
+                }
+            } else {
+                bind(this, eventType, handler, once, priority);
+            }
+
             return this;
         };
 
-        /**
-         * Execute event handler
-         */
-        clazz.prototype.fire = function(type, data) {
-            var func = clazz.prototype.fire;
-            var args = [];
-            var event, part, fire, lsnr, rgex;
-
-            if (_.isString(type)) {
-                event = new Graph.lang.Event(type, data);
-            } else {
-                event = type;
-                event.originalData = event.originalData || {};
-                type = event.originalType || event.type;
-            }
-
-            // add default publisher props for later use
-            event.publisher = this;
-            
-            args.push(event);
-
-            part = _.split(type, '.');
-            fire = part.shift();
-            lsnr = (this.listeners[fire] || []).slice();
-
-            var cached = Graph.lookup('Regex.event', type);
-
-            if (cached.rgex) {
-                rgex = cached.rgex;
-            } else {
-                rgex = new RegExp(_.escapeRegExp(type), 'i');
-                cached.rgex = rgex;
-            }
-
-            var onces = [];
-
-            if (lsnr.length) {
-                for (var i = 0, ii = lsnr.length; i < ii; i++) {
-                    if (fire != type) {
-                        if (rgex.test(lsnr[i].type)) {
-                            if (lsnr[i].once) {
-                                onces.push(lsnr[i]);
-                            }
-                            lsnr[i].func.apply(lsnr[i].func, args);
-                        }
+        _class.prototype.one = function(eventType, handler) {
+            if (_.isPlainObject(eventType)) {
+                var key, val;
+                for (key in eventType) {
+                    val = eventType[key];
+                    if (_.isFunction(val)) {
+                        bind(this, key, val, true);
                     } else {
-                        if (lsnr[i].once) {
-                            onces.push(lsnr[i]);
-                        }
+                        bind(this, key, val['handler'], true, val['priority']);
+                    }
+                }
+            } else {
+                bind(this, eventType, handler, true);
+            }
 
-                        lsnr[i].func.apply(lsnr[i].func, args);
+            return this;
+        };
+
+        _class.prototype.off = function(eventType, handler) {
+            var batch = eventType.split(/\s/);
+
+            if (batch.length > 1) {
+                for (var i = 0, ii = batch.length; i < ii; i++) {
+                    unbind(this, batch[i]);
+                }
+            } else {
+                unbind(this, eventType, handler);
+            }
+
+            return this;
+        };
+
+        _class.prototype.fire = function(eventType, data) {
+            var args = [], onces = [];
+            var eventObject, eventNames, eventRoot, listeners, 
+                eventRegex, cachedRegex, ii, i;
+
+            data = data || {};
+
+            if (_.isString(eventType)) {
+                eventObject = new Graph.lang.Event(eventType, data);
+            } else {
+                eventObject = eventType;
+                eventObject.originalData = data;
+                eventType = eventObject.originalType || eventObject.type;
+            }
+
+            eventObject.publisher = this;
+            args.push(eventObject);
+
+            eventNames = eventType.split(/\./);
+            eventRoot = eventNames.shift();
+            listeners = (this.listeners[eventRoot] || []).slice();
+
+            var cachedRegex = Graph.lookup('Regex.event', eventType);
+
+            if (cachedRegex.rgex) {
+                eventRegex = cachedRegex.rgex;
+            } else {
+                eventRegex = new RegExp(_.escapeRegExp(eventType), 'i');
+                cachedRegex.rgex = eventRegex;
+            }
+
+            if (listeners.length) {
+                for (i = 0, ii = listeners.length; i < ii; i++) {
+                    if (eventRoot == listeners[i].eventType) {
+                        if (listeners[i].once) {
+                            onces.push(listeners[i]);
+                        }
+                        listeners[i].handler.apply(listeners[i].handler, args);
+                    } else if (eventRegex.test(listeners[i].eventType)) {
+                        if (listeners[i].once) {
+                            onces.push(listeners[i]);
+                        }
+                        listeners[i].handler.apply(listeners[i].handler, args);
                     }
                 }
             }
 
             if (onces.length) {
-                var me = this;
-                _.forEach(onces, function(lsnr){
-                    me.off(lsnr.type, lsnr.orig);
-                });
+                for (i = 0, ii = onces.length; i < ii; i++) {
+                    this.off(onces[i].eventType, onces[i].original);
+                }
             }
 
-            rgex = lsnr = null;
-            return event;
         };
 
-        return clazz;
+        return _class;
     };
+
+    /////////
+    
+    function bind(context, eventType, handler, once, priority) {
+        var eventNames = eventType.split(/\./),
+            eventRoot = eventNames.shift();
+
+        once = _.defaultTo(once, false);
+        priority = _.defaultTo(priority, 1500);
+
+        context.listeners[eventRoot] = context.listeners[eventRoot] || [];
+
+        context.listeners[eventRoot].push({
+            eventType: eventType,
+            priority: priority,
+            original: handler,
+            handler: _.bind(handler, context),
+            once: once
+        });
+    }
+    
+    function unbind(context, eventType, handler) {
+        var eventNames = eventType.split(/\./),
+            eventRoot = eventNames.shift(),
+            listeners = context.listeners[eventRoot] || [];
+
+        var eventRegex, cachedRegex;
+
+        cachedRegex = Graph.lookup('Regex.event', eventType);
+
+        if (cachedRegex.rgex) {
+            eventRegex = cachedRegex.rgex;
+        } else {
+            eventRegex = new RegExp(_.escapeRegExp(eventType), 'i');
+            cachedRegex.rgex = eventRegex;
+        }
+
+        for (i = listeners.length - 1; i >= 0; i--) {
+            if (eventRegex.test(listeners[i].eventType)) {
+                if (handler) {
+                    if (handler === listeners[i].original) {
+                        listeners.splice(i, 1);
+                    }
+                } else {
+                    listeners.splice(i, 1);    
+                }
+            }
+        }
+
+        if ( ! listeners.length) {
+            delete context.listeners[eventRoot];
+        }
+    }
 
 }());

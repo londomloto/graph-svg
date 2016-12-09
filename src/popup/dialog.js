@@ -153,10 +153,6 @@
     });
 
     ///////// STATICS /////////
-    
-    Graph.popup.Dialog.toString = function() {
-        return 'function(element, options)';
-    };
 
     ///////// SHORTCUT /////////
     

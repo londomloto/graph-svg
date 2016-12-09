@@ -210,6 +210,10 @@
 
         destroy: function() {
 
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Editor';
         }
 
     });

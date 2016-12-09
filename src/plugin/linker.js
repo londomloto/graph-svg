@@ -413,6 +413,10 @@
             }
 
             e.preventDefault();
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Linker';
         }
 
     });

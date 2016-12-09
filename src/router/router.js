@@ -230,10 +230,6 @@
     
     ///////// STATICS /////////
     
-    Router.toString = function() {
-        return 'function(domain, source, target, options)';
-    };
-    
     Router.portCentering = function(port, center, axis) {
         if (axis == 'x') {
             port.y = center.y;

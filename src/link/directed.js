@@ -169,9 +169,5 @@
     });
 
     ///////// STATICS /////////
-    
-    Graph.link.Directed.toString = function() {
-        return 'function(router, options)';
-    };
 
 }());

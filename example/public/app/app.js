@@ -1,105 +1,239 @@
 
-Graph(function(){
+(function(){
 
-    var app, diagram, pallet, paper;
+    angular
+        .module('app', [])
+        .controller('AppController', AppController)
+        .service('modalManager', modalManager)
+        .service('toolManager', toolManager)
+        .directive('uitool', uitool)
+        .directive('uimodal', uimodal)
+        .directive('uipaper', uipaper)
+        .directive('uipallet', uipallet);
 
-    pallet = Graph.pallet('activity');
-    pallet.render('[data-ui-pallet]');
+    function AppController($scope, $http, modalManager) {
 
-    paper = Graph.paper();
-    paper.addPallet(pallet);
+        $scope.diagrams = [];
+        $scope.paper = null;
+        $scope.pallet = null;
 
-    paper.on({
-        activatetool: function(e) {
-            $('[data-tool=' + e.name + ']').addClass('active');
-        },
-        deactivatetool: function(e) {
-            $('[data-tool=' + e.name + ']').removeClass('active');
-        }
-    });
+        $scope.loadDiagrams = function() {
+            $http.get('../server/load').then(function(response){
+                $scope.diagrams = response.data.data;
+            });
+        };
 
-    paper.render('[data-ui-paper]');
+        $scope.open = function() {
+            modalManager.open('open-diagram').then(function(){
+                $scope.loadDiagrams();
+            });
+        };
 
-    // example
-    var s1 = Graph.shape('activity.action', {left: 300, top: 100});
-    var s2 = Graph.shape('activity.action', {left: 100, top: 300});
-    var s3 = Graph.shape('activity.action', {left: 300, top: 400});
-    var s4 = Graph.shape('activity.action', {left: 500, top: 100});
-    var s5 = Graph.shape('activity.start', {left: 600, top: 300});
-    var s6 = Graph.shape('activity.lane', {left: 100, top: 100});
-    var s7 = Graph.shape('activity.router', {left: 500, top: 400});
+        $scope.create = function() {
+            modalManager.open('create-diagram');
+        };
 
-    s1.render(paper);
-    s2.render(paper);
-    s3.render(paper);
-    s4.render(paper);
-    s5.render(paper);
-    s6.render(paper);
-    s7.render(paper);
+        $scope.trash = function() {
+            if ($scope.paper) {
+                $scope.paper.removeSelection();
+            }
+        };
 
+        $scope.export = function() {
+            if ($scope.paper) {
+                $scope.paper.saveAsImage('example.png');
+            }
+        };
 
-    // setup toolbar
-    $('[data-click]').on('click', function(e){
-        var el = $(this),
-            fn = el.data('click');
+        $scope.activateTool = function(name) {
+            if ($scope.paper) {
+                $scope.paper.tool().activate(name);
+            }
+        };
 
-        if (fn) {
-            var explode = /([a-zA-Z]+)\s?\((.*)\)/g.exec(fn);
-            if (explode) {
-                var prop = explode[1],
-                    args = explode[2].split(/,/);
+        $scope.deactivateTool = function(name) {
+            if ($scope.paper) {
+                $scope.paper.tool().deactivate(name);
+            }
+        };
 
-                args = args.map(function(a){
-                    return a.replace(/\'/g, '');
-                });
+        $scope.hideModal = function(name) {
+            modalManager.hide(name);
+        };
 
-                if (app[prop]) {
-                    app[prop].apply(app[prop], args);
+    }
+
+    function modalManager($q) {
+        this.modals = {};
+
+        this.add = function(name, instance) {
+            this.modals[name] = {
+                instance: instance,
+                onshow: null,
+                onhide: null
+            };
+        };
+
+        this.fire = function(name, event) {
+            var modal = this.modals[name],
+                promise = 'on' + event;
+            if (modal && modal[promise]) {
+                modal[promise].resolve();
+            }
+        };
+
+        this.open = function(name) {
+            var def = $q.defer(),
+                modal = this.modals[name];
+
+            if (modal) {
+                modal.onshow = def;
+                modal.instance.show();
+            }
+
+            return def.promise;
+        };
+
+        this.hide = function(name) {
+            var modal = this.modals[name];
+            if (modal) {
+                modal.instance.hide();
+                modal.onshow = null;
+                modal.onhide = null;
+            }
+        };
+    }
+
+    function toolManager() {
+        this.tools = {};
+
+        this.add = function(name, tool) {
+            this.tools[name] = tool;
+        };
+
+        this.activate = function(name) {
+            for (var prop in this.tools) {
+                if (this.tools.hasOwnProperty(prop)) {
+                    this.tools[prop].deactivate();
                 }
             }
+            this.tools[name] && this.tools[name].activate();
+        };
+
+        this.deactivate = function(name) {
+            this.tools[name] && this.tools[name].deactivate();
+        };
+    }
+
+    function uitool(toolManager) {
+        var directive = {
+            restrict: 'A',
+            link: link,
+            scope: true
+        };
+        
+        return directive;
+
+        function link(scope, element, attrs) {
+            var name = attrs.uitool;
+            toolManager.add(name, scope);
+
+            scope.activate = function() {
+                element.addClass('active');
+            };
+
+            scope.deactivate = function() {
+                element.removeClass('active');
+            };
         }
+    }
 
-        e.preventDefault();
-    });
+    function uimodal(modalManager) {
+        var directive = {
+            restrict: 'A',
+            link: link
+        };
+        
+        return directive;
 
-    app = {
-        trash: function() {
-            paper.removeSelection();
-        },
-        export: function() {
-            paper.saveAsImage('example.png');
-        },
-        config: function() {
+        function link(scope, element, attrs) {
+            var name = attrs.uimodal,
+                instance = element.modal('hide').data('bs.modal');
 
-        },
-        toggleTool: function(name) {
-            paper.tool().toggle(name);
-        },
-        createDiagram: function() {
-            var context = '#create-diagram';
-            var name = $('[name=diagram_name]', context).val(),
-                desc = $('[name=diagram_desc]', context).val();
+            modalManager.add(name, instance);
 
-            var diagram = paper.diagram('activity', {
-                name: name,
-                desc: desc
+            element.on('show.bs.modal', function(e){
+                modalManager.fire(name, 'show');
+            });
+        }
+    }
+
+    function uipallet() {
+        var directive = {
+            restrict: 'A',
+            link: link
+        };
+
+        return directive;
+
+        function link(scope, element, attrs) {
+            var pallet = Graph.pallet('activity');
+            pallet.render(element);
+
+            scope.pallet = pallet;
+        }
+    }
+
+    function uipaper(toolManager) {
+        var directive = {
+            restrict: 'A',
+            link: link
+        };
+
+        return directive;
+
+        function link(scope, element, attrs) {
+            var paper = Graph.paper();
+            scope.paper = paper;
+
+            paper.on({
+                activatetool: function(e) {
+                    toolManager.activate(e.name);  
+                },
+                deactivatetool: function(e) {
+                    toolManager.deactivate(e.name);
+                }
             });
 
-            console.log(diagram);
+            paper.render(element);
 
-            app.hideModal('#create-diagram');
-        },
-        updateDiagram: function() {
-            $.ajax({
-                url: '../server/index.php?action=update'
-            })
-        },
-        showModal: function(selector) {
-            $(selector).modal();
-        },
-        hideModal: function(selector) {
-            $(selector).modal('hide');
+            ///////// examples /////////
+            
+            var s1 = Graph.shape('activity.action', {left: 300, top: 100});
+            var s2 = Graph.shape('activity.action', {left: 100, top: 300});
+            var s3 = Graph.shape('activity.action', {left: 300, top: 400});
+            var s4 = Graph.shape('activity.action', {left: 500, top: 100});
+            var s5 = Graph.shape('activity.start', {left: 600, top: 300});
+            var s6 = Graph.shape('activity.lane', {left: 100, top: 100});
+            var s7 = Graph.shape('activity.router', {left: 500, top: 400});
+            var s8 = Graph.shape('activity.final', {left: 300, top: 400});
+
+            s1.render(paper);
+            
+            s2.render(paper);
+            s3.render(paper);
+            s4.render(paper);
+            s5.render(paper);
+            s6.render(paper);
+            s7.render(paper);
+            s8.render(paper);
+
+            var s9 = s6.addSiblingBellow();
+            s9.height(100);
+            var s10 = s9.addSiblingBellow();
         }
-    };
+    }
 
-});
+    
+
+}());

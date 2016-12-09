@@ -208,8 +208,5 @@
 
     ///////// STATIC /////////
     
-    Graph.svg.Text.toString = function() {
-        return 'function(x, y, text)';
-    };
 
 }());

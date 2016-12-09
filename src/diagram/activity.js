@@ -9,8 +9,4 @@
         
     });
 
-    Graph.diagram.Activity.toString = function() {
-        return 'function(options)';
-    };
-
 }());

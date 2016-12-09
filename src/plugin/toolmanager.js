@@ -120,6 +120,10 @@
                     this.activate(tool);
                 }
             }
+        },
+
+        toString: function() {
+            return 'Graph.plugin.ToolManager';
         }
 
 

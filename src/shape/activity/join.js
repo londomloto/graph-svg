@@ -31,13 +31,13 @@
 
             comp.shape = shape.guid();
             comp.block = block.guid();
+        },
+
+        toString: function() {
+            return 'Graph.shape.activity.Join';
         }
     });
 
     ///////// STATIC /////////
-    
-    Graph.shape.activity.Join.toString = function() {
-        return 'function(options)';
-    };
 
 }());

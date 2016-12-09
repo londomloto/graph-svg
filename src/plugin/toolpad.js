@@ -73,7 +73,7 @@
             var shape = e.shape,
                 meta = shape.metadata,
                 pad = this.components.pad;
-            
+
             pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
             
             var body = '';
@@ -135,6 +135,10 @@
             }
             
             e.preventDefault();
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Toolpad';
         }
         
     });

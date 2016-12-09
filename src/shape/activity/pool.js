@@ -227,7 +227,7 @@
             var dx1 = 0,
                 dy1 = prevBox.y - laneBox.y,
                 dx2 = 0,
-                dy2 = laneBox.y - prevBox.y;
+                dy2 = laneBox.height;
             
             laneNode.bbox.y  += dy1;
             laneNode.bbox.y2 += dy1;
@@ -253,7 +253,7 @@
                 nextBox = next.bbox().toJson();
 
             var dx1 = 0,
-                dy1 = nextBox.y - laneBox.y,
+                dy1 = nextBox.height,
                 dx2 = 0,
                 dy2 = laneBox.y - nextBox.y;
             
@@ -323,9 +323,5 @@
     ///////// STATIC /////////
     
     Pool.guid = 0;
-
-    Pool.toString = function() {
-        return 'function(options)';
-    };
     
 }());

@@ -40,12 +40,12 @@
             block.connectable({wiring: 'h:v'});
             block.snappable();
 
-            block.on('edit.shape',    _.bind(me.onLabelEdit, me));
+            block.on('edit.shape',      _.bind(me.onLabelEdit, me));
             block.on('dragstart.shape', _.bind(me.onDragStart, me));
-            block.on('dragend.shape', _.bind(me.onDragEnd, me));
-            block.on('resize.shape',  _.bind(me.onResize, me));
-            block.on('remove.shape',  _.bind(me.onRemove, me));
-            block.on('select.shape',  _.bind(me.onSelect, me));
+            block.on('dragend.shape',   _.bind(me.onDragEnd, me));
+            block.on('resize.shape',    _.bind(me.onResize, me));
+            block.on('remove.shape',    _.bind(me.onRemove, me));
+            block.on('select.shape',    _.bind(me.onSelect, me));
             block.on('deselect.shape',  _.bind(me.onDeselect, me));
 
             label = (new Graph.svg.Text(cx, cy, me.props.label))
@@ -115,9 +115,5 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.shape.activity.Action.toString = function() {
-        return 'function(options)';
-    };
 
 }());

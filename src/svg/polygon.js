@@ -98,9 +98,5 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Polygon.toString = function() {
-        return 'function(points)';
-    };
 
 }());

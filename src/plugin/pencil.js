@@ -90,6 +90,9 @@
                 }
             }, this), 0);
             
+        },
+        toString: function() {
+            return 'Graph.plugin.Pencil';
         }
 
     });

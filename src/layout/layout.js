@@ -222,6 +222,10 @@
 
         arrangeShapes: function() {
             
+        },
+
+        toString: function() {
+            return 'Graph.layout.Layout';
         }
         
     });

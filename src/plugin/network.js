@@ -329,6 +329,10 @@
             // collect garbage
             this.cached.cables = null;
             this.cached.pairs  = null;
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Network';
         }
 
     });

@@ -301,8 +301,4 @@
 
     ///////// STATICS /////////
     
-    Graph.link.Orthogonal.toString = function() {
-        return 'function(router, options)';
-    };
-    
 }());

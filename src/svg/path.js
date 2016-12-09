@@ -168,9 +168,5 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Path.toString = function() {
-        return 'function(d)';
-    };
 
 }());
