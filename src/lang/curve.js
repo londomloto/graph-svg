@@ -1,15 +1,15 @@
 
 (function(){
-    
+
     var Curve = Graph.lang.Curve = function(command) {
         this.segments = _.isString(command) ? Graph.util.path2segments(command) : _.cloneDeep(command);
-            
+
         if (this.segments[0][0] != 'M') {
             this.segments.unshift(
                 ['M', this.segments[0][1], this.segments[0][2]]
             );
         }
-        
+
         if (this.segments.length === 1 && this.segments[0][0] === 'M') {
             var x = this.segments[0][1],
                 y = this.segments[0][2];
@@ -17,12 +17,12 @@
         }
     };
 
-    Curve.defaults = {
+    Curve.options = {
         segments: []
     };
 
     Curve.extend = Graph.lang.Class.extend;
-    
+
     Curve.prototype.constructor = Curve;
 
     Curve.prototype.segments = [];
@@ -105,7 +105,7 @@
     };
 
     ///////// SHORTCUT /////////
-    
+
     Graph.curve = function(command) {
         return new Graph.lang.Curve(command);
     };

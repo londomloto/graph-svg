@@ -2,11 +2,11 @@
 (function(){
 
     Graph.plugin.Dragger = Graph.extend(Graph.plugin.Plugin, {
-        
+
         props: {
             ready: false,
             manual: false,
-            
+
             ghost: false,
             vector: null,
             enabled: true,
@@ -48,7 +48,7 @@
             holder: null,
             helper: null
         },
-        
+
         constructor: function(vector, options) {
             var me = this;
 
@@ -64,7 +64,7 @@
                     me.props[name] = options[name];
                 }
             });
-            
+
             _.assign(me.props, options);
 
             me.cached.snapping = null;
@@ -73,12 +73,12 @@
             me.initComponent();
 
             vector.on('render.dragger', _.bind(me.onVectorRender, me));
-            
+
             if (vector.props.rendered) {
                 me.setup();
             }
         },
-        
+
         holder: function() {
             return Graph.registry.vector.get(this.components.holder);
         },
@@ -143,25 +143,25 @@
             vendor.draggable(options);
             vendor.styleCursor(false);
 
-            me.cached.origin   = vendor.origin();
+            me.cached.origin = vendor.origin();
             me.cached.snapping = [];
-            
+
             vendor.on('down', function draggerDown(e){
                 e.preventDefault();
                 // e.stopPropagation();
             });
 
             if ( ! me.props.manual) {
-                vendor.on('move', _.bind(me.onPointerMove, me, _, vector));    
+                vendor.on('move', _.bind(me.onPointerMove, me, _, vector));
             }
-            
-            var matrix = vector.globalMatrix(),
+
+            var matrix = vector.matrixCurrent(),
                 rotate = matrix.rotate(),
                 scale  = matrix.scale();
 
             me.rotate(rotate.deg);
             me.scale(scale.x, scale.y);
-            
+
             if (me.props.grid) {
                 me.snap({
                     mode: 'grid',
@@ -199,8 +199,8 @@
 
             if (me.props.ghost) {
                 me.redraw();
-            }   
-            
+            }
+
         },
 
         suspend: function() {
@@ -300,15 +300,15 @@
             }
 
             /////////
-            
+
             function fixsnap(snap) {
-                
+
                 if (_.isFunction(snap)) {
                     return snap;
                 }
-                
+
                 snap.mode = _.defaultTo(snap.mode, 'anchor');
-                
+
                 if (snap.mode == 'grid') {
                     if (me.props.axis == 'x') {
                         snap.y = 0;
@@ -335,7 +335,7 @@
 
         restrict: function(options) {
             var vendor = this.vector().interactable().vendor();
-            
+
             if (vendor) {
                 options = options || {};
                 vendor.setPerAction('drag', {
@@ -366,10 +366,10 @@
                     if (e.currentTarget === node) {
                         if (paper) {
                             var state = paper.state();
-                            
+
                             if (state == 'collecting') {
                                 if (vector.elem.belong('graph-resizer')) {
-                                    paper.tool().activate('panzoom');    
+                                    paper.tool().activate('panzoom');
                                 } else {
                                     return;
                                 }
@@ -377,7 +377,7 @@
                                 return;
                             }
                         }
-                        
+
                         if (this.props.ghost) {
                             if (this.props.suspended) {
                                 this.resume();
@@ -388,7 +388,7 @@
                         }
 
                     }
-                }    
+                }
             }
 
             e.preventDefault();
@@ -396,7 +396,7 @@
         },
 
         onDragStart: function(e) {
-            var vector = this.vector(), 
+            var vector = this.vector(),
                 paper = vector.paper(),
                 helper = this.helper();
 
@@ -417,15 +417,14 @@
                 y: e.clientY,
                 dx: 0,
                 dy: 0,
-                ghost: this.props.ghost,
-                batch: false
+                ghost: this.props.ghost
             };
 
             this.fire('dragstart', edata);
         },
 
         onDragMove: function(e) {
-            
+
             var trans = this.trans,
                 paper = trans.paper,
                 vector = trans.vector,
@@ -438,21 +437,21 @@
                 scaleY = this.scaling.y;
 
             // check current scaling
-            var scaling = vector.globalMatrix().scale();
-            
+            var scaling = vector.matrixCurrent().scale();
+
             if (scaling.x !== scaleX || scaling.y !== scaleY) {
                 this.scale(scaling.x, scaling.y);
                 scaleX = scaling.x;
                 scaleY = scaling.y;
             }
-            
+
             var edx = _.defaultTo(e.dx, 0),
                 edy = _.defaultTo(e.dy, 0);
-            
+
             var dx, dy, hx, hy, tx, ty;
-            
+
             dx = dy = hx = hy = tx = ty = 0;
-                
+
             edx /= scaleX;
             edy /= scaleY;
 
@@ -471,9 +470,9 @@
             } else {
                 hx = edx;
                 hy = edy;
-                
+
                 dx = tx = edx *  cos + edy * sin;
-                dy = ty = edx * -sin + edy * cos;  
+                dy = ty = edx * -sin + edy * cos;
             }
 
             this.trans.dx += tx;
@@ -481,35 +480,34 @@
 
             this.trans.hx += hx;
             this.trans.hy += hy;
-            
+
             var pageX = _.defaultTo(e.pageX, e.x0),
                 pageX = _.defaultTo(e.pageY, e.y0);
 
             pageX /= scaleX;
             pageX /= scaleY;
-            
+
             var event = {
                 pageX: pageX,
                 pageY: pageX,
-                
+
                 ex: edx,
                 ey: edy,
 
                 dx: dx,
                 dy: dy,
-                
+
                 hx: hx,
                 hy: hy,
-                
+
                 ox: hx,
                 oy: hy,
-                
-                ghost: this.props.ghost,
-                batch: false
+
+                ghost: this.props.ghost
             };
 
             this.fire('dragmove', event);
-            
+
             if (helper) {
                 helper.translate(event.hx, event.hy).commit();
             } else {
@@ -539,12 +537,11 @@
             var edata = {
                 dx: dx,
                 dy: dy,
-                ghost: this.props.ghost,
-                batch: false
+                ghost: this.props.ghost
             };
-            
+
             this.fire('dragend', edata);
-            
+
             this.trans.vector = null;
             this.trans.paper = null;
             this.trans.helper = null;

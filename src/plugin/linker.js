@@ -9,7 +9,6 @@
 
         props: {
             vector: null,
-            context: null,
             enabled: false,
             suspended: true,
             rendered: false
@@ -100,7 +99,6 @@
             this.component().render(paper);
 
             this.props.rendered = true;
-            this.props.context = paper.viewport().guid();
         },
 
         invalidate: function() {
@@ -216,10 +214,9 @@
                     this.resume();    
                 }
 
-                var path = this.component('path'),
-                    context = this.context();
+                var path = this.component('path');
 
-                this.linking.moveHandler = _.bind(this.onPointerMove, this, _, paper, path, context);    
+                this.linking.moveHandler = _.bind(this.onPointerMove, this, _, paper, path);    
                 
                 vendor = paper.interactable().vendor();
                 vendor.on('move', this.linking.moveHandler);
@@ -229,12 +226,7 @@
                 if (source.isConnectable()) {
                     
                     if ( ! this.linking.source) {
-                        // update context
-                        source.connectable({
-                            context: context
-                        });
-
-                        sbox = source.connectable().bbox();
+                        sbox = source.bboxView();
                         port = sbox.center(true);
 
                         this.linking.source = source;
@@ -263,12 +255,12 @@
             var spath, scrop, tpath, tcrop;
 
             if (source) {
-                spath = source.connectable().pathinfo();
+                spath = source.shapeView();
                 scrop = spath.intersection(cable, true);
             }
 
             if (target) {
-                tpath = target.connectable().pathinfo();
+                tpath = target.shapeView();
                 tcrop = tpath.intersection(cable, true);
             }
 
@@ -310,7 +302,7 @@
             layout = source = null;
         },
 
-        onPointerMove: function(e, paper, path, context) {
+        onPointerMove: function(e, paper, path) {
 
             if (this.linking.enabled) {
 
@@ -354,12 +346,7 @@
                             target.removeClass(CLS_CONNECT_INVALID);
                             target.addClass(CLS_CONNECT_VALID);
                             
-                            // update target context
-                            target.connectable({
-                                context: context
-                            });
-
-                            tbox = target.connectable().bbox();
+                            tbox = target.bboxView();
                             port = tbox.center(true);
 
                             this.linking.target = target;

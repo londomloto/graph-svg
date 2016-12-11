@@ -45,16 +45,11 @@
             dropper: null,
             network: null,
             history: null,
-            sorter: null,
             panzoom: null,
             toolmgr: null,
             toolpad: null,
             snapper: null,
             editor: null
-        },
-
-        utils: {
-            
         },
 
         graph: {
@@ -64,9 +59,11 @@
 
         cached: {
             bbox: null,
-            originalBBox: null,
-            globalMatrix: null,
-            relativeMatrix: null,
+            bboxView: null,
+            bboxPristine: null,
+            matrixCurrent: null,
+            matrixView: null,
+            shapeView: null,
             position: null,
             offset: null
         },
@@ -78,12 +75,12 @@
 
             me.graph.matrix = Graph.matrix();
             me.tree.children = new Graph.collection.Vector();
-            
+
             guid  = 'graph-elem-' + (++Vector.guid);
             attrs = _.extend({ id: guid }, me.attrs, attrs || {});
 
             me.elem = Graph.$(document.createElementNS(Graph.config.xmlns.svg, type));
-            
+
             if (attrs['class']) {
                 attrs['class'] = Graph.styles.VECTOR + ' ' + attrs['class'];
             } else {
@@ -95,7 +92,7 @@
 
             me.props.guid = me.props.id = guid; // Graph.uuid();
             me.props.type = type;
-            
+
             guid = null;
 
             me.elem.data(Graph.string.ID_VECTOR, me.props.guid);
@@ -109,18 +106,28 @@
             if (me.isPaper()) {
                 me.plugins.toolmgr = (new Graph.plugin.ToolManager(me))
                     .on('activate', _.bind(me.onActivateTool, me))
-                    .on('deactivate', _.bind(me.onDeactivateTool, me));    
+                    .on('deactivate', _.bind(me.onDeactivateTool, me));
             }
-            
+
             Graph.registry.vector.register(this);
         },
 
-        matrix: function() {
-            return this.graph.matrix;
+        /**
+         * Get/set local matrix
+         */
+        matrix: function(matrix) {
+            if (matrix === undefined) {
+                return this.graph.matrix;
+            }
+            this.graph.matrix = matrix;
+            return this;
         },
 
-        relativeMatrix: function() {
-            var matrix = this.cached.relativeMatrix;
+        /**
+         * Get relative matrix (relative to viewport)
+         */
+        matrixView: function() {
+            var matrix = this.cached.matrixView;
             if ( ! matrix) {
                 var paper = this.paper();
                 if (paper) {
@@ -143,7 +150,10 @@
             return matrix;
         },
 
-        globalMatrix: function() {
+        /**
+         * Get global matrix
+         */
+        matrixCurrent: function() {
             var native = this.node().getCTM();
             var matrix;
 
@@ -163,7 +173,10 @@
 
             return matrix;
         },
-        
+
+        /**
+         * Get/set layout
+         */
         layout: function(options) {
             if (options === undefined) {
                 return this.graph.layout;
@@ -179,11 +192,11 @@
             } else if (_.isPlainObject(options)) {
                 if (options.name) {
                     clazz = Graph.layout[_.capitalize(options.name)];
-                    delete options.name;   
+                    delete options.name;
                     layout = Graph.factory(clazz, [this, options]);
                 }
             }
-            
+
             layout.refresh();
             this.graph.layout = layout;
 
@@ -209,21 +222,27 @@
             this.cached[cache] = null;
         },
 
+        /**
+         * Get/set state
+         */
         state: function(name) {
             if (name === undefined) {
-                return this.props.state;    
+                return this.props.state;
             }
             this.props.state = name;
             return this;
         },
 
+        /**
+         * Get/set dirty
+         */
         dirty: function(state) {
             var me = this;
 
             if (state === undefined) {
                 return me.cached.bbox === null;
             }
-            
+
             if (state) {
                 // invalidates
                 for (var name in this.cached) {
@@ -239,12 +258,12 @@
                     }
                 });
             }
-            
+
             return this;
         },
 
         /**
-         * Get or set reactor plugin
+         * Get/set reactor plugin
          */
         interactable: function(options) {
             if ( ! this.plugins.reactor) {
@@ -254,7 +273,7 @@
         },
 
         /**
-         * Get or set animator plugin
+         * Get/set animator plugin
          */
         animable: function() {
             var me = this;
@@ -273,24 +292,28 @@
                     }
                 })
             }
+
             return me.plugins.animator;
         },
-        
+
         /**
-         * Get or set resizer plugin
+         * Get/set resizer plugin
          */
-        resizable: function(config) {
+        resizable: function(options) {
             if ( ! this.plugins.resizer) {
-                this.plugins.resizer = new Graph.plugin.Resizer(this, config);
+                this.plugins.resizer = new Graph.plugin.Resizer(this, options);
                 this.plugins.resizer.on({
                     resize: _.bind(this.onResizerResize, this)
                 });
+            } else if (options !== undefined) {
+                this.plugins.resizer.options(options);
             }
+
             return this.plugins.resizer;
         },
 
         /**
-         * Get or set dragger plugin
+         * Get/set dragger plugin
          */
         draggable: function(config) {
             if ( ! this.plugins.dragger) {
@@ -306,7 +329,7 @@
         },
 
         /**
-         * Get or set panzoom plugin
+         * Get/set panzoom plugin
          */
         zoomable: function() {
             if ( ! this.plugins.panzoom) {
@@ -317,7 +340,7 @@
         },
 
         /**
-         * Get or set dropzone/dropper plugin
+         * Get/set dropzone plugin
          */
         droppable: function() {
             if ( ! this.plugins.dropper) {
@@ -332,62 +355,55 @@
         },
 
         /**
-         * Get or set sortable plugin
-         */
-        sortable: function(options) {
-            if ( ! this.plugins.sorter) {
-                this.plugins.sorter = new Graph.plugin.Sorter(this, options);
-            }
-            return this.plugins.sorter;
-        },
-
-        /**
-         * Get or set network plugin
+         * Get/set network plugin
          */
         connectable: function(options) {
             if ( ! this.plugins.network) {
                 this.plugins.network = new Graph.plugin.Network(this, options);
-            } else if (options) {
+            } else if (options !== undefined) {
                 this.plugins.network.options(options);
             }
             return this.plugins.network;
         },
 
-        traversable: function(traversable) {
-            traversable = _.defaultTo(traversable, true);
-            this.props.traversable = traversable;
-
-            return this;
-        },
-
-        selectable: function(selectable) {
-            selectable = _.defaultTo(selectable, true);
-            this.props.selectable = selectable;
-
-            return this;
-        },
-
         /**
-         * Get or set clickable state
+         * Get/set traversable
          */
-        clickable: function(value) {
-            var me = this;
+        traversable: function(traversable) {
+            if (traversable === undefined) {
+                return this.props.traversable;
+            }
 
-            if (value === undefined) {
-                return me.attrs['pointer-events'] || 'visiblePainted';
-            }
-            
-            if (value) {
-                this.attr('pointer-events', '');
-            } else {
-                this.attr('pointer-events', 'none');
-            }
-            
+            this.props.traversable = traversable;
             return this;
         },
 
         /**
-         * Get or set label editor plugin
+         * Get/set selectable
+         */
+        selectable: function(selectable) {
+            if (selectable === undefined) {
+                return this.props.selectable;
+            }
+
+            this.props.selectable = selectable;
+            return this;
+        },
+
+        /**
+         * Get/set clickable
+         */
+        clickable: function(clickable) {
+            if (clickable === undefined) {
+                return this.attrs['pointer-events'] != 'none' ? true : false;
+            }
+
+            this.attr('pointer-events', (clickable ? '' : 'none'));
+            return this;
+        },
+
+        /**
+         * Get/set label editor plugin
          */
         editable: function(options) {
             var me = this;
@@ -406,34 +422,37 @@
         },
 
         snappable: function(options) {
-            var me = this;
+            var me = this,
+                paper = me.paper();
+
             var enabled, snapper;
+
+            if ( ! paper) {
+                // try to get default paper
+                paper = Graph.svg.Paper.getDefaultInstance();
+            }
+
+            // still no exists?
+            if ( ! paper) {
+                throw Graph.error("Unable to install snapper plugin. Paper doesn't rendered yet!");
+            }
 
             if (_.isBoolean(options)) {
                 options = {
-                    context: me,
                     enabled: options
                 };
             } else {
                 options = _.extend({
-                    context: me,
                     enabled: true
                 }, options || {});
             }
 
             me.props.snappable = options.enabled;
 
-            if (me.props.rendered) {
-                snapper = me.paper().plugins.snapper;
-                snapper.setup(me, options);
-            } else {
-                me.on('render', function(){
-                    snapper = me.paper().plugins.snapper;
-                    snapper.setup(me, options);
-                });
-            }
+            snapper = paper.plugins.snapper;
+            snapper.setup(me, options);
 
-            return me;
+            return snapper;
         },
 
         id: function() {
@@ -442,7 +461,7 @@
 
         guid: function() {
             return this.props.guid;
-        },  
+        },
 
         node: function() {
             return this.elem.node();
@@ -503,7 +522,7 @@
                     node.className.baseVal = _.toString(value);
                 } else {
                     node.setAttribute(name, _.toString(value));
-                }    
+                }
             }
 
             return me;
@@ -520,7 +539,7 @@
 
         style: function(name, value) {
             var me = this;
-            
+
             if (_.isPlainObject(name)) {
                 _.forOwn(name, function(v, k){
                     me.style(k, v);
@@ -565,8 +584,41 @@
             this.elem.show();
         },
 
-        pathinfo: function() {
-            return new Graph.lang.Path([]);
+        /**
+         * Get vector path (shape)
+         */
+        shape: function() {
+            var shape = new Graph.lang.Path([]);
+            return shape;
+        },
+
+        /**
+         * Get shape relative to viewport
+         */
+        shapeView: function() {
+            var shape = this.cached.shapeView;
+            if ( ! shape) {
+                var matrix = this.matrixView();
+                shape = this.shape().transform(matrix);
+                this.cached.shapeView = shape;
+            }
+            return shape;
+        },
+
+        /**
+         * Get shape relative to parent
+         */
+        shapeRelative: function() {
+            var parent = this.parent(),
+                parentMatrix = parent.matrixView().clone().invert(),
+                matrix = this.matrixView().clone(),
+                shape = this.shape();
+
+            matrix.multiply(parentMatrix);
+            shape = shape.transform(matrix);
+
+            matrix = parentMatrix = parent = null;
+            return shape;
         },
 
         vertices: function(absolute) {
@@ -574,8 +626,8 @@
 
             absolute = _.defaultTo(absolute, false);
 
-            ma = absolute ? this.globalMatrix() : this.matrix(),
-            pa = this.pathinfo().transform(ma);
+            ma = absolute ? this.matrixCurrent() : this.matrix(),
+            pa = this.shape().transform(ma);
             ps = pa.segments;
             dt = [];
 
@@ -594,7 +646,7 @@
         dimension: function() {
             var size = {},
                 node = this.node();
-                     
+
             try {
                 size = node.getBBox();
             } catch(e) {
@@ -617,7 +669,7 @@
         offset: function() {
             var node = this.node(),
                 bbox = node.getBoundingClientRect();
-            
+
             var offset = {
                 top: bbox.top,
                 left: bbox.left,
@@ -626,7 +678,7 @@
                 width: bbox.width,
                 height: bbox.height
             }
-            
+
             return offset;
         },
 
@@ -652,28 +704,46 @@
             return this.cached.position;
         },
 
-        bbox: function(original) {
-            var path, bbox;
-
-            original = _.defaultTo(original, false);
-            
-            if (original) {
-                bbox = this.cached.originalBBox;
-                if ( ! bbox) {
-                    path = this.pathinfo();
-                    bbox = path.bbox();
-                    this.cached.originalBBox = bbox;
-                }
-            } else {
-                bbox = this.cached.bbox;
-                if ( ! bbox) {
-                    path = this.pathinfo().transform(this.matrix());
-                    bbox = path.bbox();
-                    this.cached.bbox = bbox;
-                } 
+        /**
+         * Get transformed local bbox
+         */
+        bbox: function() {
+            var bbox = this.cached.bbox;
+            if ( ! bbox) {
+                var path = this.shape().transform(this.matrix());
+                bbox = path.bbox();
+                this.cached.bbox = bbox;
             }
-            
-            path = null;
+            return bbox;
+        },
+
+        /**
+         * Get untransormed local bbox
+         */
+        bboxPristine: function() {
+            var bbox = this.cached.bboxPristine;
+            if ( ! bbox) {
+                var shape = this.shape();
+                bbox = shape.bbox();
+                this.cached.bboxPristine = bbox;
+            }
+            return bbox;
+        },
+
+        /**
+         * Get relative bbox (relative to current viewport)
+         */
+        bboxView: function() {
+            var bbox = this.cached.bboxView;
+
+            if ( ! bbox) {
+                var matrix = this.matrixView(),
+                    shape = this.shape().transform(matrix);
+
+                bbox = shape.bbox();
+                this.cached.bboxView = bbox;
+            }
+
             return bbox;
         },
 
@@ -687,12 +757,12 @@
 
             return new Graph.collection.Vector(vectors);
         },
-        
+
         render: function(container, method, sibling) {
             var me = this,
                 guid = me.guid(),
                 traversable = me.props.traversable;
-            
+
             var offset;
 
             if (me.props.rendered) {
@@ -703,7 +773,7 @@
             method = _.defaultTo(method, 'append');
 
             if (container) {
-                
+
                 if (container.isPaper()) {
                     container = container.viewport();
                 }
@@ -747,7 +817,7 @@
 
                     case 'append':
                         container.elem.query.append(me.elem.query);
-                        
+
                         if (traversable) {
                             container.children().push(me);
                         }
@@ -766,7 +836,7 @@
 
                 // broadcast
                 if (container.props.rendered) {
-                    
+
                     me.props.rendered = true;
                     me.fire('render');
 
@@ -830,7 +900,7 @@
                             container.children().unshift(vector);
                             break;
                     }
-                    
+
                     vector.tree.parent = this.guid();
                 }
             }
@@ -856,16 +926,16 @@
                 target = target.viewport();
             }
 
-            var resetMatrix = this.relativeMatrix().clone();
+            var resetMatrix = this.matrixView().clone();
 
             this.graph.matrix = resetMatrix;
             this.attr('transform', resetMatrix.toValue());
             this.dirty(true);
-            
+
             // append to target
             target.append(this);
 
-            var targetMatrix = target.relativeMatrix().clone(),
+            var targetMatrix = target.matrixView().clone(),
                 applyMatrix = this.matrix().clone();
 
             applyMatrix.multiply(targetMatrix.invert());
@@ -876,7 +946,7 @@
             // flag as dirty
             this.dirty(true);
         },
-        
+
         ancestors: function() {
             var ancestors = [], guid = this.guid();
 
@@ -907,7 +977,7 @@
             } else {
                 return Graph.registry.vector.get(this.tree.paper);
             }
-        },  
+        },
 
         parent: function() {
             return Graph.registry.vector.get(this.tree.parent);
@@ -916,7 +986,7 @@
         prev: function() {
             return Graph.registry.vector.get(this.tree.prev);
         },
-        
+
         next: function() {
             return Graph.registry.vector.get(this.tree.next);
         },
@@ -940,24 +1010,24 @@
             for (var name in this.plugins) {
                 if (this.plugins[name]) {
                     this.plugins[name].destroy();
-                    this.plugins[name] = null;    
+                    this.plugins[name] = null;
                 }
             }
 
             if (parent) {
                 parent.children().pull(this);
             }
-            
+
             if (this.elem) {
                 this.elem.remove();
                 this.elem = null;
             }
-            
+
             Graph.registry.vector.unregister(this);
-            
+
             // last chance
             this.fire('remove');
-            
+
             this.listeners = null;
         },
 
@@ -979,7 +1049,7 @@
         select: function(batch) {
             this.addClass('graph-selected');
             this.props.selected = true;
-            
+
             batch = _.defaultTo(batch, false);
             this.fire('select', {batch: batch});
 
@@ -988,7 +1058,7 @@
                     this.plugins.resizer.resume();
                 }
             }
-            
+
             return this;
         },
 
@@ -1017,7 +1087,7 @@
 
         scale: function(sx, sy, cx, cy) {
             if (sx === undefined) {
-                return this.globalMatrix().scale();
+                return this.matrixCurrent().scale();
             }
             return this.plugins.transformer.scale(sx, sy, cx, cy);
         },
@@ -1045,7 +1115,7 @@
             }
             this.paper().elem.append(this.elem);
             return this;
-        },  
+        },
 
         sendToBack: function() {
             if ( ! this.tree.paper) {
@@ -1061,7 +1131,7 @@
 
         isContainer: function() {
             return this.isGroup() || this.isPaper();
-        },  
+        },
 
         isGroup: function() {
             return this.props.type == 'g';
@@ -1077,7 +1147,7 @@
 
         isTraversable: function() {
             return this.props.traversable;
-        },  
+        },
 
         isSelectable: function() {
             return this.props.selectable;
@@ -1108,7 +1178,7 @@
         },
 
         ///////// TOOLS //////////
-        
+
         tool: function() {
             return this.plugins.toolmgr;
         },
@@ -1129,7 +1199,7 @@
         },
 
         onDraggerStart: function(e) {
-            // forward event
+            e.master = true;
             this.fire(e);
 
             if (this.lasso) {
@@ -1148,6 +1218,7 @@
 
         onDraggerMove: function(e) {
             // forward event
+            e.master = true;
             this.fire(e);
 
             if (this.lasso) {
@@ -1157,10 +1228,14 @@
 
         onDraggerEnd: function(e) {
             this.dirty(true);
-            // forward
+
+            e.master = true;
             this.fire(e);
 
-            // publish
+            if (this.lasso) {
+                this.lasso.syncDragEnd(this, e);
+            }
+
             Graph.topic.publish('vector/dragend', e);
 
             if (this.plugins.resizer) {
@@ -1168,10 +1243,6 @@
                 if ( ! this.props.selected) {
                     this.plugins.resizer.suspend();
                 }
-            }
-
-            if (this.lasso) {
-                this.lasso.syncDragEnd(this, e);
             }
         },
 
@@ -1191,7 +1262,7 @@
 
             // invoke core plugins
             if (this.plugins.dragger) {
-                var rotate = this.globalMatrix().rotate();
+                var rotate = this.matrixCurrent().rotate();
                 this.plugins.dragger.rotate(rotate.deg);
             }
         },
@@ -1209,7 +1280,7 @@
             this.fire('scale', {sx: e.sx, sy: e.sy});
 
             if (this.plugins.dragger) {
-                var scale = this.globalMatrix().scale();
+                var scale = this.matrixCurrent().scale();
                 this.plugins.dragger.scale(scale.x, scale.y);
             }
         },
@@ -1227,19 +1298,19 @@
     });
 
     ///////// STATICS /////////
-    
+
     Vector.guid = 0;
 
     ///////// LANGUAGE CHECK /////////
     Graph.isVector = function(obj) {
         return obj instanceof Graph.svg.Vector;
     };
-    
+
     ///////// HELPERS /////////
-    
+
     function cascade(vector, handler) {
         var child = vector.children().toArray();
-        var result; 
+        var result;
 
         result = handler.call(vector, vector);
         result = _.defaultTo(result, true);
@@ -1257,7 +1328,7 @@
 
         result = handler.call(vector, vector);
         result = _.defaultTo(result, true);
-        
+
         if (result && parent) {
             bubble(parent, handler);
         }
@@ -1274,7 +1345,7 @@
         return {
             top: 0,
             left: 0
-        };  
+        };
     }
 
 }());

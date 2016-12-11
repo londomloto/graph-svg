@@ -30,7 +30,7 @@
             return this.superclass.prototype.attr.call(this, name, value); // this.$super(name, value);
         },
 
-        pathinfo: function() {
+        shape: function() {
             var command = Graph.util.polygon2path(this.attrs.points);
             return Graph.path(command);
         },
@@ -39,7 +39,7 @@
             var matrix = this.graph.matrix.clone(),
                 origin = this.graph.matrix.clone(),
                 rotate = this.props.rotate,
-                ps = this.pathinfo().segments,
+                ps = this.shape().segments,
                 dt = [],
                 rx = ps[0][1],
                 ry = ps[0][2];

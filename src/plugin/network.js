@@ -10,7 +10,6 @@
     Graph.plugin.Network = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
-            context: null,
             vector: null,
             wiring: 'h:h'
         },
@@ -28,12 +27,6 @@
             var me = this, guid = vector.guid();
             
             options = options || {};
-
-            if (options.context) {
-                options.context = options.context.guid();
-            } else {
-                options.context = guid;
-            }
 
             _.assign(me.props, options);
 
@@ -187,13 +180,12 @@
         },
         
         orientation: function(network) {
-            var srcbox = this.bbox().toJson(),
-                refbox = network.bbox().toJson(),
-                orient = Graph.util.boxOrientation(srcbox, refbox, this.treshold());
-            
-            srcbox = refbox = null;
-            
-            return orient;
+            var sourceBox = this.vector().bboxView().toJson(),
+                targetBox = network.vector().bboxView().toJson(),
+                orientation = Graph.util.boxOrientation(sourceBox, targetBox, this.treshold());
+
+            sourceBox = targetBox = null;
+            return orientation;
         },
         
         isSource: function(link) {
@@ -251,6 +243,10 @@
 
             delete this.cached.cables[guid];
             conn = null;
+        },
+
+        repairLinks: function() {
+            console.log('called');
         },
         
         hasConnection: function(network) {

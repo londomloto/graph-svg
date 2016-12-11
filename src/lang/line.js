@@ -31,7 +31,7 @@
         }
     };
 
-    Line.defaults = {
+    Line.options = {
         props: {
             start: {
                 x: 0,
@@ -108,7 +108,7 @@
     };
 
     ///////// SHORTCUT /////////
-    
+
     Graph.line = function(command) {
         var args = _.toArray(arguments);
         return Graph.factory(Graph.lang.Line, args);

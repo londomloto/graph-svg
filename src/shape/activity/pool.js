@@ -19,6 +19,17 @@
         this.cached = {};
     };
 
+    Pool.prototype.children = function() {
+        var children = [];
+        
+        _.forEach(this.lanes.toArray(), function(node){
+            var lane = Graph.registry.shape.get(node.lane);
+            children.push(lane);
+        });
+
+        return new Graph.collection.Shape(children);
+    };
+
     Pool.prototype.bbox = function() {
         var nodes = this.lanes.toArray(),
              x = [], 
@@ -83,6 +94,10 @@
         }
         
         return null;
+    };
+
+    Pool.prototype.refresh = function(lane) {
+        console.log(lane);
     };
     
     /**

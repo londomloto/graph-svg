@@ -2,7 +2,7 @@
 
     var Path = Graph.lang.Path = function(command) {
         var segments = [];
-            
+
         if (Graph.isPath(command)) {
             segments = _.cloneDeep(command.segments);
         } else if (_.isArray(command)) {
@@ -14,7 +14,7 @@
         this.segments = segments;
     };
 
-    Path.defaults = {
+    Path.options = {
         segments: []
     };
 
@@ -54,11 +54,11 @@
             result[0] = ['M', x, y];
         }
 
-        var z = segments.length == 3 && 
-                segments[0][0] == 'M' && 
-                segments[1][0].toUpperCase() == 'R' && 
+        var z = segments.length == 3 &&
+                segments[0][0] == 'M' &&
+                segments[1][0].toUpperCase() == 'R' &&
                 segments[2][0].toUpperCase() == 'Z';
-        
+
         for (var dots, seg, itm, i = start, ii = segments.length; i < ii; i++) {
             result.push(seg = []);
             itm = segments[i];
@@ -130,7 +130,7 @@
                     y = seg[seg.length - 1];
             }
         }
-        
+
         cached.absolute = result = new Path(result);
         return result;
     };
@@ -238,7 +238,7 @@
 
     Path.prototype.curve = function() {
         var cached = Graph.lookup(this.toString(), 'curve', this.toValue());
-        
+
         if (cached.curve) {
             return cached.curve;
         }
@@ -253,12 +253,12 @@
 
         for (var i = 0, ii = p.length; i < ii; i++) {
             p[i] && (init = p[i][0]);
-            
+
             if (init != 'C') {
                 com[i] = init;
                 i && (prev = com[i - 1]);
             }
-            
+
             p[i] = fixsegment(p[i], a, prev);
 
             if (com[i] != 'A' && init == 'C') com[i] = 'C';
@@ -277,7 +277,7 @@
         return cached.curve;
 
         ///////// HELPER /////////
-        
+
         function fixarc(segments, i) {
             if (segments[i].length > 7) {
                 segments[i].shift();
@@ -288,7 +288,7 @@
                     com[i] = 'A';
                     segments.splice(i++, 0, ['C'].concat(pi.splice(0, 6)));
                 }
-                
+
                 segments.splice(i, 1);
                 ii = p.length;
             }
@@ -308,16 +308,16 @@
         for (var i = 0, ii = _.max([p1.length, p2.length]); i < ii; i++) {
             // fix p1
             p1[i] && (init = p1[i][0]);
-            
+
             if (init != 'C') {
                 com1[i] = init;
                 i && (prev = com1[i - 1]);
             }
-            
+
             p1[i] = fixsegment(p1[i], a1, prev);
-            
+
             if (com1[i] != 'A' && init == 'C') com1[i] = 'C';
-            
+
             fixarc2(p1, i);
 
             // fix p2
@@ -329,7 +329,7 @@
             }
 
             p2[i] = fixsegment(p2[i], attrs2, pcom);
-            
+
             if (com2[i] != 'A' && init == 'C') com2[i] = 'C';
 
             // fix p1 & p2
@@ -358,7 +358,7 @@
         return [new Path(p1), new Path(p2)];
 
         ///////// HELPER /////////
-        
+
         function fixarc2(segments, i) {
             if (segments[i].length > 7) {
                 segments[i].shift();
@@ -369,7 +369,7 @@
                     com2[i] = 'A';
                     segments.splice(i++, 0, ['C'].concat(pi.splice(0, 6)));
                 }
-                
+
                 segments.splice(i, 1);
                 ii = _.max([p1.length, p2.length]);
             }
@@ -442,7 +442,7 @@
         cached.bbox = Graph.bbox(bounds);
         return cached.bbox;
     };
-        
+
     Path.prototype.transform = function(matrix) {
         if ( ! matrix) {
             return;
@@ -456,7 +456,7 @@
 
         var segments = _.cloneDeep(this.curve().segments);
         var x, y, i, ii, j, jj, seg;
-        
+
         for (i = 0, ii = segments.length; i < ii; i++) {
             seg = segments[i];
             for (j = 1, jj = seg.length; j < jj; j += 2) {
@@ -466,7 +466,7 @@
                 seg[j + 1] = y;
             }
         }
-        
+
         cached.transform = new Path(segments);
         return cached.transform;
     };
@@ -516,7 +516,7 @@
         var segments = this.curve().segments,
             index = -1,
             total = 0;
-        
+
         var x, y, l, c;
 
         _.forEach(segments, function(s, i){
@@ -580,7 +580,7 @@
             } else {
                 c = Graph.curve([['M', x, y], s]);
                 d = c.length();
-                
+
                 if (l + d > length) {
                     point = c.pointAt(c.t(length - l));
                     sp += ['C' + point.start.x, point.start.y, point.m.x, point.m.y, point.props.x, point.props.y];
@@ -603,7 +603,7 @@
 
     Path.prototype.vertices = function() {
         var cached = Graph.lookup(this.toString(), 'vertices', this.toValue());
-        
+
         if (cached.vertices) {
             return cached.vertices;
         }
@@ -658,7 +658,7 @@
 
                     c2 = c1.clone();
                     c2.segments[1][5] = vx;
-                    c2.segments[1][6] = vy;  
+                    c2.segments[1][6] = vy;
 
                     l1 += c1.length();
                     l2 += c2.length();
@@ -675,7 +675,7 @@
             if (simple) {
                 segments.splice(index, 0, ['L', vx, vy]);
             } else {
-                segments.splice(index, 0, ['C', vx, vy, vx, vy, vx, vy]);    
+                segments.splice(index, 0, ['C', vx, vy, vx, vy, vx, vy]);
             }
             this.segments = segments;
         }
@@ -689,10 +689,10 @@
 
     Path.prototype.intersection = function(path, json) {
         var result = intersection(this, path);
-        
+
         return json ? result : _.map(result, function(d){
             var p = Graph.point(d.x, d.y);
-            
+
             p.segment1 = d.segment1;
             p.segment2 = d.segment2;
             p.bezier1  = d.bezier1;
@@ -717,7 +717,7 @@
         y = point.props.y;
         b = this.bbox();
         d = b.toJson();
-        
+
         p = new Path([['M', x, y], ['H', d.x2 + 10]]);
 
         return b.contains(point) && this.intersectnum(p) % 2 == 1;
@@ -733,11 +733,11 @@
             taxicab = Graph.util.taxicab;
 
         var best, bestlen, currpoint, currdist, i;
-        
+
         if (Graph.isPoint(point)) {
             point = point.toJson();
         }
-        
+
         for (i = 0; i < length; i += tolerance) {
             currpoint = this.pointAt(i, true);
             currdist  = taxicab(currpoint, point);
@@ -752,7 +752,7 @@
         tolerance /= 2;
 
         var prev, next, prevlen, nextlen, prevdist, nextdist;
-        
+
         while(tolerance > .5) {
             if ((prevlen = bestlen - tolerance) >= 0 && (prevdist = taxicab((prev = this.pointAt(prevlen, true)), point)) < bestdist) {
                 best = prev;
@@ -786,7 +786,7 @@
 
     Path.prototype.moveTo = function(x, y) {
         var segments = this.segments;
-        
+
         if (segments.length) {
             segments[0][0] = 'M';
             segments[0][1] = x;
@@ -800,12 +800,12 @@
 
     Path.prototype.lineTo = function(x, y, append) {
         var segments = this.segments;
-            
+
         append = _.defaultTo(append, true);
 
         if (segments) {
             var maxs = segments.length - 1;
-            
+
             if (segments[maxs][0] == 'M' || append) {
                 segments.push(['L', x, y]);
             } else {
@@ -831,16 +831,16 @@
 
     Path.prototype.clone = function() {
         var segments = [];
-        
+
         _.forEach(this.segments, function(seg){
             segments.push(seg.slice());
         });
 
         return new Path(segments);
     };
-    
+
     ///////// EXTENSION /////////
-    
+
     Graph.isPath = function(obj) {
         return obj instanceof Graph.lang.Path;
     };
@@ -850,7 +850,7 @@
     };
 
     ///////// HELPERS /////////
-    
+
     function fixsegment(segment, attr, prev) {
         var nx, ny, tq = {T:1, Q:1};
 
@@ -859,7 +859,7 @@
         }
 
         ! ( segment[0] in tq) && (attr.qx = attr.qy = null);
-        
+
         switch (segment[0]) {
             case 'M':
                 attr.X = segment[1];
@@ -913,7 +913,7 @@
      * Convert catmull-rom to bezier segment
      * https://advancedweb.hu/2014/10/28/plotting_charts_with_svg/
      */
-    function cat2bezier(dots, z) {  
+    function cat2bezier(dots, z) {
         var segments = [],
             def = _.defaultTo;
 
@@ -923,7 +923,7 @@
                 {x: def(dots[i], 0),     y: def(dots[i + 1], 0)},
                 {x: def(dots[i + 2], 0), y: def(dots[i + 3], 0)},
                 {x: def(dots[i + 4], 0), y: def(dots[i + 5], 0)}
-            ];  
+            ];
 
             if (z) {
                 if (!i) {
@@ -960,9 +960,9 @@
     }
 
     function quad2curve (x1, y1, ax, ay, x2, y2) {
-        var _13 = 1 / 3, 
+        var _13 = 1 / 3,
             _23 = 2 / 3;
-            
+
         return [
             _13 * x1 + _23 * ax,
             _13 * y1 + _23 * ay,
@@ -974,7 +974,7 @@
     }
 
     function arc2curve (x1, y1, rx, ry, angle, large_arc_flag, sweep_flag, x2, y2, recursive) {
-        var 
+        var
             _120 = Math.PI * 120 / 180,
             rad = Math.PI / 180 * (+angle || 0),
             res = [],
@@ -1074,7 +1074,7 @@
 
         var x1, y1, x2, y2, x1m, y1m, x2m, y2m, bz1, bz2, cv1, cv2;
         var si, sj, i, j;
-        var inter;  
+        var inter;
 
         for (i = 0; i < ln1; i++) {
             si = ss1[i];

@@ -1574,289 +1574,251 @@
 }());
 
 (function(){
-    
-    var initializing = false;
-    // var inherit = /xyz/.test(function(){ xyz; }) ? /\$super/ : /.*/;
+
     var Class = Graph.lang.Class = function() {};
 
-    Class.prototype.constructor = Class;
-    Class.prototype.toString = function() {
-        return 'Graph.lang.Class';
-    };
+    Class.options = {};
 
-    Class.defaults = {};
+    Class.prototype.constructor = Class;
+    Class.prototype.toString = function() { return 'Graph.lang.Class'; };
 
     Class.extend = function(config) {
-        var $super, proto, name, value, defaults;
-        
-        $super = this.prototype;
-        defaults = {};
-        
-        initializing = true;
-        
-        // proto = new this();
-        proto = Object.create($super);
+        var _super, _proto, _constructor, _definition, _class, _classopt;
 
-        initializing = false;
-        
-        var name;
+        _super = this.prototype;
+        _proto = Object.create(_super);
 
-        for (name in config) {
-            value = config[name];
-            if ( ! _.isFunction(value)) {
+        _classopt = {};
 
-                proto[name] = value;
-                defaults[name] = value;
-                
+        _.forOwn(config, function(v, k){
+
+            if (_.isFunction(v)) {
+                _proto[k] = v;
+                if (k == 'constructor') {
+                    _constructor = v;
+                }
             } else {
-                proto[name] = value;
-                
-
-                // NOTE: perfomance penalty!!!
-                // ---------------------------
-                // proto[name] = _.isFunction($super[name])  && inherit.test(value) 
-                //     ? (function(name, func){
-                //         return function() {
-                //             var tmp, ret;
-                //             tmp = this.$super;
-                //             this.$super = $super[name];
-                //             ret = func.apply(this, arguments);
-                //             this.$super = tmp;
-                //             return ret;
-                //         };
-                //     }(name, value)) : value;
+                _classopt[k] = v;
             }
+        });
+
+        if ( ! _constructor) {
+            _constructor = _super.constructor;
         }
 
-        var clazz, init;
+        _class = function() {
 
-        if ( ! _.isUndefined(proto.constructor)) {
-            init = proto.constructor;
-            delete proto.constructor;
-        }
+            if ( ! this.__initialized__) {
+                this.__initialized__ = true;
 
-        clazz = function() {
+                this.listeners = {};
 
-            var me = this;
-            var prop, value;
+                var _superclass = this.superclass;
+                var _superopt, key, val;
 
-            me.listeners = {};
-
-            var classdef = me.constructor.defaults,
-                superdef = me.superclass.defaults;
-
-            var inherits = {};
-
-            if (superdef) {
-                for(prop in superdef) {
-                    me[prop] = _.cloneDeep(superdef[prop]);
-                    inherits[prop] = true;
+                for (key in _classopt) {
+                    this[key] = _.cloneDeep(_classopt[key]);
                 }
-            }
 
-            if (classdef) {
-                for(prop in classdef) {
-                    value = _.cloneDeep(classdef[prop]);
-                    if (inherits[prop]) {
-                        if (_.isPlainObject(value) || _.isArray(value)) {
-                            _.assign(me[prop], value);
-                        }
-                    } else {
-                        me[prop] = value;    
-                    }
-                }
-            }
+                while(_superclass) {
+                    _superopt = _superclass.options;
 
-            inherits = superdef = classdef = null;
-            
-            if ( ! initializing && init) {
-                init && init.apply(me, arguments);
-            }
-        };
-
-        // statics
-        clazz.extend = Class.extend;
-        clazz.defaults = defaults;
-
-        // instance
-        clazz.prototype = proto;
-        clazz.prototype.constructor = clazz;
-        clazz.prototype.superclass = $super.constructor;
-        
-        clazz.prototype.on = function(type, handler, once) {
-            var me = this, data;
-
-            if (_.isPlainObject(type)) {
-                _.forOwn(type, function(h, t){
-                    if (_.isPlainObject(h)) {
-                        var o = h;
-                        h = o.handler;
-                        s = o.once;
-                        me.on(t, h, s);
-                    } else {
-                        me.on(t, h, false);
-                    }
-                });
-                return me;
-            }
-
-            var part = _.split(type, '.'),
-                fire = part.shift();
-
-            me.listeners[fire] = me.listeners[fire] || [];
-            
-            once = _.defaultTo(once, false);
-
-            data = {
-                type: type,
-                once: once,
-                orig: handler,
-                func: _.bind(handler, this)
-            };
-
-            me.listeners[fire].push(data);
-            return this;
-        };
-
-        clazz.prototype.one = function(type, handler) {
-            var me = this;
-
-            if (_.isPlainObject(type)) {
-                _.forOwn(type, function(h, t){
-                    me.on(t, h, true);
-                });
-                return me;
-            }
-
-            return me.on(type, handler, true);
-        };
-
-        /**
-         * Unregister event handler
-         */
-        clazz.prototype.off = function(type, handler) {
-            var part, fire, lsnr, rgex;
-            
-            part = _.split(type, '.');
-            fire = part.shift();
-            lsnr = fire ? (this.listeners[fire] || []).slice() : [];
-
-            var cached = Graph.lookup('Regex.event', type);
-            
-            if (cached.rgex) {
-                rgex = cached.rgex;
-            } else {
-                rgex = new RegExp(_.escapeRegExp(type), 'i');
-                cached.rgex = rgex;
-            }
-            
-            if (lsnr.length) {
-                for (var i = lsnr.length - 1; i >= 0; i--) {
-                    if (handler) {
-                        if (rgex.test(lsnr[i].type) && lsnr[i].orig === handler) {
-                            this.listeners[fire].splice(i, 1);
-                        }
-                    } else {
-                        if (rgex.test(lsnr[i].type)) {
-                            this.listeners[fire].splice(i, 1);
-                        }
-                    }
-                }
-            } else {
-                var me = this;
-                for (fire in me.listeners) {
-                    (function(lsnr){
-                        for (var i = lsnr.length - 1; i >= 0; i--) {
-                            if (handler) {
-                                if (rgex.test(lsnr[i].type) && lsnr[i].orig === handler) {
-                                    lsnr.splice(i, 1);
-                                }
+                    if (_superopt) {
+                        for (key in _superopt) {
+                            if (this[key] !== undefined) {
+                                this[key] = _.merge(_.cloneDeep(_superopt[key]), this[key]);
                             } else {
-                                if (rgex.test(lsnr[i].type)) {
-                                    lsnr.splice(i, 1);
-                                }
+                                this[key] = _.cloneDeep(_superopt[key]);
                             }
                         }
-                    }(me.listeners[fire]))
+                    }
+
+                    _superclass = _superclass.prototype.superclass;
                 }
             }
 
-            rgex = null;
-            lsnr = null;
-            
+            if (_constructor) {
+                _constructor.apply(this, arguments);
+            }
+        }
+
+        _definition = _constructor.toString().match(/(function)?([^\{=]+)/);
+        _definition = 'function' + _definition[2];
+
+        _class.toString = function() {
+            return _definition;
+        };
+
+        _class.extend = _super.constructor.extend;
+        _class.options = _classopt;
+
+        _class.prototype = _proto;
+        _class.prototype.constructor = _class;
+        _class.prototype.superclass = _super.constructor;
+
+        _class.prototype.on = function(eventType, handler, once, priority) {
+            if (_.isPlainObject(eventType)) {
+                var key, val;
+                for (key in eventType) {
+                    val = eventType[key];
+                    if (_.isFunction(val)) {
+                        bind(this, key, val);
+                    } else {
+                        bind(this, key, val['handler'], val['once'], val['priority']);
+                    }
+                }
+            } else {
+                bind(this, eventType, handler, once, priority);
+            }
+
             return this;
         };
 
-        /**
-         * Execute event handler
-         */
-        clazz.prototype.fire = function(type, data) {
-            var func = clazz.prototype.fire;
-            var args = [];
-            var event, part, fire, lsnr, rgex;
-
-            if (_.isString(type)) {
-                event = new Graph.lang.Event(type, data);
-            } else {
-                event = type;
-                event.originalData = event.originalData || {};
-                type = event.originalType || event.type;
-            }
-
-            // add default publisher props for later use
-            event.publisher = this;
-            
-            args.push(event);
-
-            part = _.split(type, '.');
-            fire = part.shift();
-            lsnr = (this.listeners[fire] || []).slice();
-
-            var cached = Graph.lookup('Regex.event', type);
-
-            if (cached.rgex) {
-                rgex = cached.rgex;
-            } else {
-                rgex = new RegExp(_.escapeRegExp(type), 'i');
-                cached.rgex = rgex;
-            }
-
-            var onces = [];
-
-            if (lsnr.length) {
-                for (var i = 0, ii = lsnr.length; i < ii; i++) {
-                    if (fire != type) {
-                        if (rgex.test(lsnr[i].type)) {
-                            if (lsnr[i].once) {
-                                onces.push(lsnr[i]);
-                            }
-                            lsnr[i].func.apply(lsnr[i].func, args);
-                        }
+        _class.prototype.one = function(eventType, handler) {
+            if (_.isPlainObject(eventType)) {
+                var key, val;
+                for (key in eventType) {
+                    val = eventType[key];
+                    if (_.isFunction(val)) {
+                        bind(this, key, val, true);
                     } else {
-                        if (lsnr[i].once) {
-                            onces.push(lsnr[i]);
-                        }
+                        bind(this, key, val['handler'], true, val['priority']);
+                    }
+                }
+            } else {
+                bind(this, eventType, handler, true);
+            }
 
-                        lsnr[i].func.apply(lsnr[i].func, args);
+            return this;
+        };
+
+        _class.prototype.off = function(eventType, handler) {
+            var batch = eventType.split(/\s/);
+
+            if (batch.length > 1) {
+                for (var i = 0, ii = batch.length; i < ii; i++) {
+                    unbind(this, batch[i]);
+                }
+            } else {
+                unbind(this, eventType, handler);
+            }
+
+            return this;
+        };
+
+        _class.prototype.fire = function(eventType, data) {
+            var args = [], onces = [];
+            var eventObject, eventNames, eventRoot, listeners,
+                eventRegex, cachedRegex, ii, i;
+
+            data = data || {};
+
+            if (_.isString(eventType)) {
+                eventObject = new Graph.lang.Event(eventType, data);
+            } else {
+                eventObject = eventType;
+                eventObject.originalData = data;
+                eventType = eventObject.originalType || eventObject.type;
+            }
+
+            eventObject.publisher = this;
+            args.push(eventObject);
+
+            eventNames = eventType.split(/\./);
+            eventRoot = eventNames.shift();
+            listeners = (this.listeners[eventRoot] || []).slice();
+
+            var cachedRegex = Graph.lookup('Regex.event', eventType);
+
+            if (cachedRegex.rgex) {
+                eventRegex = cachedRegex.rgex;
+            } else {
+                eventRegex = new RegExp(_.escapeRegExp(eventType), 'i');
+                cachedRegex.rgex = eventRegex;
+            }
+
+            if (listeners.length) {
+                for (i = 0, ii = listeners.length; i < ii; i++) {
+                    if (eventRoot == listeners[i].eventType) {
+                        if (listeners[i].once) {
+                            onces.push(listeners[i]);
+                        }
+                        listeners[i].handler.apply(listeners[i].handler, args);
+                    } else if (eventRegex.test(listeners[i].eventType)) {
+                        if (listeners[i].once) {
+                            onces.push(listeners[i]);
+                        }
+                        listeners[i].handler.apply(listeners[i].handler, args);
                     }
                 }
             }
 
             if (onces.length) {
-                var me = this;
-                _.forEach(onces, function(lsnr){
-                    me.off(lsnr.type, lsnr.orig);
-                });
+                for (i = 0, ii = onces.length; i < ii; i++) {
+                    this.off(onces[i].eventType, onces[i].original);
+                }
             }
 
-            rgex = lsnr = null;
-            return event;
         };
 
-        return clazz;
+        return _class;
     };
 
+    /////////
+
+    function bind(context, eventType, handler, once, priority) {
+        var eventNames = eventType.split(/\./),
+            eventRoot = eventNames.shift();
+
+        once = _.defaultTo(once, false);
+        priority = _.defaultTo(priority, 1500);
+
+        context.listeners[eventRoot] = context.listeners[eventRoot] || [];
+
+        context.listeners[eventRoot].push({
+            eventType: eventType,
+            priority: priority,
+            original: handler,
+            handler: _.bind(handler, context),
+            once: once
+        });
+    }
+
+    function unbind(context, eventType, handler) {
+        var eventNames = eventType.split(/\./),
+            eventRoot = eventNames.shift(),
+            listeners = context.listeners[eventRoot] || [];
+
+        var eventRegex, cachedRegex;
+
+        cachedRegex = Graph.lookup('Regex.event', eventType);
+
+        if (cachedRegex.rgex) {
+            eventRegex = cachedRegex.rgex;
+        } else {
+            eventRegex = new RegExp(_.escapeRegExp(eventType), 'i');
+            cachedRegex.rgex = eventRegex;
+        }
+
+        for (i = listeners.length - 1; i >= 0; i--) {
+            if (eventRegex.test(listeners[i].eventType)) {
+                if (handler) {
+                    if (handler === listeners[i].original) {
+                        listeners.splice(i, 1);
+                    }
+                } else {
+                    listeners.splice(i, 1);
+                }
+            }
+        }
+
+        if ( ! listeners.length) {
+            delete context.listeners[eventRoot];
+        }
+    }
+
 }());
+
 
 (function(){
 
@@ -1869,7 +1831,7 @@
         err = null;
     };
 
-    Err.defaults = {
+    Err.options = {
         message: ''
     };
     Err.extend = Graph.lang.Class.extend;
@@ -1880,7 +1842,7 @@
     Err.prototype.message = "";
 
     ///////// SHORTCUT /////////
-    
+
     Graph.error = function(message) {
         return new Graph.lang.Error(message);
     };
@@ -1890,6 +1852,7 @@
     };
 
 }());
+
 
 (function(_, $){
 
@@ -1903,8 +1866,8 @@
 
         this.init(data);
     };
-    
-    Evt.defaults = {
+
+    Evt.options = {
         type: null,
         originalData: null,
         cancelBubble: false,
@@ -1916,10 +1879,10 @@
     Evt.extend = Graph.lang.Class.extend;
 
     Evt.prototype.constructor = Evt;
-    
+
     Evt.prototype.init = function(data) {
         if (data) {
-            this.originalData = data;    
+            this.originalData = data;
             _.assign(this, data || {});
         }
     };
@@ -1941,7 +1904,7 @@
     };
 
     ///////// SHORTCUT /////////
-    
+
     Graph.event = function(type, data) {
         return new Graph.lang.Event(type, data);
     };
@@ -1949,9 +1912,9 @@
     Graph.isEvent = function(obj) {
         return obj instanceof Graph.lang.Event;
     };
-    
+
     ///////// STATIC /////////
-    
+
     Graph.event.ESC = 27;
     Graph.event.ENTER = 13;
     Graph.event.DELETE = 46;
@@ -1971,7 +1934,7 @@
             y: event.clientY
         };
     };
-    
+
     Graph.event.relative = function(event, vector) {
         var position = Graph.event.position(event),
             matrix = vector.matrix().clone().invert(),
@@ -2002,8 +1965,9 @@
         var original = Graph.event.original(event);
         return Graph.event.isPrimaryButton(event) && original.shiftKey;
     };
-    
+
 }(_, jQuery));
+
 
 (function(){
 
@@ -2029,7 +1993,7 @@
         this.props.y = y;
     };
 
-    Point.defaults = {
+    Point.options = {
         props: {
             x: 0,
             y: 0
@@ -2075,7 +2039,7 @@
     Point.prototype.angle = function(b) {
         return Graph.util.angle(a.toJson(), b.toJson());
     };
-    
+
     Point.prototype.triangle = function(b, c) {
         return this.angle(c) - b.angle(c);
     };
@@ -2095,7 +2059,7 @@
     Point.prototype.bbox = function() {
         var x = this.props.x,
             y = this.props.y;
-            
+
         return Graph.bbox({
             x: x,
             y: y,
@@ -2149,7 +2113,7 @@
     };
 
     Point.prototype.rotate = function(angle, origin) {
-        var rd = Graph.util.rad(angle), 
+        var rd = Graph.util.rad(angle),
             dx = this.props.x - (origin ? origin.props.x : 0),
             dy = this.props.y - (origin ? origin.props.y : 0),
             si = Math.sin(rd),
@@ -2188,7 +2152,7 @@
 
         this.props.x = Math.min(Math.max(this.props.x, box.props.x), box.props.x + box.props.width);
         this.props.y = Math.min(Math.max(this.props.y, box.props.y), box.props.y + box.props.height);
-        
+
         return this;
     };
 
@@ -2207,7 +2171,7 @@
 
     Point.prototype.toJson = function() {
         return {
-            x: this.props.x, 
+            x: this.props.x,
             y: this.props.y
         };
     };
@@ -2215,15 +2179,15 @@
     Point.prototype.clone = function(){
         return new Point(this.props.x, this.props.y);
     };
-    
+
     ///////// HELPER /////////
-    
+
     function snap(value, size) {
         return size * Math.round(value / size);
     }
 
     ///////// EXTENSION /////////
-    
+
     Graph.isPoint = function(obj) {
         return obj instanceof Graph.lang.Point;
     };
@@ -2231,8 +2195,9 @@
     Graph.point = function(x, y) {
         return new Graph.lang.Point(x, y);
     };
-    
+
 }());
+
 
 (function(){
 
@@ -2266,7 +2231,7 @@
         }
     };
 
-    Line.defaults = {
+    Line.options = {
         props: {
             start: {
                 x: 0,
@@ -2343,7 +2308,7 @@
     };
 
     ///////// SHORTCUT /////////
-    
+
     Graph.line = function(command) {
         var args = _.toArray(arguments);
         return Graph.factory(Graph.lang.Line, args);
@@ -2355,17 +2320,18 @@
 
 }());
 
+
 (function(){
-    
+
     var Curve = Graph.lang.Curve = function(command) {
         this.segments = _.isString(command) ? Graph.util.path2segments(command) : _.cloneDeep(command);
-            
+
         if (this.segments[0][0] != 'M') {
             this.segments.unshift(
                 ['M', this.segments[0][1], this.segments[0][2]]
             );
         }
-        
+
         if (this.segments.length === 1 && this.segments[0][0] === 'M') {
             var x = this.segments[0][1],
                 y = this.segments[0][2];
@@ -2373,12 +2339,12 @@
         }
     };
 
-    Curve.defaults = {
+    Curve.options = {
         segments: []
     };
 
     Curve.extend = Graph.lang.Class.extend;
-    
+
     Curve.prototype.constructor = Curve;
 
     Curve.prototype.segments = [];
@@ -2461,7 +2427,7 @@
     };
 
     ///////// SHORTCUT /////////
-    
+
     Graph.curve = function(command) {
         return new Graph.lang.Curve(command);
     };
@@ -2472,13 +2438,21 @@
 
 }());
 
+
 (function(){
-    
+
     var BBox = Graph.lang.BBox = function(bounds) {
-        this.props = _.extend({x: 0, y: 0, x2: 0, y2: 0, width: 0, height: 0}, bounds || {});
+        this.props = _.extend({
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 0,
+            width: 0,
+            height: 0
+        }, bounds || {});
     };
 
-    BBox.defaults = {
+    BBox.options = {
         props: {
             x: 0,
             y: 0,
@@ -2488,21 +2462,21 @@
             height: 0
         }
     };
-    
+
     BBox.extend = Graph.lang.Class.extend;
 
     BBox.prototype = Object.create(Graph.lang.Class.prototype);
     BBox.prototype.constructor = BBox;
     BBox.prototype.superclass = Graph.lang.Class;
 
-    BBox.prototype.pathinfo = function() {
+    BBox.prototype.shape = function() {
         var prop = this.props;
 
         return new Graph.lang.Path([
-            ['M', prop.x, prop.y], 
-            ['l', prop.width, 0], 
-            ['l', 0, prop.height], 
-            ['l', -prop.width, 0], 
+            ['M', prop.x, prop.y],
+            ['l', prop.width, 0],
+            ['l', 0, prop.height],
+            ['l', -prop.width, 0],
             ['z']
         ]);
     };
@@ -2576,9 +2550,9 @@
             var l = dots.length;
             while(l--) {
                 dot = dots[l];
-                contain = dot[0] >= bbox.x  && 
-                          dot[0] <= bbox.x2 && 
-                          dot[1] >= bbox.y  && 
+                contain = dot[0] >= bbox.x  &&
+                          dot[0] <= bbox.x2 &&
+                          dot[1] >= bbox.y  &&
                           dot[1] <= bbox.y2;
                 if ( ! contain) {
                     break;
@@ -2593,7 +2567,7 @@
         var ax, ay;
         if (_.isUndefined(dy)) {
             ax = Math.abs(dx);
-            
+
             dx = -ax;
             dy = -ax;
             dw = 2 * ax;
@@ -2607,7 +2581,7 @@
             dw = 2 * ax;
             dh = 2 * ay;
         }
-        
+
         this.props.x += dx;
         this.props.y += dy;
         this.props.width  += dw;
@@ -2621,7 +2595,7 @@
         this.props.y  += dy;
         this.props.x2 += dx;
         this.props.y2 += dy;
-        
+
         return this;
     };
 
@@ -2637,7 +2611,7 @@
 
         this.props.x2 = matrix.x(x, y);
         this.props.y2 = matrix.y(x, y);
-        
+
         this.props.width  = this.props.x2 - this.props.x;
         this.props.height = this.props.y2 - this.props.y;
 
@@ -2705,7 +2679,7 @@
         }
         return point.clone().adhereToBox(this);
     };
-    
+
     BBox.prototype.toJson = function() {
         return _.clone(this.props);
     };
@@ -2726,7 +2700,7 @@
     };
 
     ///////// EXTENSION /////////
-    
+
     Graph.isBBox = function(obj) {
         return obj instanceof Graph.lang.BBox;
     };
@@ -2734,13 +2708,14 @@
     Graph.bbox = function(bounds) {
         return new Graph.lang.BBox(bounds);
     };
-    
+
 }());
+
 (function(){
 
     var Path = Graph.lang.Path = function(command) {
         var segments = [];
-            
+
         if (Graph.isPath(command)) {
             segments = _.cloneDeep(command.segments);
         } else if (_.isArray(command)) {
@@ -2752,7 +2727,7 @@
         this.segments = segments;
     };
 
-    Path.defaults = {
+    Path.options = {
         segments: []
     };
 
@@ -2792,11 +2767,11 @@
             result[0] = ['M', x, y];
         }
 
-        var z = segments.length == 3 && 
-                segments[0][0] == 'M' && 
-                segments[1][0].toUpperCase() == 'R' && 
+        var z = segments.length == 3 &&
+                segments[0][0] == 'M' &&
+                segments[1][0].toUpperCase() == 'R' &&
                 segments[2][0].toUpperCase() == 'Z';
-        
+
         for (var dots, seg, itm, i = start, ii = segments.length; i < ii; i++) {
             result.push(seg = []);
             itm = segments[i];
@@ -2868,7 +2843,7 @@
                     y = seg[seg.length - 1];
             }
         }
-        
+
         cached.absolute = result = new Path(result);
         return result;
     };
@@ -2976,7 +2951,7 @@
 
     Path.prototype.curve = function() {
         var cached = Graph.lookup(this.toString(), 'curve', this.toValue());
-        
+
         if (cached.curve) {
             return cached.curve;
         }
@@ -2991,12 +2966,12 @@
 
         for (var i = 0, ii = p.length; i < ii; i++) {
             p[i] && (init = p[i][0]);
-            
+
             if (init != 'C') {
                 com[i] = init;
                 i && (prev = com[i - 1]);
             }
-            
+
             p[i] = fixsegment(p[i], a, prev);
 
             if (com[i] != 'A' && init == 'C') com[i] = 'C';
@@ -3015,7 +2990,7 @@
         return cached.curve;
 
         ///////// HELPER /////////
-        
+
         function fixarc(segments, i) {
             if (segments[i].length > 7) {
                 segments[i].shift();
@@ -3026,7 +3001,7 @@
                     com[i] = 'A';
                     segments.splice(i++, 0, ['C'].concat(pi.splice(0, 6)));
                 }
-                
+
                 segments.splice(i, 1);
                 ii = p.length;
             }
@@ -3046,16 +3021,16 @@
         for (var i = 0, ii = _.max([p1.length, p2.length]); i < ii; i++) {
             // fix p1
             p1[i] && (init = p1[i][0]);
-            
+
             if (init != 'C') {
                 com1[i] = init;
                 i && (prev = com1[i - 1]);
             }
-            
+
             p1[i] = fixsegment(p1[i], a1, prev);
-            
+
             if (com1[i] != 'A' && init == 'C') com1[i] = 'C';
-            
+
             fixarc2(p1, i);
 
             // fix p2
@@ -3067,7 +3042,7 @@
             }
 
             p2[i] = fixsegment(p2[i], attrs2, pcom);
-            
+
             if (com2[i] != 'A' && init == 'C') com2[i] = 'C';
 
             // fix p1 & p2
@@ -3096,7 +3071,7 @@
         return [new Path(p1), new Path(p2)];
 
         ///////// HELPER /////////
-        
+
         function fixarc2(segments, i) {
             if (segments[i].length > 7) {
                 segments[i].shift();
@@ -3107,7 +3082,7 @@
                     com2[i] = 'A';
                     segments.splice(i++, 0, ['C'].concat(pi.splice(0, 6)));
                 }
-                
+
                 segments.splice(i, 1);
                 ii = _.max([p1.length, p2.length]);
             }
@@ -3180,7 +3155,7 @@
         cached.bbox = Graph.bbox(bounds);
         return cached.bbox;
     };
-        
+
     Path.prototype.transform = function(matrix) {
         if ( ! matrix) {
             return;
@@ -3194,7 +3169,7 @@
 
         var segments = _.cloneDeep(this.curve().segments);
         var x, y, i, ii, j, jj, seg;
-        
+
         for (i = 0, ii = segments.length; i < ii; i++) {
             seg = segments[i];
             for (j = 1, jj = seg.length; j < jj; j += 2) {
@@ -3204,7 +3179,7 @@
                 seg[j + 1] = y;
             }
         }
-        
+
         cached.transform = new Path(segments);
         return cached.transform;
     };
@@ -3254,7 +3229,7 @@
         var segments = this.curve().segments,
             index = -1,
             total = 0;
-        
+
         var x, y, l, c;
 
         _.forEach(segments, function(s, i){
@@ -3318,7 +3293,7 @@
             } else {
                 c = Graph.curve([['M', x, y], s]);
                 d = c.length();
-                
+
                 if (l + d > length) {
                     point = c.pointAt(c.t(length - l));
                     sp += ['C' + point.start.x, point.start.y, point.m.x, point.m.y, point.props.x, point.props.y];
@@ -3341,7 +3316,7 @@
 
     Path.prototype.vertices = function() {
         var cached = Graph.lookup(this.toString(), 'vertices', this.toValue());
-        
+
         if (cached.vertices) {
             return cached.vertices;
         }
@@ -3396,7 +3371,7 @@
 
                     c2 = c1.clone();
                     c2.segments[1][5] = vx;
-                    c2.segments[1][6] = vy;  
+                    c2.segments[1][6] = vy;
 
                     l1 += c1.length();
                     l2 += c2.length();
@@ -3413,7 +3388,7 @@
             if (simple) {
                 segments.splice(index, 0, ['L', vx, vy]);
             } else {
-                segments.splice(index, 0, ['C', vx, vy, vx, vy, vx, vy]);    
+                segments.splice(index, 0, ['C', vx, vy, vx, vy, vx, vy]);
             }
             this.segments = segments;
         }
@@ -3427,10 +3402,10 @@
 
     Path.prototype.intersection = function(path, json) {
         var result = intersection(this, path);
-        
+
         return json ? result : _.map(result, function(d){
             var p = Graph.point(d.x, d.y);
-            
+
             p.segment1 = d.segment1;
             p.segment2 = d.segment2;
             p.bezier1  = d.bezier1;
@@ -3455,7 +3430,7 @@
         y = point.props.y;
         b = this.bbox();
         d = b.toJson();
-        
+
         p = new Path([['M', x, y], ['H', d.x2 + 10]]);
 
         return b.contains(point) && this.intersectnum(p) % 2 == 1;
@@ -3471,11 +3446,11 @@
             taxicab = Graph.util.taxicab;
 
         var best, bestlen, currpoint, currdist, i;
-        
+
         if (Graph.isPoint(point)) {
             point = point.toJson();
         }
-        
+
         for (i = 0; i < length; i += tolerance) {
             currpoint = this.pointAt(i, true);
             currdist  = taxicab(currpoint, point);
@@ -3490,7 +3465,7 @@
         tolerance /= 2;
 
         var prev, next, prevlen, nextlen, prevdist, nextdist;
-        
+
         while(tolerance > .5) {
             if ((prevlen = bestlen - tolerance) >= 0 && (prevdist = taxicab((prev = this.pointAt(prevlen, true)), point)) < bestdist) {
                 best = prev;
@@ -3524,7 +3499,7 @@
 
     Path.prototype.moveTo = function(x, y) {
         var segments = this.segments;
-        
+
         if (segments.length) {
             segments[0][0] = 'M';
             segments[0][1] = x;
@@ -3538,12 +3513,12 @@
 
     Path.prototype.lineTo = function(x, y, append) {
         var segments = this.segments;
-            
+
         append = _.defaultTo(append, true);
 
         if (segments) {
             var maxs = segments.length - 1;
-            
+
             if (segments[maxs][0] == 'M' || append) {
                 segments.push(['L', x, y]);
             } else {
@@ -3569,16 +3544,16 @@
 
     Path.prototype.clone = function() {
         var segments = [];
-        
+
         _.forEach(this.segments, function(seg){
             segments.push(seg.slice());
         });
 
         return new Path(segments);
     };
-    
+
     ///////// EXTENSION /////////
-    
+
     Graph.isPath = function(obj) {
         return obj instanceof Graph.lang.Path;
     };
@@ -3588,7 +3563,7 @@
     };
 
     ///////// HELPERS /////////
-    
+
     function fixsegment(segment, attr, prev) {
         var nx, ny, tq = {T:1, Q:1};
 
@@ -3597,7 +3572,7 @@
         }
 
         ! ( segment[0] in tq) && (attr.qx = attr.qy = null);
-        
+
         switch (segment[0]) {
             case 'M':
                 attr.X = segment[1];
@@ -3651,7 +3626,7 @@
      * Convert catmull-rom to bezier segment
      * https://advancedweb.hu/2014/10/28/plotting_charts_with_svg/
      */
-    function cat2bezier(dots, z) {  
+    function cat2bezier(dots, z) {
         var segments = [],
             def = _.defaultTo;
 
@@ -3661,7 +3636,7 @@
                 {x: def(dots[i], 0),     y: def(dots[i + 1], 0)},
                 {x: def(dots[i + 2], 0), y: def(dots[i + 3], 0)},
                 {x: def(dots[i + 4], 0), y: def(dots[i + 5], 0)}
-            ];  
+            ];
 
             if (z) {
                 if (!i) {
@@ -3698,9 +3673,9 @@
     }
 
     function quad2curve (x1, y1, ax, ay, x2, y2) {
-        var _13 = 1 / 3, 
+        var _13 = 1 / 3,
             _23 = 2 / 3;
-            
+
         return [
             _13 * x1 + _23 * ax,
             _13 * y1 + _23 * ay,
@@ -3712,7 +3687,7 @@
     }
 
     function arc2curve (x1, y1, rx, ry, angle, large_arc_flag, sweep_flag, x2, y2, recursive) {
-        var 
+        var
             _120 = Math.PI * 120 / 180,
             rad = Math.PI / 180 * (+angle || 0),
             res = [],
@@ -3812,7 +3787,7 @@
 
         var x1, y1, x2, y2, x1m, y1m, x2m, y2m, bz1, bz2, cv1, cv2;
         var si, sj, i, j;
-        var inter;  
+        var inter;
 
         for (i = 0; i < ln1; i++) {
             si = ss1[i];
@@ -3874,8 +3849,9 @@
 
 }());
 
+
 (function(){
-    
+
     var Matrix = Graph.lang.Matrix = function(a, b, c, d, e, f) {
         this.props = {};
 
@@ -3887,7 +3863,7 @@
         this.props.f = _.defaultTo(f, 0);
     };
 
-    Matrix.defaults = {
+    Matrix.options = {
         props: {
             a: 1,
             b: 0,
@@ -3909,22 +3885,22 @@
     Matrix.prototype.y = function(x, y) {
         return x * this.props.b + y * this.props.d + this.props.f;
     };
-        
+
     Matrix.prototype.get = function(chr) {
         return +this.props[chr].toFixed(4);
     };
 
     Matrix.prototype.multiply = function(a, b, c, d, e, f) {
-        var 
+        var
             result = [[], [], []],
             source = [
-                [this.props.a, this.props.c, this.props.e], 
-                [this.props.b, this.props.d, this.props.f], 
+                [this.props.a, this.props.c, this.props.e],
+                [this.props.b, this.props.d, this.props.f],
                 [0, 0, 1]
             ],
             matrix = [
-                [a, c, e], 
-                [b, d, f], 
+                [a, c, e],
+                [b, d, f],
                 [0, 0, 1]
             ];
 
@@ -3932,8 +3908,8 @@
 
         if (Graph.isMatrix(a)) {
             matrix = [
-                [a.props.a, a.props.c, a.props.e], 
-                [a.props.b, a.props.d, a.props.f], 
+                [a.props.a, a.props.c, a.props.e],
+                [a.props.b, a.props.d, a.props.f],
                 [0, 0, 1]
             ];
         }
@@ -3979,7 +3955,7 @@
             this.props.c = c;
             this.props.d = d;
             this.props.e = e;
-            this.props.f = f;    
+            this.props.f = f;
 
             return this;
         }
@@ -3995,7 +3971,7 @@
 
     Matrix.prototype.rotate = function(angle, cx, cy) {
         if (angle === undefined) {
-            
+
             var px = this.delta(0, 1),
                 py = this.delta(1, 0),
                 deg = 180 / Math.PI * Math.atan2(px.y, px.x) - 90,
@@ -4046,10 +4022,10 @@
         (cx || cy) && this.multiply(1, 0, 0, 1, cx, cy);
         this.multiply(sx, 0, 0, sy, 0, 0);
         (cx || cy) && this.multiply(1, 0, 0, 1, -cx, -cy);
-        
+
         return this;
     };
-        
+
     Matrix.prototype.determinant = function() {
         return this.props.a * this.props.d - this.props.b * this.props.c;
     };
@@ -4099,21 +4075,21 @@
     };
 
     Matrix.prototype.toFilter = function() {
-        return "progid:DXImageTransform.Microsoft.Matrix(" + 
-           "M11=" + this.get('a') + ", " + 
-           "M12=" + this.get('c') + ", " + 
-           "M21=" + this.get('b') + ", " + 
-           "M22=" + this.get('d') + ", " + 
-           "Dx="  + this.get('e') + ", " + 
-           "Dy="  + this.get('f') + ", " + 
-           "sizingmethod='auto expand'"  + 
+        return "progid:DXImageTransform.Microsoft.Matrix(" +
+           "M11=" + this.get('a') + ", " +
+           "M12=" + this.get('c') + ", " +
+           "M21=" + this.get('b') + ", " +
+           "M22=" + this.get('d') + ", " +
+           "Dx="  + this.get('e') + ", " +
+           "Dy="  + this.get('f') + ", " +
+           "sizingmethod='auto expand'"  +
         ")";
     };
 
     Matrix.prototype.toArray = function() {
         return [
-            [this.get('a'), this.get('c'), this.get('e')], 
-            [this.get('b'), this.get('d'), this.get('f')], 
+            [this.get('a'), this.get('c'), this.get('e')],
+            [this.get('b'), this.get('d'), this.get('f')],
             [0, 0, 1]
         ];
     };
@@ -4132,15 +4108,15 @@
 
     Matrix.prototype.toString = function() {
         return 'Graph.lang.Matrix';
-    };  
+    };
 
     Matrix.prototype.clone = function() {
         return new Matrix(
-            this.props.a, 
-            this.props.b, 
-            this.props.c, 
-            this.props.d, 
-            this.props.e, 
+            this.props.a,
+            this.props.b,
+            this.props.c,
+            this.props.d,
+            this.props.e,
             this.props.f
         );
     };
@@ -4154,8 +4130,9 @@
     Graph.matrix = function(a, b, c, d, e, f) {
         return new Graph.lang.Matrix(a, b, c, d, e, f);
     };
-    
+
 }());
+
 
 (function(){
 
@@ -4223,134 +4200,128 @@
 
 (function(){
 
-    var Collection = Graph.collection.Vector = Graph.extend({
-        
-        items: [],
+    var Collection = Graph.collection.Vector = function(vectors) {
+        this.items = _.map(vectors || [], function(v){
+            return v.guid();
+        });
+    };
 
-        constructor: function(vectors) {
-            this.items = _.map(vectors, function(v){
-                return v.guid();
-            });
-        },
+    Collection.prototype.constructor = Collection;
 
-        has: function(vector) {
-            var id = vector.guid();
-            return _.indexOf(this.items, id) > -1;
-        },
-        
-        not: function(vector) {
-            var guid = vector.guid();
+    Collection.prototype.has = function(vector) {
+        var id = vector.guid();
+        return _.indexOf(this.items, id) > -1;
+    };
+    
+    Collection.prototype.not = function(vector) {
+        var guid = vector.guid();
 
-            var items = _.filter(this.items, function(o) {
-                return o != guid;
-            });
+        var items = _.filter(this.items, function(o) {
+            return o != guid;
+        });
 
-            return new Collection(items);
-        },
+        return new Collection(items);
+    };
 
-        count: function() {
-            return this.items.length;
-        },
+    Collection.prototype.count = function() {
+        return this.items.length;
+    };
 
-        index: function(vector) {
-            var id = vector.guid();
-            return _.indexOf(this.items, id);
-        },
-        
-        push: function(vector) {
-            var id = vector.guid();
-            this.items.push(id);
-            return this.items.length;
-        },
+    Collection.prototype.index = function(vector) {
+        var id = vector.guid();
+        return _.indexOf(this.items, id);
+    };
+    
+    Collection.prototype.push = function(vector) {
+        var id = vector.guid();
+        this.items.push(id);
+        return this.items.length;
+    };
 
-        pop: function() {
-            var id = this.items.pop();
-            return Graph.registry.vector.get(id);
-        },
+    Collection.prototype.pop = function() {
+        var id = this.items.pop();
+        return Graph.registry.vector.get(id);
+    };
 
-        shift: function() {
-            var id = this.items.shift();
-            return Graph.registry.vector.get(id);
-        },
+    Collection.prototype.shift = function() {
+        var id = this.items.shift();
+        return Graph.registry.vector.get(id);
+    };
 
-        unshift: function(vector) {
-            var id = vector.guid();
-            this.items.unshift(id);
-        },
+    Collection.prototype.unshift = function(vector) {
+        var id = vector.guid();
+        this.items.unshift(id);
+    };
 
-        insert: function(vector, offset) {
-            if (offset === -1) {
-                offset = 0;
-            }
-            this.items.splice(offset, 0, vector.guid());
-        },
-
-        pull: function(vector) {
-            var id = vector.guid();
-            _.pull(this.items, id);
-        },
-
-        clear: function() {
-            this.items = [];
-        },
-
-        reverse: function() {
-            this.items.reverse();
-            return this;
-        },
-
-        each: function(iteratee) {
-            _.forEach(this.items, function(id){
-                var vector = Graph.registry.vector.get(id);
-                iteratee.call(vector, vector);
-            });
-        },
-        
-        bbox: function() {
-            var x = [], y = [], x2 = [], y2 = [];
-            var vector, box;
-
-            for (var i = this.items.length - 1; i >= 0; i--) {
-                vector = Graph.registry.vector.get(this.items[i]);
-                box = vector.bbox().toJson();
-
-                x.push(box.x);
-                y.push(box.y);
-                x2.push(box.x + box.width);
-                y2.push(box.y + box.height);
-            }   
-
-            x  = _.min(x);
-            y  = _.min(y);
-            x2 = _.max(x2);
-            y2 = _.max(y2);
-
-            return Graph.bbox({
-                x: x,
-                y: y,
-                x2: x2,
-                y2: y2,
-                width: x2 - x,
-                height: y2 - y
-            });
-        },
-
-        toArray: function() {
-            return _.map(this.items, function(id){
-                return Graph.registry.vector.get(id);
-            });
-        },
-
-        toString: function() {
-            return 'Graph.collection.Vector';
+    Collection.prototype.insert = function(vector, offset) {
+        if (offset === -1) {
+            offset = 0;
         }
-    });
+        this.items.splice(offset, 0, vector.guid());
+    };
 
-    Graph.collection.Vector.toString = function() {
-        return 'function(vectors)';
+    Collection.prototype.pull = function(vector) {
+        var id = vector.guid();
+        _.pull(this.items, id);
+    };
+
+    Collection.prototype.clear = function() {
+        this.items = [];
+    };
+
+    Collection.prototype.reverse = function() {
+        this.items.reverse();
+        return this;
+    };
+
+    Collection.prototype.each = function(iteratee) {
+        _.forEach(this.items, function(id){
+            var vector = Graph.registry.vector.get(id);
+            iteratee.call(vector, vector);
+        });
+    };
+    
+    Collection.prototype.bbox = function() {
+        var x = [], y = [], x2 = [], y2 = [];
+        var vector, box;
+
+        for (var i = this.items.length - 1; i >= 0; i--) {
+            vector = Graph.registry.vector.get(this.items[i]);
+            box = vector.bbox().toJson();
+
+            x.push(box.x);
+            y.push(box.y);
+            x2.push(box.x + box.width);
+            y2.push(box.y + box.height);
+        }   
+
+        x  = _.min(x);
+        y  = _.min(y);
+        x2 = _.max(x2);
+        y2 = _.max(y2);
+
+        return Graph.bbox({
+            x: x,
+            y: y,
+            x2: x2,
+            y2: y2,
+            width: x2 - x,
+            height: y2 - y
+        });
+    };
+
+    Collection.prototype.toArray = function() {
+        return _.map(this.items, function(id){
+            return Graph.registry.vector.get(id);
+        });
+    };
+
+    Collection.prototype.toString = function() {
+        return 'Graph.collection.Vector';
     };
 
     ///////// COLLECTIVE METHOD /////////
+    
     var methods = ['attr', 'remove'];
 
     _.forEach(methods, function(method){
@@ -4369,77 +4340,108 @@
 
 (function(){
 
-    var Collection = Graph.collection.Shape = Graph.extend({
-        
-        items: [],
-
-        constructor: function(shapes) {
-            this.items = shapes || [];
-        },
-
-        count: function() {
-            return this.items.length;
-        },
-
-        index: function(shape) {
-            var id = shape.guid();
-            return _.indexOf(this.items, id);
-        },
-
-        has: function(shape) {
-            var id = shape.guid();
-            return _.indexOf(this.items, id) !== -1;
-        },
-        
-        push: function(shape) {
-            var id = shape.guid();
-            this.items.push(id);
-            return this.items.length;
-        },
-
-        pop: function() {
-            var id = this.items.pop();
-            return Graph.registry.shape.get(id);
-        },
-
-        shift: function() {
-            var id = this.items.shift();
-            return Graph.registry.shape.get(id);
-        },
-
-        unshift: function(shape) {
-            this.items.unshift(shape);
-            return shape;
-        },
-
-        pull: function(shape) {
-            var id = shape.guid();
-            _.pull(this.items, id);
-        },
-
-        last: function() {
-            return _.last(this.items);
-        },
-
-        each: function(iteratee) {
-            var me = this;
-            _.forEach(me.items, function(id, i){
-                var shape = Graph.registry.shape.get(id);
-                if (shape) {
-                    iteratee.call(shape, shape, i);
-                }
-            });
-        },
-
-        toString: function() {
-            return 'Graph.collection.Shape';
-        }
-    });
-
-    Graph.collection.Shape.toString = function() {
-        return 'function(shapes)';
+    var Collection = Graph.collection.Shape = function(shapes) {
+        this.items = _.map(shapes, function(s){
+            return s.guid();
+        });
     };
 
+    Collection.prototype.constructor = Collection;
+
+    Collection.prototype.count = function() {
+        return this.items.length;
+    };
+
+    Collection.prototype.index = function(shape) {
+        var id = shape.guid();
+        return _.indexOf(this.items, id);
+    };
+
+    Collection.prototype.has = function(shape) {
+        var id = shape.guid();
+        return _.indexOf(this.items, id) !== -1;
+    };
+
+    Collection.prototype.push = function(shape) {
+        var id = shape.guid();
+        this.items.push(id);
+        return this.items.length;
+    };
+
+    Collection.prototype.pop = function() {
+        var id = this.items.pop();
+        return Graph.registry.shape.get(id);
+    };
+
+    Collection.prototype.shift = function() {
+        var id = this.items.shift();
+        return Graph.registry.shape.get(id);
+    };
+
+    Collection.prototype.unshift = function(shape) {
+        this.items.unshift(shape);
+        return shape;
+    };
+
+    Collection.prototype.pull = function(shape) {
+        var id = shape.guid();
+        _.pull(this.items, id);
+    };
+
+    Collection.prototype.last = function() {
+        return _.last(this.items);
+    };
+
+    Collection.prototype.each = function(iteratee) {
+        var me = this;
+        _.forEach(me.items, function(id, i){
+            var shape = Graph.registry.shape.get(id);
+            if (shape) {
+                iteratee.call(shape, shape, i);
+            }
+        });
+    };
+
+    Collection.prototype.bbox = function() {
+        var x = [], y = [], x2 = [], y2 = [];
+        var shape, vector, box;
+
+        for (var i = this.items.length - 1; i >= 0; i--) {
+            shape = Graph.registry.shape.get(this.items[i]);
+            vector = shape.component();
+            box = vector.bbox().toJson();
+
+            x.push(box.x);
+            y.push(box.y);
+            x2.push(box.x + box.width);
+            y2.push(box.y + box.height);
+        }   
+
+        x  = _.min(x);
+        y  = _.min(y);
+        x2 = _.max(x2);
+        y2 = _.max(y2);
+
+        return Graph.bbox({
+            x: x,
+            y: y,
+            x2: x2,
+            y2: y2,
+            width: x2 - x,
+            height: y2 - y
+        });
+    };
+
+    Collection.prototype.toArray = function() {
+        return _.map(this.items, function(id){
+            return Graph.registry.shape.get(id);
+        });
+    };
+
+    Collection.prototype.toString = function() {
+        return 'Graph.collection.Shape';
+    };
+    
 }());
 
 (function(){
@@ -4952,16 +4954,11 @@
             dropper: null,
             network: null,
             history: null,
-            sorter: null,
             panzoom: null,
             toolmgr: null,
             toolpad: null,
             snapper: null,
             editor: null
-        },
-
-        utils: {
-            
         },
 
         graph: {
@@ -4971,7 +4968,11 @@
 
         cached: {
             bbox: null,
-            originalBBox: null,
+            bboxView: null,
+            bboxPristine: null,
+            matrixCurrent: null,
+            matrixView: null,
+            shapeView: null,
             position: null,
             offset: null
         },
@@ -4983,12 +4984,12 @@
 
             me.graph.matrix = Graph.matrix();
             me.tree.children = new Graph.collection.Vector();
-            
+
             guid  = 'graph-elem-' + (++Vector.guid);
             attrs = _.extend({ id: guid }, me.attrs, attrs || {});
 
             me.elem = Graph.$(document.createElementNS(Graph.config.xmlns.svg, type));
-            
+
             if (attrs['class']) {
                 attrs['class'] = Graph.styles.VECTOR + ' ' + attrs['class'];
             } else {
@@ -5000,7 +5001,7 @@
 
             me.props.guid = me.props.id = guid; // Graph.uuid();
             me.props.type = type;
-            
+
             guid = null;
 
             me.elem.data(Graph.string.ID_VECTOR, me.props.guid);
@@ -5014,17 +5015,54 @@
             if (me.isPaper()) {
                 me.plugins.toolmgr = (new Graph.plugin.ToolManager(me))
                     .on('activate', _.bind(me.onActivateTool, me))
-                    .on('deactivate', _.bind(me.onDeactivateTool, me));    
+                    .on('deactivate', _.bind(me.onDeactivateTool, me));
             }
-            
+
             Graph.registry.vector.register(this);
         },
 
-        matrix: function() {
-            return this.graph.matrix;
+        /**
+         * Get/set local matrix
+         */
+        matrix: function(matrix) {
+            if (matrix === undefined) {
+                return this.graph.matrix;
+            }
+            this.graph.matrix = matrix;
+            return this;
         },
 
-        globalMatrix: function() {
+        /**
+         * Get relative matrix (relative to viewport)
+         */
+        matrixView: function() {
+            var matrix = this.cached.matrixView;
+            if ( ! matrix) {
+                var paper = this.paper();
+                if (paper) {
+                    var viewport = paper.viewport(),
+                        viewportGuid = viewport.guid();
+
+                    matrix = Graph.matrix();
+
+                    this.bubble(function(curr){
+                        matrix.multiply(curr.matrix());
+                        if (curr.guid() == viewportGuid) {
+                            return false;
+                        }
+                    });
+                } else {
+                    matrix = this.matrix();
+                }
+                this.cached.matrix = matrix;
+            }
+            return matrix;
+        },
+
+        /**
+         * Get global matrix
+         */
+        matrixCurrent: function() {
             var native = this.node().getCTM();
             var matrix;
 
@@ -5044,7 +5082,10 @@
 
             return matrix;
         },
-        
+
+        /**
+         * Get/set layout
+         */
         layout: function(options) {
             if (options === undefined) {
                 return this.graph.layout;
@@ -5060,11 +5101,11 @@
             } else if (_.isPlainObject(options)) {
                 if (options.name) {
                     clazz = Graph.layout[_.capitalize(options.name)];
-                    delete options.name;   
+                    delete options.name;
                     layout = Graph.factory(clazz, [this, options]);
                 }
             }
-            
+
             layout.refresh();
             this.graph.layout = layout;
 
@@ -5090,21 +5131,27 @@
             this.cached[cache] = null;
         },
 
+        /**
+         * Get/set state
+         */
         state: function(name) {
             if (name === undefined) {
-                return this.props.state;    
+                return this.props.state;
             }
             this.props.state = name;
             return this;
         },
 
+        /**
+         * Get/set dirty
+         */
         dirty: function(state) {
             var me = this;
 
             if (state === undefined) {
                 return me.cached.bbox === null;
             }
-            
+
             if (state) {
                 // invalidates
                 for (var name in this.cached) {
@@ -5120,12 +5167,12 @@
                     }
                 });
             }
-            
+
             return this;
         },
 
         /**
-         * Get or set reactor plugin
+         * Get/set reactor plugin
          */
         interactable: function(options) {
             if ( ! this.plugins.reactor) {
@@ -5135,7 +5182,7 @@
         },
 
         /**
-         * Get or set animator plugin
+         * Get/set animator plugin
          */
         animable: function() {
             var me = this;
@@ -5154,24 +5201,28 @@
                     }
                 })
             }
+
             return me.plugins.animator;
         },
-        
+
         /**
-         * Get or set resizer plugin
+         * Get/set resizer plugin
          */
-        resizable: function(config) {
+        resizable: function(options) {
             if ( ! this.plugins.resizer) {
-                this.plugins.resizer = new Graph.plugin.Resizer(this, config);
+                this.plugins.resizer = new Graph.plugin.Resizer(this, options);
                 this.plugins.resizer.on({
                     resize: _.bind(this.onResizerResize, this)
                 });
+            } else if (options !== undefined) {
+                this.plugins.resizer.options(options);
             }
+
             return this.plugins.resizer;
         },
 
         /**
-         * Get or set dragger plugin
+         * Get/set dragger plugin
          */
         draggable: function(config) {
             if ( ! this.plugins.dragger) {
@@ -5187,7 +5238,7 @@
         },
 
         /**
-         * Get or set panzoom plugin
+         * Get/set panzoom plugin
          */
         zoomable: function() {
             if ( ! this.plugins.panzoom) {
@@ -5198,7 +5249,7 @@
         },
 
         /**
-         * Get or set dropzone/dropper plugin
+         * Get/set dropzone plugin
          */
         droppable: function() {
             if ( ! this.plugins.dropper) {
@@ -5213,62 +5264,55 @@
         },
 
         /**
-         * Get or set sortable plugin
-         */
-        sortable: function(options) {
-            if ( ! this.plugins.sorter) {
-                this.plugins.sorter = new Graph.plugin.Sorter(this, options);
-            }
-            return this.plugins.sorter;
-        },
-
-        /**
-         * Get or set network plugin
+         * Get/set network plugin
          */
         connectable: function(options) {
             if ( ! this.plugins.network) {
                 this.plugins.network = new Graph.plugin.Network(this, options);
-            } else if (options) {
+            } else if (options !== undefined) {
                 this.plugins.network.options(options);
             }
             return this.plugins.network;
         },
 
-        traversable: function(traversable) {
-            traversable = _.defaultTo(traversable, true);
-            this.props.traversable = traversable;
-
-            return this;
-        },
-
-        selectable: function(selectable) {
-            selectable = _.defaultTo(selectable, true);
-            this.props.selectable = selectable;
-
-            return this;
-        },
-
         /**
-         * Get or set clickable state
+         * Get/set traversable
          */
-        clickable: function(value) {
-            var me = this;
+        traversable: function(traversable) {
+            if (traversable === undefined) {
+                return this.props.traversable;
+            }
 
-            if (value === undefined) {
-                return me.attrs['pointer-events'] || 'visiblePainted';
-            }
-            
-            if (value) {
-                this.attr('pointer-events', '');
-            } else {
-                this.attr('pointer-events', 'none');
-            }
-            
+            this.props.traversable = traversable;
             return this;
         },
 
         /**
-         * Get or set label editor plugin
+         * Get/set selectable
+         */
+        selectable: function(selectable) {
+            if (selectable === undefined) {
+                return this.props.selectable;
+            }
+
+            this.props.selectable = selectable;
+            return this;
+        },
+
+        /**
+         * Get/set clickable
+         */
+        clickable: function(clickable) {
+            if (clickable === undefined) {
+                return this.attrs['pointer-events'] != 'none' ? true : false;
+            }
+
+            this.attr('pointer-events', (clickable ? '' : 'none'));
+            return this;
+        },
+
+        /**
+         * Get/set label editor plugin
          */
         editable: function(options) {
             var me = this;
@@ -5287,34 +5331,37 @@
         },
 
         snappable: function(options) {
-            var me = this;
+            var me = this,
+                paper = me.paper();
+
             var enabled, snapper;
+
+            if ( ! paper) {
+                // try to get default paper
+                paper = Graph.svg.Paper.getDefaultInstance();
+            }
+
+            // still no exists?
+            if ( ! paper) {
+                throw Graph.error("Unable to install snapper plugin. Paper doesn't rendered yet!");
+            }
 
             if (_.isBoolean(options)) {
                 options = {
-                    context: me,
                     enabled: options
                 };
             } else {
                 options = _.extend({
-                    context: me,
                     enabled: true
                 }, options || {});
             }
 
             me.props.snappable = options.enabled;
 
-            if (me.props.rendered) {
-                snapper = me.paper().plugins.snapper;
-                snapper.setup(me, options);
-            } else {
-                me.on('render', function(){
-                    snapper = me.paper().plugins.snapper;
-                    snapper.setup(me, options);
-                });
-            }
+            snapper = paper.plugins.snapper;
+            snapper.setup(me, options);
 
-            return me;
+            return snapper;
         },
 
         id: function() {
@@ -5323,7 +5370,7 @@
 
         guid: function() {
             return this.props.guid;
-        },  
+        },
 
         node: function() {
             return this.elem.node();
@@ -5384,7 +5431,7 @@
                     node.className.baseVal = _.toString(value);
                 } else {
                     node.setAttribute(name, _.toString(value));
-                }    
+                }
             }
 
             return me;
@@ -5401,7 +5448,7 @@
 
         style: function(name, value) {
             var me = this;
-            
+
             if (_.isPlainObject(name)) {
                 _.forOwn(name, function(v, k){
                     me.style(k, v);
@@ -5446,8 +5493,41 @@
             this.elem.show();
         },
 
-        pathinfo: function() {
-            return new Graph.lang.Path([]);
+        /**
+         * Get vector path (shape)
+         */
+        shape: function() {
+            var shape = new Graph.lang.Path([]);
+            return shape;
+        },
+
+        /**
+         * Get shape relative to viewport
+         */
+        shapeView: function() {
+            var shape = this.cached.shapeView;
+            if ( ! shape) {
+                var matrix = this.matrixView();
+                shape = this.shape().transform(matrix);
+                this.cached.shapeView = shape;
+            }
+            return shape;
+        },
+
+        /**
+         * Get shape relative to parent
+         */
+        shapeRelative: function() {
+            var parent = this.parent(),
+                parentMatrix = parent.matrixView().clone().invert(),
+                matrix = this.matrixView().clone(),
+                shape = this.shape();
+
+            matrix.multiply(parentMatrix);
+            shape = shape.transform(matrix);
+
+            matrix = parentMatrix = parent = null;
+            return shape;
         },
 
         vertices: function(absolute) {
@@ -5455,8 +5535,8 @@
 
             absolute = _.defaultTo(absolute, false);
 
-            ma = absolute ? this.globalMatrix() : this.matrix(),
-            pa = this.pathinfo().transform(ma);
+            ma = absolute ? this.matrixCurrent() : this.matrix(),
+            pa = this.shape().transform(ma);
             ps = pa.segments;
             dt = [];
 
@@ -5475,7 +5555,7 @@
         dimension: function() {
             var size = {},
                 node = this.node();
-                     
+
             try {
                 size = node.getBBox();
             } catch(e) {
@@ -5498,7 +5578,7 @@
         offset: function() {
             var node = this.node(),
                 bbox = node.getBoundingClientRect();
-            
+
             var offset = {
                 top: bbox.top,
                 left: bbox.left,
@@ -5507,7 +5587,7 @@
                 width: bbox.width,
                 height: bbox.height
             }
-            
+
             return offset;
         },
 
@@ -5533,28 +5613,46 @@
             return this.cached.position;
         },
 
-        bbox: function(original) {
-            var path, bbox;
-
-            original = _.defaultTo(original, false);
-            
-            if (original) {
-                bbox = this.cached.originalBBox;
-                if ( ! bbox) {
-                    path = this.pathinfo();
-                    bbox = path.bbox();
-                    this.cached.originalBBox = bbox;
-                }
-            } else {
-                bbox = this.cached.bbox;
-                if ( ! bbox) {
-                    path = this.pathinfo().transform(this.matrix());
-                    bbox = path.bbox();
-                    this.cached.bbox = bbox;
-                } 
+        /**
+         * Get transformed local bbox
+         */
+        bbox: function() {
+            var bbox = this.cached.bbox;
+            if ( ! bbox) {
+                var path = this.shape().transform(this.matrix());
+                bbox = path.bbox();
+                this.cached.bbox = bbox;
             }
-            
-            path = null;
+            return bbox;
+        },
+
+        /**
+         * Get untransormed local bbox
+         */
+        bboxPristine: function() {
+            var bbox = this.cached.bboxPristine;
+            if ( ! bbox) {
+                var shape = this.shape();
+                bbox = shape.bbox();
+                this.cached.bboxPristine = bbox;
+            }
+            return bbox;
+        },
+
+        /**
+         * Get relative bbox (relative to current viewport)
+         */
+        bboxView: function() {
+            var bbox = this.cached.bboxView;
+
+            if ( ! bbox) {
+                var matrix = this.matrixView(),
+                    shape = this.shape().transform(matrix);
+
+                bbox = shape.bbox();
+                this.cached.bboxView = bbox;
+            }
+
             return bbox;
         },
 
@@ -5568,12 +5666,12 @@
 
             return new Graph.collection.Vector(vectors);
         },
-        
+
         render: function(container, method, sibling) {
             var me = this,
                 guid = me.guid(),
                 traversable = me.props.traversable;
-            
+
             var offset;
 
             if (me.props.rendered) {
@@ -5584,7 +5682,7 @@
             method = _.defaultTo(method, 'append');
 
             if (container) {
-                
+
                 if (container.isPaper()) {
                     container = container.viewport();
                 }
@@ -5628,7 +5726,7 @@
 
                     case 'append':
                         container.elem.query.append(me.elem.query);
-                        
+
                         if (traversable) {
                             container.children().push(me);
                         }
@@ -5647,7 +5745,7 @@
 
                 // broadcast
                 if (container.props.rendered) {
-                    
+
                     me.props.rendered = true;
                     me.fire('render');
 
@@ -5711,7 +5809,7 @@
                             container.children().unshift(vector);
                             break;
                     }
-                    
+
                     vector.tree.parent = this.guid();
                 }
             }
@@ -5731,7 +5829,33 @@
         prepend: function(vector) {
             return this.attach(vector, 'prepend');
         },
-        
+
+        relocate: function(target) {
+            if (target.isPaper()) {
+                target = target.viewport();
+            }
+
+            var resetMatrix = this.matrixView().clone();
+
+            this.graph.matrix = resetMatrix;
+            this.attr('transform', resetMatrix.toValue());
+            this.dirty(true);
+
+            // append to target
+            target.append(this);
+
+            var targetMatrix = target.matrixView().clone(),
+                applyMatrix = this.matrix().clone();
+
+            applyMatrix.multiply(targetMatrix.invert());
+
+            this.graph.matrix = applyMatrix;
+            this.attr('transform', applyMatrix.toValue());
+
+            // flag as dirty
+            this.dirty(true);
+        },
+
         ancestors: function() {
             var ancestors = [], guid = this.guid();
 
@@ -5762,7 +5886,7 @@
             } else {
                 return Graph.registry.vector.get(this.tree.paper);
             }
-        },  
+        },
 
         parent: function() {
             return Graph.registry.vector.get(this.tree.parent);
@@ -5771,7 +5895,7 @@
         prev: function() {
             return Graph.registry.vector.get(this.tree.prev);
         },
-        
+
         next: function() {
             return Graph.registry.vector.get(this.tree.next);
         },
@@ -5795,24 +5919,24 @@
             for (var name in this.plugins) {
                 if (this.plugins[name]) {
                     this.plugins[name].destroy();
-                    this.plugins[name] = null;    
+                    this.plugins[name] = null;
                 }
             }
 
             if (parent) {
                 parent.children().pull(this);
             }
-            
+
             if (this.elem) {
                 this.elem.remove();
                 this.elem = null;
             }
-            
+
             Graph.registry.vector.unregister(this);
-            
+
             // last chance
             this.fire('remove');
-            
+
             this.listeners = null;
         },
 
@@ -5848,6 +5972,7 @@
         },
 
         deselect: function(batch) {
+
             this.removeClass('graph-selected');
             this.props.selected = false;
 
@@ -5871,7 +5996,7 @@
 
         scale: function(sx, sy, cx, cy) {
             if (sx === undefined) {
-                return this.globalMatrix().scale();
+                return this.matrixCurrent().scale();
             }
             return this.plugins.transformer.scale(sx, sy, cx, cy);
         },
@@ -5899,7 +6024,7 @@
             }
             this.paper().elem.append(this.elem);
             return this;
-        },  
+        },
 
         sendToBack: function() {
             if ( ! this.tree.paper) {
@@ -5915,7 +6040,7 @@
 
         isContainer: function() {
             return this.isGroup() || this.isPaper();
-        },  
+        },
 
         isGroup: function() {
             return this.props.type == 'g';
@@ -5931,7 +6056,7 @@
 
         isTraversable: function() {
             return this.props.traversable;
-        },  
+        },
 
         isSelectable: function() {
             return this.props.selectable;
@@ -5957,8 +6082,12 @@
             return this.props.rendered;
         },
 
+        isSelected: function() {
+            return this.props.selected === true;
+        },
+
         ///////// TOOLS //////////
-        
+
         tool: function() {
             return this.plugins.toolmgr;
         },
@@ -5979,7 +6108,7 @@
         },
 
         onDraggerStart: function(e) {
-            // forward event
+            e.master = true;
             this.fire(e);
 
             if (this.lasso) {
@@ -5998,6 +6127,7 @@
 
         onDraggerMove: function(e) {
             // forward event
+            e.master = true;
             this.fire(e);
 
             if (this.lasso) {
@@ -6007,10 +6137,14 @@
 
         onDraggerEnd: function(e) {
             this.dirty(true);
-            // forward
+
+            e.master = true;
             this.fire(e);
 
-            // publish
+            if (this.lasso) {
+                this.lasso.syncDragEnd(this, e);
+            }
+
             Graph.topic.publish('vector/dragend', e);
 
             if (this.plugins.resizer) {
@@ -6018,10 +6152,6 @@
                 if ( ! this.props.selected) {
                     this.plugins.resizer.suspend();
                 }
-            }
-
-            if (this.lasso) {
-                this.lasso.syncDragEnd(this, e);
             }
         },
 
@@ -6041,7 +6171,7 @@
 
             // invoke core plugins
             if (this.plugins.dragger) {
-                var rotate = this.globalMatrix().rotate();
+                var rotate = this.matrixCurrent().rotate();
                 this.plugins.dragger.rotate(rotate.deg);
             }
         },
@@ -6059,7 +6189,7 @@
             this.fire('scale', {sx: e.sx, sy: e.sy});
 
             if (this.plugins.dragger) {
-                var scale = this.globalMatrix().scale();
+                var scale = this.matrixCurrent().scale();
                 this.plugins.dragger.scale(scale.x, scale.y);
             }
         },
@@ -6077,10 +6207,6 @@
     });
 
     ///////// STATICS /////////
-    
-    Vector.toString = function() {
-        return 'function(tag)';
-    };
 
     Vector.guid = 0;
 
@@ -6088,12 +6214,12 @@
     Graph.isVector = function(obj) {
         return obj instanceof Graph.svg.Vector;
     };
-    
+
     ///////// HELPERS /////////
-    
+
     function cascade(vector, handler) {
         var child = vector.children().toArray();
-        var result; 
+        var result;
 
         result = handler.call(vector, vector);
         result = _.defaultTo(result, true);
@@ -6111,7 +6237,7 @@
 
         result = handler.call(vector, vector);
         result = _.defaultTo(result, true);
-        
+
         if (result && parent) {
             bubble(parent, handler);
         }
@@ -6128,10 +6254,11 @@
         return {
             top: 0,
             left: 0
-        };  
+        };
     }
 
 }());
+
 
 (function(){
 
@@ -6154,7 +6281,7 @@
             });
         },
 
-        pathinfo: function() {
+        shape: function() {
             var a = this.attrs;
 
             return Graph.path([
@@ -6227,10 +6354,6 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Ellipse.toString = function() {
-        return "function(cx, cy, rx, ry)";
-    };
 
 }());
 
@@ -6261,7 +6384,7 @@
             
         },
 
-        pathinfo: function() {
+        shape: function() {
             var a = this.attrs;
             
             return Graph.path([
@@ -6339,10 +6462,6 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Circle.toString = function() {
-        return "function(cx, cy, r)";
-    };  
 
 }());
 
@@ -6372,7 +6491,7 @@
                 height: _.defaultTo(height, 0)
             });
             
-            me.origpath = me.pathinfo();
+            me.origpath = me.shape();
         },
 
         attr: function(name, value) {
@@ -6385,7 +6504,7 @@
             return result;
         },
 
-        pathinfo: function() {
+        shape: function() {
             var a = this.attrs, p;
 
             if (a.r) {
@@ -6466,10 +6585,6 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Rect.toString = function() {
-        return 'function(x, y, width, height, r)';
-    };
 
 }());
 
@@ -6495,20 +6610,20 @@
             });
         },
 
-        pathinfo: function() {
+        shape: function() {
             return Graph.path(this.attrs.d)
         },
 
         segments: function() {
-            return this.pathinfo().segments;
+            return this.shape().segments;
         },
 
         intersection: function(path, dots) {
-            return this.pathinfo().intersection(path.pathinfo(), dots);
+            return this.shape().intersection(path.shape(), dots);
         },
 
         intersectnum: function(path) {
-            return this.pathinfo().intersectnum(path.pathinfo());
+            return this.shape().intersectnum(path.shape());
         },
 
         angle: function() {
@@ -6532,19 +6647,19 @@
         },
 
         slice: function(from, to) {
-            return this.pathinfo().slice(from, to);
+            return this.shape().slice(from, to);
         },
 
         pointAt: function(length) {
-            return this.pathinfo().pointAt(length);
+            return this.shape().pointAt(length);
         },
 
         length: function() {
-            return this.pathinfo().length();
+            return this.shape().length();
         },
 
         addVertext: function(vertext) {
-            var path = this.pathinfo();
+            var path = this.shape();
 
             path.addVertext(vertext);
             this.attr('d', path.command());
@@ -6559,7 +6674,7 @@
                 rd = mr.rad,
                 si = Math.sin(rd),
                 co = Math.cos(rd),
-                pa = this.pathinfo(),
+                pa = this.shape(),
                 ps = pa.segments,
                 rx = ps[0][1],
                 ry = ps[0][2];
@@ -6602,7 +6717,7 @@
         },
 
         moveTo: function(x, y) {
-            var path = this.pathinfo();
+            var path = this.shape();
             
             path.moveTo(x, y);
             this.attr('d', path.command());
@@ -6611,7 +6726,7 @@
         },
 
         lineTo: function(x, y, append) {
-            var path = this.pathinfo();
+            var path = this.shape();
             
             path.lineTo(x, y, append);
             this.attr('d', path.command());
@@ -6642,10 +6757,6 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Path.toString = function() {
-        return 'function(d)';
-    };
 
 }());
 (function(){
@@ -6671,7 +6782,7 @@
             });
         },
 
-        pathinfo: function() {
+        shape: function() {
             var command = Graph.util.polygon2path(this.attrs.points);
             command = command.replace(/Z/i, '');
             return Graph.path(command);
@@ -6692,10 +6803,6 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Polyline.toString = function() {
-        return 'function(points)';
-    };
 
 }());
 
@@ -6730,7 +6837,7 @@
             return this.superclass.prototype.attr.call(this, name, value); // this.$super(name, value);
         },
 
-        pathinfo: function() {
+        shape: function() {
             var command = Graph.util.polygon2path(this.attrs.points);
             return Graph.path(command);
         },
@@ -6739,7 +6846,7 @@
             var matrix = this.graph.matrix.clone(),
                 origin = this.graph.matrix.clone(),
                 rotate = this.props.rotate,
-                ps = this.pathinfo().segments,
+                ps = this.shape().segments,
                 dt = [],
                 rx = ps[0][1],
                 ry = ps[0][2];
@@ -6798,10 +6905,6 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Polygon.toString = function() {
-        return 'function(points)';
-    };
 
 }());
 
@@ -6827,7 +6930,7 @@
             }
         },
 
-        pathinfo: function() {
+        shape: function() {
             var size = this.dimension();
             
             return new Graph.lang.Path([
@@ -6846,10 +6949,6 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Group.toString = function() {
-        return 'function(x, y)';
-    };
 
 }());
 
@@ -7037,7 +7136,7 @@
             }
         },
 
-        pathinfo: function() {
+        shape: function() {
             var size = this.dimension();
 
             return new Graph.lang.Path([
@@ -7062,9 +7161,6 @@
 
     ///////// STATIC /////////
     
-    Graph.svg.Text.toString = function() {
-        return 'function(x, y, text)';
-    };
 
 }());
 
@@ -7156,7 +7252,7 @@
             return this;
         },
 
-        pathinfo: function() {
+        shape: function() {
             var a = this.attrs;
 
             return new Graph.lang.Path([
@@ -7200,10 +7296,6 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.svg.Image.toString = function() {
-        return 'function(src, x, y, width, height)';
-    };
 
 }());
 
@@ -7260,10 +7352,6 @@
 
     ///////// STATIC /////////
     
-    Graph.svg.Line.toString = function() {
-        return "function(x1, y1, x2, y2)";
-    };
-
 }());
 
 (function(){
@@ -7273,7 +7361,7 @@
      */
 
     var Paper = Graph.svg.Paper = Graph.extend(Graph.svg.Vector, {
-        
+
         attrs: {
             'class': Graph.styles.PAPER
         },
@@ -7304,9 +7392,9 @@
             diagram: null
         },
 
-        constructor: function(width, height, options) {
+        constructor: function (width, height, options) {
             var me = this;
-            
+
             me.superclass.prototype.constructor.call(me, 'svg', {
                 'xmlns': Graph.config.xmlns.svg,
                 'xmlns:link': Graph.config.xmlns.xlink,
@@ -7330,17 +7418,17 @@
 
             me.plugins.linker = new Graph.plugin.Linker(me);
             me.plugins.toolmgr.register('linker', 'plugin');
-            
+
             me.plugins.pencil = new Graph.plugin.Pencil(me);
             me.plugins.definer = new Graph.plugin.Definer(me);
-            
+
             me.plugins.snapper = new Graph.plugin.Snapper(me);
             me.plugins.toolpad = new Graph.plugin.Toolpad(me);
 
             me.on('pointerdown', _.bind(me.onPointerDown, me));
             me.on('keynavdown', _.bind(me.onKeynavDown, me));
             me.on('keynavup', _.bind(me.onKeynavUp, me));
-            
+
             // subscribe topics
             Graph.topic.subscribe('link/update', _.bind(me.listenLinkUpdate, me));
             Graph.topic.subscribe('link/remove', _.bind(me.listenLinkRemove, me));
@@ -7348,6 +7436,10 @@
 
             // drawings
             me.drawing.pallets = [];
+
+            if ( ! Paper.defaultInstance) {
+                Paper.defaultInstance = me.guid();
+            }
         },
 
         initLayout: function() {
@@ -7357,25 +7449,25 @@
                 .selectable(false);
 
             viewport.props.viewport = true;
-            
+
             this.components.viewport = viewport.guid();
 
             if (this.props.showOrigin) {
                 var origin = Graph.$(
-                    '<g class="graph-origin">' + 
-                        '<rect class="x" rx="1" ry="1" x="-16" y="-1" height="1" width="30"></rect>' + 
-                        '<rect class="y" rx="1" ry="1" x="-1" y="-16" height="30" width="1"></rect>' + 
-                        '<text class="t" x="-40" y="-10">(0, 0)</text>' + 
+                    '<g class="graph-origin">' +
+                        '<rect class="x" rx="1" ry="1" x="-16" y="-1" height="1" width="30"></rect>' +
+                        '<rect class="y" rx="1" ry="1" x="-1" y="-16" height="30" width="1"></rect>' +
+                        '<text class="t" x="-40" y="-10">(0, 0)</text>' +
                     '</g>'
                 );
-                
+
                 origin.appendTo(viewport.elem);
                 origin = null;
             }
 
             // render viewport
             viewport.tree.paper = viewport.tree.parent = this.guid();
-            viewport.translate(0.5, 0.5).commit();
+            // viewport.translate(0.5, 0.5).commit();
 
             this.elem.append(viewport.elem);
             this.children().push(viewport);
@@ -7399,7 +7491,7 @@
             if (options === undefined) {
                 return viewport.graph.layout;
             }
-            
+
             viewport.layout(options);
             return this;
         },
@@ -7407,12 +7499,12 @@
         shape: function(names, options) {
             var shape = Graph.shape(names, options);
             shape.render(this);
-            
+
             return shape;
         },
 
         render: function(container) {
-            var me = this, 
+            var me = this,
                 vp = me.viewport(),
                 id = me.guid();
 
@@ -7424,12 +7516,12 @@
             container.append(me.elem);
 
             me.tree.container = container;
-            
+
             me.elem.css({
                 width: '100%',
                 height: '100%'
             });
-            
+
             me.props.rendered = true;
             me.fire('render');
 
@@ -7438,14 +7530,14 @@
 
             if (me.props.zoomable) {
                 me.zoomable();
-                
+
                 var debounce = _.debounce(function(){
                     debounce.flush();
                     debounce = null;
-                    
+
                     me.tool().activate('panzoom');
                 }, 1000);
-                
+
                 debounce();
             }
 
@@ -7462,7 +7554,7 @@
 
         removeSelection: function() {
             var selections = this.plugins.collector.collection;
-            
+
             for (var v, i = selections.length - 1; i >= 0; i--) {
                 v = selections[i];
                 selections.splice(i, 1);
@@ -7497,28 +7589,44 @@
                 if ( ! Graph.isPoint(start)) {
                     options = start;
                     start = null;
-                    end = null;    
+                    end = null;
                 }
             }
 
-            source = Graph.isShape(source) ? source.provider('network') : source;
-            target = Graph.isShape(target) ? target.provider('network') : target;
+            source = Graph.isShape(source) ? source.connectable().component() : source;
+            target = Graph.isShape(target) ? target.connectable().component() : target;
+
             layout = this.layout();
             router = layout.createRouter(source, target, options);
-            
+
             link = layout.createLink(router);
-            
+
             link.connect(start, end);
             link.render(this);
 
             return link;
         },
-        
+
         addPallet: function(pallet) {
             var guid = pallet.guid();
             this.drawing.pallets.push(guid);
+
+            // bind pallet events
+            pallet.on({
+                drawstart: function(e) {
+                    console.log(e.shape);
+                    var shape = e.shape,
+                        clazz = Graph.ns(shape);
+
+                    shape = Graph.factory(clazz);
+                    console.log(shape);
+                },
+                drawend: function() {
+                    console.log('y');
+                }
+            });
         },
-        
+
         removePallet: function(pallet) {
             var guid = pallet.guid();
             var index = _.indexOf(this.drawing.pallets, guid);
@@ -7535,7 +7643,7 @@
                 (function(o){
                     var s = Graph.shape(o.type, o.data);
                     s.render(paper);
-                    shapes[o.data.id] = s;    
+                    shapes[o.data.id] = s;
                 }(o));
             });
 
@@ -7554,7 +7662,7 @@
         diagram: function(type, options) {
             var clazz = Graph.diagram[_.capitalize(type)];
             var diagram = Graph.factory(clazz, options || {});
-            
+
             this.drawing.diagram = diagram;
             return diagram;
         },
@@ -7564,7 +7672,7 @@
         },
 
         ///////// OBSERVERS /////////
-        
+
         onPointerDown: function(e) {
 
         },
@@ -7579,13 +7687,13 @@
                     break;
 
                 case Graph.event.SHIFT:
-                    
+
                     break;
 
                 case Graph.event.ESC:
 
                     break;
-            }   
+            }
 
         },
 
@@ -7604,7 +7712,7 @@
             exporter.exportPNG(filename);
             exporter = null;
         },
-        
+
         saveAsBlob: function(callback) {
             var exporter = new Graph.data.Exporter(this);
             return exporter.exportBlob(callback);
@@ -7618,11 +7726,11 @@
         },
 
         ///////// TOPIC LISTENERS /////////
-        
+
         listenLinkUpdate: _.debounce(function() {
             this.layout().arrangeLinks();
         }, 300),
-        
+
         listenLinkRemove: _.debounce(function(){
             this.layout().arrangeLinks();
         }, 10),
@@ -7634,9 +7742,10 @@
     });
 
     ///////// STATICS /////////
+    Paper.defaultInstance = null;
     
-    Paper.toString = function() {
-        return 'function( width, height )';
+    Paper.getDefaultInstance = function() {
+        return Graph.registry.vector.get(Paper.defaultInstance);
     };
 
     ///////// EXTENSIONS /////////
@@ -7671,6 +7780,7 @@
 
 
 }());
+
 
 (function(){
     
@@ -8199,6 +8309,10 @@
 
         arrangeShapes: function() {
             
+        },
+
+        toString: function() {
+            return 'Graph.layout.Layout';
         }
         
     });
@@ -8222,9 +8336,9 @@
         },
 
         cached: {
+            path: null,
             command: null,
             segments: null,
-            pathinfo: null,
             bendpoints: null,
             bending: null,
             connect: null
@@ -8241,9 +8355,9 @@
         },
 
         invalidate: function() {
+            this.cached.path = null;
             this.cached.command = null;
             this.cached.segments = null;
-            this.cached.pathinfo = null;
             this.cached.bendpoints = null;
         },
 
@@ -8282,7 +8396,7 @@
         },
         
         center: function() {
-            var path = this.pathinfo(),
+            var path = this.path(),
                 center = path.pointAt(path.length() / 2, true);
             path = null;
             return center;
@@ -8353,11 +8467,11 @@
             return points;
         },
         
-        pathinfo: function() {
-            var path = this.cached.pathinfo;
+        path: function() {
+            var path = this.cached.path;
             if ( ! path) {
                 path = Graph.path(this.command());
-                this.cached.pathinfo = path;
+                this.cached.path = path;
             }
             return path;
         },
@@ -8371,12 +8485,6 @@
         commit: function() {
             // reset cache;
             this.invalidate();
-
-            // update cache;
-            // this.segments();
-            // this.command();
-            // this.pathinfo();
-            // this.bendpoints();
 
             return this;
         },
@@ -8435,10 +8543,6 @@
     });
     
     ///////// STATICS /////////
-    
-    Router.toString = function() {
-        return 'function(domain, source, target, options)';
-    };
     
     Router.portCentering = function(port, center, axis) {
         if (axis == 'x') {
@@ -8588,7 +8692,7 @@
             var points = this.cached.bendpoints;
 
             if ( ! points) {
-                var segments = this.pathinfo().curve().segments;
+                var segments = this.path().curve().segments;
                 var segment, curve, length, point, x, y;
 
                 points = [];
@@ -8644,24 +8748,24 @@
         
         route: function(start, end) {
             var source = this.source(),
-                srcnet = source.connectable(),
-                srcbox = srcnet.bbox(),
-                sbound = srcbox.toJson(),
+                sourceNetwork = source.connectable(),
+                sourceBBox = source.bboxView(),
+                sourceBox = sourceBBox.toJson(),
                 target = this.target(),
-                tarnet = target.connectable(),
-                tarbox = tarnet.bbox(),
-                tbound = tarbox.toJson(),
-                orient = srcnet.orientation(tarnet),
-                direct = srcnet.direction(tarnet),
+                targetNetwork = target.connectable(),
+                targetBBox = target.bboxView(),
+                targetBox = targetBBox.toJson(),
+                orient = sourceNetwork.orientation(targetNetwork),
+                direct = sourceNetwork.direction(targetNetwork),
                 tuneup = false,
                 routes = [];
             
             if ( ! start) {
-                start = srcbox.center(true);
+                start = sourceBBox.center(true);
             }
             
             if ( ! end) {
-                end = tarbox.center(true);
+                end = targetBBox.center(true);
             }
             
             var sdot, edot;
@@ -8673,12 +8777,12 @@
                         case 'right':
                         case 'bottom-right':
                             sdot = { 
-                                x: sbound.x, 
+                                x: sourceBox.x, 
                                 y: start.y 
                             };
                             
                             edot = { 
-                                x: tbound.x + tbound.width, 
+                                x: targetBox.x + targetBox.width, 
                                 y: end.y 
                             };
 
@@ -8687,12 +8791,12 @@
                         case 'left':
                         case 'bottom-left':
                             sdot = { 
-                                x: sbound.x + sbound.width, 
+                                x: sourceBox.x + sourceBox.width, 
                                 y: start.y 
                             };
 
                             edot = { 
-                                x: tbound.x, 
+                                x: targetBox.x, 
                                 y: end.y 
                             };
 
@@ -8708,12 +8812,12 @@
                         case 'top-right':
                             sdot = {
                                 x: start.x, 
-                                y: sbound.y + sbound.height
+                                y: sourceBox.y + sourceBox.height
                             };
 
                             edot = { 
                                 x: end.x, 
-                                y: tbound.y
+                                y: targetBox.y
                             };
                             break;
                         case 'bottom-left':
@@ -8721,12 +8825,12 @@
                         case 'bottom-right':
                             sdot = { 
                                 x: start.x, 
-                                y: sbound.y
+                                y: sourceBox.y
                             };
 
                             edot = { 
                                 x: end.x, 
-                                y: tbound.y + tbound.height
+                                y: targetBox.y + targetBox.height
                             };
                             break;
                     }
@@ -8743,13 +8847,13 @@
             var cable = Graph.path(Graph.util.points2path(routes));
             var inter;
             
-            inter = srcnet.pathinfo().intersection(cable, true);
+            inter = source.shapeView().intersection(cable, true);
             
             if (inter.length) {
                 routes[0] = inter[0];
             }
             
-            inter = tarnet.pathinfo().intersection(cable, true);
+            inter = target.shapeView().intersection(cable, true);
             
             if (inter.length) {
                 routes[1] = inter[inter.length - 1];
@@ -8767,11 +8871,9 @@
         
         repair: function(component, port) {
             var source = this.source(),
-                srcnet = source.connectable(),
-                srcbox = srcnet.bbox(),
+                sourceBBox = source.bboxView(),
                 target = this.target(),
-                tarnet = target.connectable(),
-                tarbox = tarnet.bbox(),
+                targetBBox = target.bboxView(),
                 routes = this.values.waypoints,
                 maxlen = routes.length - 1;
             
@@ -8783,13 +8885,13 @@
             
             var closest;
             
-            closest = Router.getClosestIntersect(routes, srcnet.pathinfo(), tarbox.center(true));
+            closest = Router.getClosestIntersect(routes, source.shapeView(), targetBBox.center(true));
             
             if (closest) {
                 routes[0] = closest;
             }
             
-            closest = Router.getClosestIntersect(routes, tarnet.pathinfo(), srcbox.center(true));
+            closest = Router.getClosestIntersect(routes, target.shapeView(), sourceBBox.center(true));
             
             if (closest) {
                 routes[maxlen] = closest;
@@ -8802,10 +8904,8 @@
         initTrans: function(context) {
             var source = this.source(),
                 target = this.target(),
-                srcnet = source.connectable(),
-                tarnet = target.connectable(),
-                sourcePath = srcnet.pathinfo(),
-                targetPath = tarnet.pathinfo(),
+                sourcePath = source.shapeView(),
+                targetPath = target.shapeView(),
                 waypoints = this.waypoints(),
                 rangeStart = context.range.start,
                 rangeEnd = context.range.end,
@@ -8868,18 +8968,18 @@
                 
                 if (oldSource && connect.source) {
                     if (oldSource.guid() != connect.source.guid()) {
-                        connect.sourcePath = connect.source.connectable().pathinfo();
+                        connect.sourcePath = connect.source.shapeView();
                     }
                 } else if ( ! oldSource && connect.source) {
-                    connect.sourcePath = connect.source.connectable().pathinfo();
+                    connect.sourcePath = connect.source.shapeView();
                 }
                 
                 if (oldTarget && connect.target) {
                     if (oldTarget.guid() != connect.target.guid()) {
-                        connect.targetPath = connect.target.connectable().pathinfo();
+                        connect.targetPath = connect.target.shapeView();
                     }
                 } else if ( ! oldTarget && connect.target) {
-                    connect.targetPath = connect.target.connectable().pathinfo();
+                    connect.targetPath = connect.target.shapeView();
                 }
                 
             }
@@ -9048,10 +9148,6 @@
     });
 
     ///////// STATICS /////////
-    
-    Graph.router.Directed.toString = function() {
-        return 'function(domain, source, target, options)';
-    };
 
 }());
 
@@ -9060,56 +9156,56 @@
     var Router = Graph.router.Router;
 
     Graph.router.Orthogonal = Graph.extend(Router, {
-        
+
         bendpoints: function() {
             var points = this.cached.bendpoints;
 
             if ( ! points) {
-                var segments = this.pathinfo().curve().segments,
+                var segments = this.path().curve().segments,
                     maxlen = segments.length - 1;
-                    
+
                 var segment, curve, length, point, x, y;
 
                 points = [];
-                
+
                 for (var i = 0, ii = segments.length; i < ii; i++) {
                     segment = segments[i];
-                    
+
                     if (i === 0) {
-                        
+
                         x = segment[1];
                         y = segment[2];
-                        
+
                         curve = Graph.curve([['M', x, y], ['C', x, y, x, y, x, y]]);
                         point = curve.pointAt(curve.t(0), true);
-                        
+
                         point.index = i;
                         point.range = [i, i + 1];
                         point.space = 0;
-                        
+
                         points.push(point);
                     } else {
-                        
+
                         curve = Graph.curve([['M', x, y], segment]);
-                        
+
                         x = segment[5];
                         y = segment[6];
-                        
+
                         length = curve.length();
-                        
+
                         point = curve.pointAt(curve.t(length / 2), true);
                         point.index = i;
                         point.range = [i - 1, i];
                         point.space = 0;
-                        
+
                         points.push(point);
-                        
+
                         if (i === maxlen) {
                             point = curve.pointAt(curve.t(length), true);
                             point.index = i;
                             point.range = [i - 1, i];
                             point.space = 0;
-                            
+
                             points.push(point);
                         }
                     }
@@ -9120,59 +9216,59 @@
 
             return points;
         },
-        
+
         route: function(start, end) {
 
             var source = this.source(),
                 target = this.target(),
-                srcnet = source.connectable(),
-                tarnet = target.connectable(),
-                srcbox = srcnet.bbox(),
-                sbound = srcbox.toJson(),
-                tarbox = tarnet.bbox(),
-                tbound = tarbox.toJson(),
-                orient = srcnet.orientation(tarnet),
-                direct = srcnet.direction(tarnet),
+                sourceNetwork = source.connectable(),
+                targetNetwork = target.connectable(),
+                sourceBBox = source.bboxView(),
+                sourceBox = sourceBBox.toJson(),
+                targetBBox = target.bboxView(),
+                targetBox = targetBBox.toJson(),
+                orient = sourceNetwork.orientation(targetNetwork),
+                direct = sourceNetwork.direction(targetNetwork),
                 tuneup  = false;
-            
+
             if ( ! start) {
-                start = srcbox.center(true);
+                start = sourceBBox.center(true);
             }
 
             if ( ! end) {
-                end = tarbox.center(true);
+                end = targetBBox.center(true);
             }
 
             var sdot, edot;
-            
+
             if (direct) {
                 if (direct == 'h:h') {
                     switch (orient) {
                         case 'top-right':
                         case 'right':
                         case 'bottom-right':
-                            sdot = { 
-                                x: sbound.x + 1, 
-                                y: start.y 
+                            sdot = {
+                                x: sourceBox.x + 1,
+                                y: start.y
                             };
-                            
-                            edot = { 
-                                x: tbound.x + tbound.width - 1, 
-                                y: end.y 
+
+                            edot = {
+                                x: targetBox.x + targetBox.width - 1,
+                                y: end.y
                             };
 
                             break;
                         case 'top-left':
                         case 'left':
                         case 'bottom-left':
-                            sdot = { 
-                                x: sbound.x + sbound.width - 1, 
-                                y: start.y 
+                            sdot = {
+                                x: sourceBox.x + sourceBox.width - 1,
+                                y: start.y
                             };
 
-                            edot = { 
-                                x: tbound.x + 1, 
-                                y: end.y 
+                            edot = {
+                                x: targetBox.x + 1,
+                                y: end.y
                             };
 
                             break;
@@ -9186,127 +9282,125 @@
                         case 'top':
                         case 'top-right':
                             sdot = {
-                                x: start.x, 
-                                y: sbound.y + sbound.height - 1 
+                                x: start.x,
+                                y: sourceBox.y + sourceBox.height - 1
                             };
 
-                            edot = { 
-                                x: end.x, 
-                                y: tbound.y + 1
+                            edot = {
+                                x: end.x,
+                                y: targetBox.y + 1
                             };
                             break;
                         case 'bottom-left':
                         case 'bottom':
                         case 'bottom-right':
-                            sdot = { 
-                                x: start.x, 
-                                y: sbound.y + 1
+                            sdot = {
+                                x: start.x,
+                                y: sourceBox.y + 1
                             };
 
-                            edot = { 
-                                x: end.x, 
-                                y: tbound.y + tbound.height - 1
+                            edot = {
+                                x: end.x,
+                                y: targetBox.y + targetBox.height - 1
                             };
                             break;
                     }
                     tuneup = true;
                 }
-                
+
             }
-            
+
             var routes, bends, shape, cable, inter;
-            
+
             if (tuneup) {
-                
-                shape = srcnet.pathinfo();
+
+                shape = source.shapeView();
                 cable = Graph.path(Graph.util.points2path([sdot, edot]));
                 inter = shape.intersection(cable, true);
-                
+
                 if (inter.length) {
                     inter = inter[0];
                     if ( ! Graph.util.isPointEquals(inter, sdot)) {
                         sdot = inter;
                     }
                 }
-                
-                shape = tarnet.pathinfo();
+
+                shape = target.shapeView();
                 inter = shape.intersection(cable, true);
-                
+
                 if (inter.length) {
                     inter = inter[inter.length - 1];
                     if ( ! Graph.util.isPointEquals(inter, edot)) {
                         edot = inter;
                     }
                 }
-                
+
                 bends  = Graph.util.lineBendpoints(sdot, edot, direct);
                 routes = [sdot].concat(bends).concat([edot]);
-                
+
                 this.values.waypoints = Router.tidyRoutes(routes);
             } else {
-                
+
                 sdot = start;
                 edot = end;
-                
+
                 // get bending point from center
                 bends = Graph.util.lineBendpoints(sdot, edot, direct);
                 cable = Graph.path(Graph.util.points2path([sdot].concat(bends).concat([edot])));
-                shape = srcnet.pathinfo();
-                
+                shape = source.shapeView();
+
                 // get source inter
                 inter = shape.intersection(cable, true);
-                
+
                 if (inter.length) {
                     sdot = inter[0];
                 }
-                
-                shape = tarnet.pathinfo();
+
+                shape = target.shapeView();
                 inter = shape.intersection(cable, true);
-                
+
                 if (inter.length) {
                     edot = inter[inter.length - 1];
                 }
-                
+
                 routes = [sdot].concat(bends).concat([edot]);
                 this.values.waypoints = Router.tidyRoutes(routes);
             }
-            
+
             this.commit();
-            
+
             this.fire('route', { command: this.command() });
-            
+
             return this;
         },
-        
+
         repair: function(component, port) {
             var routes = this.values.waypoints.slice();
-            
+
             if ( ! Router.isRepairable(routes)) {
                 return this.route();
             }
-            
+
             var target = this.target(),
-                tarnet = target.connectable(),
-                tarbox = tarnet.bbox(),
+                targetBBox = target.bboxView(),
                 source = this.source(),
-                srcnet = source.connectable(),
-                srcbox = srcnet.bbox();
-                
+                sourceBBox = source.bboxView();
+
             var bound1, bound2, center, points, axis, repaired;
-            
+
             if (component === source) {
-                bound1 = srcbox.toJson();
-                bound2 = tarbox.toJson();
-                center = srcbox.center(true);
+                bound1 = sourceBBox.toJson();
+                bound2 = targetBBox.toJson();
+                center = sourceBBox.center(true);
                 points = routes;
             } else {
-                bound1 = tarbox.toJson();
-                bound2 = srcbox.toJson();
-                center = tarbox.center(true);
+                bound1 = targetBBox.toJson();
+                bound2 = sourceBBox.toJson();
+                center = targetBBox.center(true);
                 points = routes.slice();
                 points.reverse();
             }
-            
+
             axis = Graph.util.pointAlign(points[0], points[1]) == 'h' ? 'x' : 'y';
             Router.portCentering(port, center, axis);
 
@@ -9316,7 +9410,7 @@
                 port,
                 points
             );
-            
+
             var cropped, closest, rangeStart, rangeEnd;
 
             if (repaired) {
@@ -9324,9 +9418,9 @@
                 if (component === target) {
                     repaired.reverse();
                 }
-                
+
                 cropped = repaired.slice();
-                closest = Router.getClosestIntersect(repaired, srcnet.pathinfo(), tarbox.center(true));
+                closest = Router.getClosestIntersect(repaired, source.shapeView(), targetBBox.center(true));
 
                 if (closest) {
                     rangeStart = Router.getSegmentIndex(repaired, closest);
@@ -9334,7 +9428,7 @@
                     cropped.unshift(closest);
                 }
 
-                closest = Router.getClosestIntersect(cropped, tarnet.pathinfo(), srcbox.center(true));
+                closest = Router.getClosestIntersect(cropped, target.shapeView(), sourceBBox.center(true));
 
                 if (closest) {
                     rangeEnd = Router.getSegmentIndex(cropped, closest);
@@ -9360,73 +9454,71 @@
                 return this.route();
             }
         },
-        
+
         initTrans: function(context) {
             var waypoints = this.waypoints(),
                 source = this.source(),
                 target = this.target(),
                 rangeStart = context.ranges.start,
                 rangeEnd = context.ranges.end,
-                srcnet = source.connectable(),
-                tarnet = target.connectable(),
-                sourceBox = srcnet.bbox(),
-                targetBox = tarnet.bbox(),
+                sourceBBox = source.bboxView(),
+                targetBBox = target.bboxView(),
                 segmentStart = waypoints[rangeStart],
                 segmentEnd = waypoints[rangeEnd];
-                
+
             var snaps = [];
-            
+
             if (context.trans == 'BENDING') {
                 // force start & end to center
                 if (rangeStart === 0) {
-                    Router.portCentering(segmentStart, sourceBox.center(true), context.axis);
+                    Router.portCentering(segmentStart, sourceBBox.center(true), context.axis);
                 }
-                
+
                 if (rangeEnd === waypoints.length - 1) {
-                    Router.portCentering(segmentEnd, targetBox.center(true), context.axis);
+                    Router.portCentering(segmentEnd, targetBBox.center(true), context.axis);
                 }
-                
+
                 snaps = [
                     waypoints[rangeStart - 1],
                     segmentStart,
                     segmentEnd,
                     waypoints[rangeEnd + 1]
                 ];
-                
+
                 if (rangeStart < 2) {
-                    snaps.unshift(sourceBox.center(true));
+                    snaps.unshift(sourceBBox.center(true));
                 }
-                
+
                 if (rangeEnd > waypoints.length - 3) {
-                    snaps.unshift(targetBox.center(true));
+                    snaps.unshift(targetBBox.center(true));
                 }
             }
-            
+
             var offset = this.layout().offset(),
                 snapH = [],
                 snapV = [];
-            
+
             context.snap.hor = [];
             context.snap.ver = [];
-            
+
             _.forEach(snaps, function(p){
                 if (p) {
-                    
+
                     if (context.axis == 'y') {
                         snapH.push(p.y);
                         context.snap.hor.push(p.y + offset.top);
                     }
-                    
+
                     if (context.axis == 'x') {
                         snapV.push(p.x);
                         context.snap.ver.push(p.x + offset.left);
                     }
                 }
             });
-            
+
             this.cached.connect = null;
             this.cached.bending = null;
-            
+
             if (context.trans == 'BENDING') {
                 this.cached.bending = {
                     source: source,
@@ -9436,48 +9528,48 @@
                     rangeEnd: rangeEnd,
                     segmentStart: segmentStart,
                     segmentEnd: segmentEnd,
-                    sourceBound: sourceBox.toJson(),
-                    targetBound: targetBox.toJson(),
-                    sourcePath: srcnet.pathinfo(),
-                    targetPath: tarnet.pathinfo(),
+                    sourceBound: sourceBBox.toJson(),
+                    targetBound: targetBBox.toJson(),
+                    sourcePath: source.shapeView(),
+                    targetPath: target.shapeView(),
                     snapH: snapH,
                     snapV: snapV
                 };
             } else {
                 var original = waypoints.slice(),
                     segmentAlign = Graph.util.pointAlign(segmentStart, segmentEnd, 10);
-                
+
                 if (original.length === 2) {
                     var q1, q2;
-                    
+
                     q1 = {
                         x: (segmentStart.x + segmentEnd.x) / 2,
                         y: (segmentStart.y + segmentEnd.y) / 2
                     };
-                    
+
                     q2 = {
                         x: q1.x,
                         y: q1.y
                     };
-                    
+
                     original.splice(1, 0, q1, q2);
-                    
+
                     if (context.index !== 0) {
                         rangeStart += 2;
                         rangeEnd   += 2;
-                        
+
                         segmentStart = original[rangeStart];
                         segmentEnd   = original[rangeEnd];
-                        
+
                         context.index += 2;
-                        
+
                         context.point = _.extend({}, segmentEnd);
                         context.event = _.extend({}, segmentEnd);
                     } else {
                         segmentEnd = original[rangeEnd];
                     }
                 }
-                
+
                 this.cached.connect = {
                     valid: false,
                     source: null,
@@ -9493,98 +9585,98 @@
                 };
             }
         },
-        
+
         updateTrans: function(trans, data) {
             if (trans == 'CONNECT') {
                 var connect = this.cached.connect,
                     oldSource = connect.source,
                     oldTarget = connect.target;
-                    
+
                 _.assign(connect, data);
-                
+
                 if (oldSource && connect.source) {
                     if (oldSource.guid() != connect.source.guid()) {
-                        connect.sourcePath = connect.source.connectable().pathinfo();
+                        connect.sourcePath = connect.source.shapeView();
                     }
                 } else if ( ! oldSource && connect.source) {
-                    connect.sourcePath = connect.source.connectable().pathinfo();
+                    connect.sourcePath = connect.source.shapeView();
                 }
-                
+
                 if (oldTarget && connect.target) {
                     if (oldTarget.guid() != connect.target.guid()) {
-                        connect.targetPath = connect.target.connectable().pathinfo();
+                        connect.targetPath = connect.target.shapeView();
                     }
                 } else if ( ! oldTarget && connect.target) {
-                    connect.targetPath = connect.target.connectable().pathinfo();
+                    connect.targetPath = connect.target.shapeView();
                 }
-                
+
             }
         },
-        
+
         /**
          * Segment bending
          */
         bending: function(trans, callback) {
-            
+
             var bending = this.cached.bending,
                 routes = bending.original.slice(),
                 segmentStart = bending.segmentStart,
                 segmentEnd = bending.segmentEnd,
                 rangeStart = bending.rangeStart,
                 rangeEnd = bending.rangeEnd;
-            
+
             var newStart, newEnd;
-            
+
             newStart = {
                 x: segmentStart.x + trans.delta.x,
                 y: segmentStart.y + trans.delta.y
             };
-            
+
             newEnd = {
                 x: segmentEnd.x + trans.delta.x,
                 y: segmentEnd.y + trans.delta.y
             };
-            
+
             // snapping //
-            
+
             if (trans.axis == 'x') {
                 trans.event.x = (newStart.x + newEnd.x) / 2;
             }
-            
+
             if (trans.axis == 'y') {
                 trans.event.y = (newStart.y + newEnd.y) / 2;
             }
-            
+
             var sx = Graph.util.snapValue(trans.event.x, bending.snapV),
                 sy = Graph.util.snapValue(trans.event.y, bending.snapH);
-                
+
             trans.event.x = sx;
             trans.event.y = sy;
-            
+
             if (trans.axis == 'x') {
                 newStart.x = sx;
                 newEnd.x = sx;
             }
-            
+
             if (trans.axis == 'y') {
                 newStart.y = sy;
                 newEnd.y = sy;
             }
-            
+
             routes[rangeStart] = newStart;
             routes[rangeEnd]   = newEnd;
-            
+
             var dotlen = routes.length,
                 offset = 0;
-                
+
             var sourceOrient, targetOrient;
-            
+
             if (rangeStart < 2) {
                 sourceOrient = Graph.util.boxOrientation(
                     bending.sourceBound,
                     Graph.util.pointbox(newStart)
                 );
-                
+
                 if (rangeStart === 1) {
                     if (sourceOrient == 'intersect') {
                         routes.shift();
@@ -9598,9 +9690,9 @@
                     }
                 }
             }
-            
+
             if (rangeEnd > dotlen - 3) {
-                
+
                 targetOrient = Graph.util.boxOrientation(
                     bending.targetBound,
                     Graph.util.pointbox(newEnd)
@@ -9617,29 +9709,29 @@
                     }
                 }
             }
-            
-            
+
+
             bending.routes = routes;
-            bending.newRangeStart = rangeStart + offset;  
-            
+            bending.newRangeStart = rangeStart + offset;
+
             this.cropBending(callback);
         },
-        
+
         cropBending: _.debounce(function(callback) {
-            
+
             var bending = this.cached.bending,
                 routes  = bending.routes,
                 srcport = Router.porting(routes, bending.sourcePath, true),
                 tarport = Router.porting(routes, bending.targetPath),
                 cropped = routes.slice(srcport.index + 1, tarport.index);
-            
+
             var command;
-            
+
             cropped.unshift(srcport.port);
             cropped.push(tarport.port);
-            
+
             bending.waypoints = cropped;
-            
+
             if (callback) {
                 command = Graph.util.points2path(cropped);
                 callback({
@@ -9647,7 +9739,7 @@
                 });
             }
         }, 0),
-        
+
         connecting: function(context, callback) {
             var connect = this.cached.connect,
                 routes = connect.original.slice(),
@@ -9656,22 +9748,22 @@
                 segmentEnd = connect.segmentEnd,
                 rangeStart = connect.rangeStart,
                 rangeEnd = connect.rangeEnd;
-                
+
             var point, command;
-            
+
             point = {
                 x: context.point.x + context.delta.x,
                 y: context.point.y + context.delta.y
             };
-            
+
             var newStart, newEnd;
-            
+
             if (context.index === 0) {
                 newStart = {
                     x: context.point.x + context.delta.x,
                     y: context.point.y + context.delta.y
                 };
-                
+
                 if (segmentAlign == 'v') {
                     newEnd = {
                         x: segmentEnd.x,
@@ -9688,7 +9780,7 @@
                     x: context.point.x + context.delta.x,
                     y: context.point.y + context.delta.y
                 };
-                
+
                 if (segmentAlign == 'h') {
                     newStart = {
                         x: newEnd.x,
@@ -9701,25 +9793,25 @@
                     };
                 }
             }
-            
+
             routes[rangeStart] = newStart;
             routes[rangeEnd]   = newEnd;
-            
+
             context.event.x = point.x;
             context.event.y = point.y;
-            
+
             connect.routes  = routes;
-            
+
             this.cropConnect(context, callback);
         },
-        
+
         cropConnect: _.debounce(function(context, callback) {
             var connect = this.cached.connect,
                 routes = connect.routes;
-            
+
             if (connect.valid) {
                 var command, shape, cable, inter, align;
-            
+
                 if (context.index === 0) {
                     if (connect.source) {
                         shape = connect.sourcePath;
@@ -9729,17 +9821,17 @@
                         shape = connect.targetPath;
                     }
                 }
-        
+
                 if (shape) {
                     cable = Graph.path(Graph.util.points2path(routes));
                     inter = shape.intersection(cable, true);
-                    
+
                     if (inter.length) {
                         routes[context.index] = inter[0];
                     }
                 }
             }
-            
+
             connect.waypoints = routes;
 
             if (callback) {
@@ -9747,20 +9839,20 @@
                 callback({command: command});
             }
         }, 0),
-        
+
         stopTrans: function (context) {
             var connect, bending, points, changed, concised;
-            
+
             if (context.trans == 'CONNECT') {
                 connect = this.cached.connect;
                 points = connect.waypoints;
-                
+
                 if (this.cached.connect.valid) {
                     changed = true;
-                    
+
                     this.source(connect.source);
                     this.target(connect.target);
-                    
+
                     this.fire('reroute', {
                         source: connect.source,
                         target: connect.target
@@ -9774,16 +9866,16 @@
                 points = bending.waypoints;
                 changed = true;
             }
-            
+
             if (changed) {
                 this.values.waypoints = Router.tidyRoutes(points);
             } else {
                 this.values.waypoints = points;
             }
-            
+
             this.commit();
         },
-        
+
         toString: function() {
             return 'Graph.router.Orthogonal';
         }
@@ -9791,17 +9883,14 @@
     });
 
     ///////// STATICS /////////
-    
-    Graph.router.Orthogonal.toString = function() {
-        return 'function(domain, source, target, options)';
-    };
 
 }());
+
 
 (function(){
 
     var Link = Graph.link.Link = Graph.extend({
-        
+
         props: {
             id: null,
             guid: null,
@@ -9829,14 +9918,14 @@
             controls: null,
             convex: null
         },
-        
+
         handlers: {
             source: null,
             target: null
         },
-        
+
         router: null,
-        
+
         metadata: {
             icon: Graph.icons.SHAPE_LINK
         },
@@ -9853,13 +9942,13 @@
 
             this.initComponent();
             this.initMetadata();
-            
+
             this.bindResource('source', router.source());
             this.bindResource('target', router.target());
 
             this.router.on('route', _.bind(this.onRouterRoute, this));
             this.router.on('reroute', _.bind(this.onRouterReroute, this));
-            
+
             Graph.registry.link.register(this);
         },
 
@@ -9870,7 +9959,7 @@
             block = (new Graph.svg.Group())
                 .addClass('graph-link')
                 .selectable(false);
-                
+
             block.elem.data(Graph.string.ID_LINK, this.props.guid);
 
             coat = (new Graph.svg.Path())
@@ -9885,7 +9974,7 @@
                 manual: true,
                 batchSync: false
             });
-            
+
             coat.editable({
                 width: 150,
                 height: 80,
@@ -9914,27 +10003,27 @@
                 .addClass('graph-link-label')
                 .selectable(false)
                 .render(block);
-            
+
             label.draggable({ghost: true});
-            
+
             label.on('render.link', _.bind(this.onLabelRender, this));
             label.on('dragend.link', _.bind(this.onLabelDragend, this));
 
             // enable label doubletap
             var labelVendor = label.interactable().vendor();
             labelVendor.on('doubletap', _.bind(this.onLabelDoubletap, this));
-                
+
             editor = (new Graph.svg.Group())
                 .selectable(false)
                 .render(block);
-                
+
             comp.block = block.guid();
             comp.coat = coat.guid();
             comp.path = path.guid();
             comp.label = label.guid();
             comp.editor = editor.guid();
         },
-        
+
         initMetadata: function() {
             this.metadata.tools = [
                 {
@@ -9952,19 +10041,19 @@
                     handler: _.bind(this.onBackToolClick, this)
                 },
                 {
-                    name: 'trash', 
-                    icon: Graph.icons.TRASH, 
-                    title: Graph._('Click to remove link'), 
+                    name: 'trash',
+                    icon: Graph.icons.TRASH,
+                    title: Graph._('Click to remove link'),
                     enabled: true,
                     handler: _.bind(this.onTrashToolClick, this)
                 }
             ];
         },
-        
+
         unbindResource: function(type) {
             var existing = this.props[type],
                 handlers = this.handlers[type];
-            
+
             if (existing && handlers) {
                 existing = Graph.registry.vector.get(existing);
                 if (existing) {
@@ -9976,20 +10065,20 @@
                     }
                 }
             }
-            
+
             handlers = null;
-            
+
             return this;
         },
-        
+
         bindResource: function(type, resource) {
             var router = this.router,
                 handlers = this.handlers[type];
-            
+
             this.unbindResource(type, resource);
-            
+
             handlers = {};
-    
+
             handlers.resize    = _.bind(getHandler(this, type, 'resize'), this);
             handlers.rotate    = _.bind(getHandler(this, type, 'rotate'), this);
             handlers.dragstart = _.bind(getHandler(this, type, 'dragstart'), this, _, resource);
@@ -9998,10 +10087,10 @@
 
             this.handlers[type] = handlers;
             this.props[type] = resource.guid();
-            
+
             resource.on('resize.link', handlers.resize);
             resource.on('rotate.link', handlers.rotate);
-            
+
             // VERY EXPENSIVE!!!
             if (resource.isDraggable()) {
                 resource.on('dragstart.link', handlers.dragstart);
@@ -10022,11 +10111,11 @@
         bindTarget: function(target) {
             return this.bindResource('target', target);
         },
-        
+
         unbindSource: function(source) {
             return this.unbindResource('source');
         },
-        
+
         unbindTarget: function(target) {
             return this.unbindResource('target');
         },
@@ -10037,7 +10126,7 @@
             }
             return Graph.registry.vector.get(this.components[name]);
         },
-        
+
         invalidate: function() {
             this.cached.bendpoints = null;
         },
@@ -10066,7 +10155,7 @@
             if (this.props.connected) {
                 return;
             }
-            
+
             this.router.route();
 
             var source = this.router.source(),
@@ -10083,31 +10172,31 @@
             if ( ! this.props.connected) {
                 return;
             }
-            
+
             // unbind resource
             // this.unbindResource('source');
             // sthis.unbindResource('target');
-            
+
             this.props.connected = false;
             this.router.reset();
             this.update(this.router.command());
         },
-        
+
         update: function(command, silent) {
-            
+
             silent = _.defaultTo(silent, false);
-            
+
             this.component('coat').attr('d', command).dirty(true);
             this.component('path').attr('d', command);
             this.invalidate();
-            
+
             if ( ! silent) {
                 this.redraw();
                 this.fire('update');
                 Graph.topic.publish('link/update');
             }
         },
-        
+
         refresh: function(silent) {
             var command = this.router.command();
             this.update(command, silent);
@@ -10116,69 +10205,69 @@
         updateConvex: function(convex) {
             this.cached.convex = convex;
         },
-        
+
         removeConvex: function() {
             this.cached.convex = null;
         },
-        
+
         redraw: function() {
             // TODO: update label position
-            
+
             if (this.props.label) {
                 var label = this.component('label'),
                     bound = label.bbox().toJson(),
                     distance = this.props.labelDistance || .5,
                     scale = this.router.layout().scale(),
-                    path = this.router.pathinfo(),
+                    path = this.router.path(),
                     dots = path.pointAt(distance * path.length(), true),
                     align = Graph.util.pointAlign(dots.start, dots.end, 10);
-                
+
                 if (align == 'h') {
                     dots.x += ((10 + bound.width / 2) / scale.x);
                 } else {
                     dots.y -= ((10 + bound.height / 2) / scale.y);
                 }
-                
+
                 label.attr({
                     x: dots.x,
                     y: dots.y
                 });
-                
+
                 path = null;
                 dots = null;
 
                 label.dirty(true);
             }
-            
+
         },
-        
+
         label: function(text, x, y) {
             var path, distance, point, align;
-            
+
             if (text === undefined) {
                 return this.props.label;
             }
 
             this.props.label = text;
-            
+
             if (x !== undefined && y !== undefined) {
-                path = this.router.pathinfo();
+                path = this.router.path();
                 point = path.nearest({x: x, y: y});
                 distance = point.distance / path.length();
             } else if (_.isNull(this.props.labelDistance)) {
-                path = this.router.pathinfo();
+                path = this.router.path();
                 distance = 0.5;
                 point = path.pointAt(path.length() / 2, true);
             }
-            
+
             if (point) {
                 this.props.labelDistance = distance;
                 path = point = null;
             }
-            
+
             this.component('label').write(text);
             this.component('coat').data('text', text);
-            
+
             this.redraw();
             return this;
         },
@@ -10186,7 +10275,7 @@
         select: function(batch) {
             this.props.selected = true;
             this.component('block').addClass('selected');
-            
+
             if ( ! batch) {
                 //this.sendToFront();
                 this.resumeControl();
@@ -10201,14 +10290,14 @@
 
             if ( ! batch) {
                 this.suspendControl();
-                Graph.topic.publish('link/deselect', {link: this});    
+                Graph.topic.publish('link/deselect', {link: this});
             }
         },
-        
+
         renderControl: function() {
             // TODO: render bends control
         },
-        
+
         resumeControl: function() {
             var me = this, editor = me.component('editor');
 
@@ -10219,7 +10308,7 @@
 
             editor.elem.appendTo(this.component('block').elem);
         },
-        
+
         suspendControl: function() {
             this.component('editor').elem.detach();
         },
@@ -10232,17 +10321,17 @@
         remove: function() {
             var me = this;
             var prop;
-            
+
             // disconnect first
             this.disconnect();
-            
+
             // remove from source & target
             var source = this.router.source(),
                 target = this.router.target();
-            
+
             source.connectable().removeLink(this);
             target.connectable().removeLink(this);
-            
+
             // remove label
             me.component('label').remove();
 
@@ -10263,7 +10352,7 @@
 
             // remove block
             me.component('block').remove();
-            
+
             for (prop in me.components) {
                 me.components[prop] = null;
             }
@@ -10282,7 +10371,7 @@
 
             // unregister
             Graph.registry.link.unregister(me);
-            
+
             // publish
             Graph.topic.publish('link/remove');
         },
@@ -10292,12 +10381,12 @@
         },
 
         ///////// OBSERVERS /////////
-        
+
         onRouterRoute: function(e) {
             var command = e.command;
             this.update(command);
         },
-        
+
         onRouterReroute: function(e) {
             var source = e.source,
                 target = e.target;
@@ -10306,13 +10395,13 @@
             this.bindResource('target', target);
             this.sendToFront();
         },
-        
+
         onLabelRender: function(e) {
             if (this.props.label) {
                 this.label(this.props.label);
             }
         },
-        
+
         onLabelDragend: function(e) {
             var label = this.component('label'),
                 matrix = label.matrix(),
@@ -10322,20 +10411,20 @@
                     x: matrix.x(x, y),
                     y: matrix.y(x, y)
                 }
-            
+
             label.attr({
                 x: p.x,
                 y: p.y
             });
-            
+
             // update label distance
-            var path = this.router.pathinfo(),
+            var path = this.router.path(),
                 near = path.nearest(p);
-            
+
             this.props.labelDistance = near.distance / path.length();
-            
+
             label.reset();
-            
+
             matrix = path = null;
         },
 
@@ -10386,14 +10475,14 @@
         },
 
         ///////// OBSERVERS /////////
-        
+
         onSourceRotate: function() {
-    
+
         },
 
         onSourceDragstart: function(e, source) {
             var lasso = this.component('coat').lasso;
-            
+
             if ( ! source.lasso) {
                 if (lasso) {
                     lasso.decollect(this.component('coat'));
@@ -10425,13 +10514,13 @@
             if (port) {
                 port.x += e.translate.dx;
                 port.y += e.translate.dy;
-            
+
                 this.router.repair(this.router.source(), port);
             }
         },
 
         onTargetRotate: function() {
-            
+
         },
 
         onTargetDragstart: function(e, target) {
@@ -10458,7 +10547,7 @@
                 if (port) {
                     port.x += e.dx;
                     port.y += e.dy;
-                    
+
                     this.router.repair(this.router.target(), port);
                 }
             }
@@ -10469,11 +10558,11 @@
             if (port) {
                 port.x += e.translate.dx;
                 port.y += e.translate.dy;
-                
+
                 this.router.repair(this.router.target(), port);
             }
         },
-        
+
         onTrashToolClick: function(e) {
             this.component('coat').remove();
         },
@@ -10483,25 +10572,21 @@
         },
 
         onBackToolClick: function(e) {
-            
+
         },
 
         destroy: function() {
-            
+
         }
 
     });
 
     ///////// STATICS /////////
-    
+
     Link.guid = 0;
 
-    Link.toString = function() {
-        return 'function(router, options)';
-    };
-
     ///////// HELPERS /////////
-    
+
     function getHandler(scope, resource, handler) {
         var name = 'on' + _.capitalize(resource) + _.capitalize(handler),
             func = scope[name];
@@ -10510,6 +10595,7 @@
     }
 
 }());
+
 
 (function(){
     
@@ -10681,10 +10767,6 @@
     });
 
     ///////// STATICS /////////
-    
-    Graph.link.Directed.toString = function() {
-        return 'function(router, options)';
-    };
 
 }());
 
@@ -10990,10 +11072,6 @@
 
     ///////// STATICS /////////
     
-    Graph.link.Orthogonal.toString = function() {
-        return 'function(router, options)';
-    };
-    
 }());
 
 (function(){
@@ -11040,7 +11118,7 @@
     Sweeplink.prototype.constructor = Sweeplink;
 
     Sweeplink.prototype.extract = function(link) {
-        var segments = link.router.pathinfo().curve().segments, 
+        var segments = link.router.path().curve().segments, 
             dots = [];
 
         var x, y;
@@ -11283,116 +11361,27 @@
     Graph.plugin.Plugin = Graph.extend({
 
         props: {
-            context: null,
             vector: null,
             activator: 'tool'
         },
 
         cached: {
-            path: null,
-            bbox: null
+            
         },
 
         /**
-         * Update options
+         * Get/set options
          */
         options: function(options) {
-            options = options || {};
 
-            var context = _.defaultTo(options.context, this.vector()),
-                contextId = context.guid();
-
-            if (contextId != this.props.context) {
-                this.props.context = contextId;
-                this.cached.bbox = null;
-                this.cached.path = null;
-            }
         },
         
         vector: function() {
             return Graph.registry.vector.get(this.props.vector);
         },
 
-        context: function() {
-            if (this.props.context == this.props.vector) {
-                return this.vector();
-            }
-            return Graph.registry.vector.get(this.props.context);    
-        },
-        
         invalidate: function() {
-            this.cached.path = null;
-            this.cached.bbox = null;
-        },
-
-        bbox: function() {
-            var bbox = this.cached.bbox;
-
-            if ( ! bbox) {
-                // TODO: grab outer matrix based on current context
-                var vector = this.vector(),
-                    path = vector.pathinfo();
-
-                var matrix, contextId;
-
-                if (this.props.context == this.props.vector) {
-                    matrix = vector.matrix();
-                } else {
-                    matrix = Graph.matrix();
-                    contextId = this.props.context;
-
-                    vector.bubble(function(curr){
-                        if (curr.guid() == contextId) {
-                            return false;
-                        }
-                        matrix.multiply(curr.matrix());
-                    });
-                }
-
-                // TODO: transform path based on calculated matrix
-                path = path.transform(matrix);
-                
-                bbox = path.bbox();
-                this.cached.bbox = bbox;
-
-                matrix = path = null;
-            }
-
-            return bbox.clone();
-        },
-
-        pathinfo: function() {
-            var path = this.cached.path;
-
-            if ( ! path) {
-                // TODO: grab outer matrix based on current context
-                var vector = this.vector(),
-                    path = vector.pathinfo();
-
-                var matrix, contextId;
-
-                if (this.props.context == this.props.vector) {
-                    matrix = vector.matrix();
-                } else {
-                    matrix = Graph.matrix();
-                    contextId = this.props.context;
-
-                    vector.bubble(function(curr){
-                        if (curr.guid() == contextId) {
-                            return false;
-                        }
-                        matrix.multiply(curr.matrix());
-                    });
-                }
-
-                // TODO: transform path
-                path = path.transform(matrix);
-                this.cached.path = path;
-
-                matrix = null;
-            }
-
-            return path.clone();
+            
         },
 
         enable: function(activator) {},
@@ -11404,6 +11393,73 @@
     });
 
 }());
+
+(function(){
+
+    var Manager = Graph.plugin.Manager = function() {
+        this.installed = {};
+    };
+
+    Manager.prototype.get = function(plugin) {
+        var installed = this.installed[plugin];
+
+        return {
+
+            plugin: function() {
+                if (installed) {
+                    var target = Graph.registry.vector.get(installed.target);
+                    return target[installed.handler]();
+                }
+                return null;
+            },
+
+            component: function() {
+                if (installed) {
+                    return Graph.registry.vector.get(installed.target);
+                }
+                return null;
+            }
+        };
+    };
+
+    Manager.prototype.install = function(plugin, target, options) {
+        var handler = this.getPluginHandler(plugin);
+
+        if (handler) {
+            options = options || {};
+            target[handler](options);
+
+            this.installed[plugin] = {
+                handler: handler,
+                target: target.guid()
+            };
+        }
+    };
+
+    Manager.prototype.uninstall = function(plugin) {
+        var installed = this.installed[plugin];
+        if (installed) {
+            var target = Graph.registry.vector.get(installed.target);
+            target[handler]({destroy: true});
+            
+            delete this.installed[plugin];
+        }
+    };
+
+    Manager.prototype.getPluginHandler = function(plugin) {
+        var maps = {
+            'network': 'connectable',
+            'resizer': 'resizable',
+            'snapper': 'snappable',
+            'dragger': 'draggable',
+            'editor': 'editable'
+        };
+
+        return maps[plugin];
+    };
+
+}());
+
 
 (function(){
 
@@ -11706,7 +11762,7 @@
                     events.translate = true;
                 } else if (cmd == 'rotate') {
                     if (len == 1) {
-                        bb = bb || vector.bbox(true).toJson();
+                        bb = bb || vector.bboxPristine().toJson();
                         mat.rotate(arg[0], bb.x + bb.width / 2, bb.y + bb.height / 2);
                         deg += arg[0];
                     } else if (len == 3) {
@@ -11722,7 +11778,7 @@
                     events.rotate = true;
                 } else if (cmd == 'scale') {
                     if (len === 1 || len === 2) {
-                        bb = bb || vector.bbox(true).toJson();
+                        bb = bb || vector.bboxPristine().toJson();
                         mat.scale(arg[0], arg[len - 1], bb.x + bb.width / 2, bb.y + bb.height / 2);
                         sx *= arg[0];
                         sy *= arg[len - 1];
@@ -12535,13 +12591,14 @@
     Graph.plugin.Resizer = Graph.extend(Graph.plugin.Plugin, {
         
         props: {
-            context: null,
             vector: null,
             enabled: true,
             suspended: true,
             handleImage: Graph.config.base + 'img/resize-control.png',
             handleSize: 17,
-            rendered: false
+            rendered: false,
+            minWidth: null,
+            minHeight: null
         },
 
         components: {
@@ -12572,12 +12629,6 @@
             var me = this, guid = vector.guid();
             
             options = options || {};
-
-            if (options.context) {
-                options.context = options.context.guid();
-            } else {
-                options.context = guid;
-            }
 
             _.assign(me.props, options);
 
@@ -12688,10 +12739,9 @@
                 me.redraw();
                 return;
             }
-            
+
             me.holder().render(me.vector().parent());
             me.props.rendered = true;
-
             me.redraw();
         },
 
@@ -12706,9 +12756,9 @@
 
             if ( ! vertices) {
                 // get original bounding
-                var path = vector.pathinfo(),
+                var path = vector.shape(),
                     bbox = path.bbox().toJson(),
-                    rotate = vector.globalMatrix().rotate();
+                    rotate = vector.matrixCurrent().rotate();
 
                 var ro, cx, cy, ox, oy, hs, hw, hh;
 
@@ -12721,7 +12771,7 @@
 
                 if (ro) {
                     var rmatrix = Graph.matrix(),
-                        path = me.pathinfo();
+                        path = vector.shapeRelative();
 
                     cx = bbox.x + bbox.width / 2,
                     cy = bbox.y + bbox.height / 2;
@@ -12730,11 +12780,6 @@
 
                     path = path.transform(rmatrix);
                     bbox = path.bbox().toJson();
-                } else {
-                    if (this.props.context != this.props.vector) {
-                        path = me.pathinfo();
-                        bbox = path.bbox().toJson();
-                    }
                 }
 
                 hw = bbox.width / 2;
@@ -12860,7 +12905,6 @@
             }
 
             if (this.props.suspended) {
-
                 this.props.suspended = false;
 
                 if ( ! this.props.rendered) {
@@ -12870,6 +12914,10 @@
                     this.redraw();
                 }
             }
+        },
+
+        setupRestriction: function(handle) {
+            
         },
 
         onHolderRender: function(e) {
@@ -12892,6 +12940,39 @@
                 handle.draggable().snap(snapping);    
             }
             
+            // set restriction
+            var minWidth = +me.props.minWidth || 0,
+                minHeight = +me.props.minHeight || 0;
+
+            if (minWidth || minHeight) {
+                var dir = handle.props.dir,
+                    box = me.vector().bboxView().toJson(),
+                    xAxis = null,
+                    yAxis = null;
+
+                switch(dir) {
+                    case 'e':
+
+                        break;
+                }
+
+                // handle.draggable().restrict(function(x, y){
+
+                // });
+            }
+
+            if ( ! _.isNull(me.props.minWidth) || ! _.isNull(me.props.minHeight)) {
+                
+                // handle.draggable().restrict(function(x, y){
+                //     return {
+                //         x: 800, 
+                //         y: 0,
+                //         width: Infinity,
+                //         height: Infinity
+                //     }
+                // });
+            }
+
             handle.show();
             handle.removeClass('dragging');
         },
@@ -13035,6 +13116,10 @@
             me.fire('resize', resize);
         },
 
+        toString: function() {
+            return 'Graph.plugin.Resizer';
+        },
+
         destroy: function() {
             // remove handles
             var me = this
@@ -13083,7 +13168,7 @@
         },
 
         collecting: {
-            
+
         },
 
         constructor: function(paper) {
@@ -13092,7 +13177,7 @@
             if ( ! paper.isPaper()) {
                 throw Graph.error('Lasso tool only available for paper !');
             }
-            
+
             me.paper = paper;
             me.components.rubber = Graph.$('<div class="graph-rubberband">');
 
@@ -13148,11 +13233,11 @@
                     _.assign(collecting, {
                         start: {
                             x: e.clientX,
-                            y: e.clientY,    
+                            y: e.clientY,
                         },
                         end: {
                             x: e.clientX,
-                            y: e.clientY,    
+                            y: e.clientY,
                         },
                         bounds: {}
                     });
@@ -13160,10 +13245,10 @@
                     rubber.query.css({
                         width: 0,
                         height: 0,
-                        transform: 'translate(' + (collecting.start.x - offset.left) + 'px, ' + (collecting.start.y - offset.top) + 'px)'   
+                        transform: 'translate(' + (collecting.start.x - offset.left) + 'px, ' + (collecting.start.y - offset.top) + 'px)'
                     });
                 },
-                
+
                 onmove: function(e) {
                     var start = collecting.start,
                         end = {
@@ -13226,7 +13311,7 @@
                         scale = layout.scale();
 
                     var start = layout.grabLocation({
-                        clientX: bounds.x, 
+                        clientX: bounds.x,
                         clientY: bounds.y
                     });
 
@@ -13245,7 +13330,7 @@
                     });
 
                     bbox.transform(paper.viewport().matrix());
-                    
+
                     _.forEach(vectors, function(v){
                         if (v.guid() != context && v.isSelectable() && ! v.isGroup()) {
                             if (bbox.contains(v)) {
@@ -13255,7 +13340,7 @@
                     });
 
                     if (me.props.activator == 'tool') {
-                        paper.tool().activate('panzoom');    
+                        paper.tool().activate('panzoom');
                     }
 
                     bbox = null;
@@ -13270,7 +13355,7 @@
                     if ( ! vector.isSelectable()) {
                         if ( ! vector.elem.belong('graph-resizer') && ! vector.elem.belong('graph-link')) {
                             if (single) {
-                                me.clearCollection(); 
+                                me.clearCollection();
                             }
                         }
                     }
@@ -13279,7 +13364,7 @@
             .on('tap', function(e){
                 var vector = Graph.registry.vector.get(e.target),
                     single = ! (e.ctrlKey || e.shiftKey);
-                
+
                 if (vector && vector.isSelectable()) {
                     if (vector.paper().state() == 'linking') {
                         me.clearCollection();
@@ -13289,7 +13374,7 @@
                     if (single) {
                         me.clearCollection();
                     }
-                    
+
                     me.collect(vector, ! single);
                 }
 
@@ -13347,14 +13432,13 @@
 
         decollect: function(vector) {
             var batch, offset;
-            
+
             batch = vector.batch;
 
             delete vector.lasso;
             delete vector.batch;
 
             vector.deselect(batch);
-
             offset = _.indexOf(this.collection, vector);
 
             if (offset > -1) {
@@ -13363,7 +13447,7 @@
         },
 
         clearCollection: function(except) {
-            var me = this, 
+            var me = this,
                 collection = me.collection.slice();
 
             _.forEach(collection, function(v){
@@ -13391,11 +13475,11 @@
             }
         },
 
-        syncDragStart: function(origin, e) {
+        syncDragStart: function(master, e) {
             var me = this;
 
             _.forEach(me.collection, function(v){
-                if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== origin) {
+                if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(){
                         var mat = v.graph.matrix.data(),
                             sin = mat.sin,
@@ -13417,11 +13501,11 @@
                         };
 
                         v.addClass('dragging');
-                        
+
                         v.fire('dragstart', {
                             dx: e.dx *  cos + e.dy * sin,
                             dy: e.dx * -sin + e.dy * cos,
-                            batch: true
+                            master: false
                         });
 
                     }());
@@ -13431,11 +13515,11 @@
             me.fire('beforedrag');
         },
 
-        syncDragMove: function(origin, e) {
+        syncDragMove: function(master, e) {
             var me = this, dx, dy;
 
             _.forEach(me.collection, function(v){
-                if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== origin) {
+                if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(v, e){
                         var dx = e.ox *  v.syncdrag.cos + e.oy * v.syncdrag.sin,
                             dy = e.ox * -v.syncdrag.sin + e.oy * v.syncdrag.cos;
@@ -13452,52 +13536,50 @@
                         v.fire('dragmove', {
                             dx: dx,
                             dy: dy,
-                            batch: true
+                            master: false
                         });
 
-                    }(v, e));    
+                    }(v, e));
                 }
             });
 
         },
 
-        syncDragEnd: function(origin, e) {
+        syncDragEnd: function(master, e) {
             var me = this;
 
             _.forEach(me.collection, function(v, i){
-                if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== origin) {
+                if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(v, e){
                         var batchSync = v.plugins.dragger.props.batchSync,
                             ghost = v.plugins.dragger.props.ghost;
 
                         if (ghost) {
                             if (batchSync) {
-                                v.translate(v.syncdrag.tdx, v.syncdrag.tdy).commit();    
+                                v.translate(v.syncdrag.tdx, v.syncdrag.tdy).commit();
                             }
                             v.plugins.dragger.suspend();
                         }
-                        
+
                         if ( ! batchSync) {
-                            v.dirty(true);    
+                            v.dirty(true);
                         }
 
                         v.fire('dragend', {
                             dx: v.syncdrag.tdx,
                             dy: v.syncdrag.tdy,
-                            batch: true
+                            master: false
                         });
-                        
+
                         v.removeClass('dragging');
-                        
+
                         delete v.syncdrag;
 
                     }(v, e));
                 }
             });
 
-            e.origin = origin;
             e.type = 'afterdrag';
-            
             me.fire(e);
         },
 
@@ -13526,20 +13608,21 @@
                     tool.activate('panzoom');
                 }
             }
-        }   
+        }
 
     });
 
 }());
 
+
 (function(){
 
     Graph.plugin.Dragger = Graph.extend(Graph.plugin.Plugin, {
-        
+
         props: {
             ready: false,
             manual: false,
-            
+
             ghost: false,
             vector: null,
             enabled: true,
@@ -13581,7 +13664,7 @@
             holder: null,
             helper: null
         },
-        
+
         constructor: function(vector, options) {
             var me = this;
 
@@ -13597,7 +13680,7 @@
                     me.props[name] = options[name];
                 }
             });
-            
+
             _.assign(me.props, options);
 
             me.cached.snapping = null;
@@ -13606,12 +13689,12 @@
             me.initComponent();
 
             vector.on('render.dragger', _.bind(me.onVectorRender, me));
-            
+
             if (vector.props.rendered) {
                 me.setup();
             }
         },
-        
+
         holder: function() {
             return Graph.registry.vector.get(this.components.holder);
         },
@@ -13676,25 +13759,25 @@
             vendor.draggable(options);
             vendor.styleCursor(false);
 
-            me.cached.origin   = vendor.origin();
+            me.cached.origin = vendor.origin();
             me.cached.snapping = [];
-            
+
             vendor.on('down', function draggerDown(e){
                 e.preventDefault();
                 // e.stopPropagation();
             });
 
             if ( ! me.props.manual) {
-                vendor.on('move', _.bind(me.onPointerMove, me, _, vector));    
+                vendor.on('move', _.bind(me.onPointerMove, me, _, vector));
             }
-            
-            var matrix = vector.globalMatrix(),
+
+            var matrix = vector.matrixCurrent(),
                 rotate = matrix.rotate(),
                 scale  = matrix.scale();
 
             me.rotate(rotate.deg);
             me.scale(scale.x, scale.y);
-            
+
             if (me.props.grid) {
                 me.snap({
                     mode: 'grid',
@@ -13732,8 +13815,8 @@
 
             if (me.props.ghost) {
                 me.redraw();
-            }   
-            
+            }
+
         },
 
         suspend: function() {
@@ -13833,15 +13916,15 @@
             }
 
             /////////
-            
+
             function fixsnap(snap) {
-                
+
                 if (_.isFunction(snap)) {
                     return snap;
                 }
-                
+
                 snap.mode = _.defaultTo(snap.mode, 'anchor');
-                
+
                 if (snap.mode == 'grid') {
                     if (me.props.axis == 'x') {
                         snap.y = 0;
@@ -13866,8 +13949,17 @@
             });
         },
 
-        bound: function(bound) {
-            
+        restrict: function(options) {
+            var vendor = this.vector().interactable().vendor();
+
+            if (vendor) {
+                options = options || {};
+                vendor.setPerAction('drag', {
+                    restrict: {
+                        restriction: options
+                    }
+                });
+            }
         },
 
         onVectorRender: function() {
@@ -13890,10 +13982,10 @@
                     if (e.currentTarget === node) {
                         if (paper) {
                             var state = paper.state();
-                            
+
                             if (state == 'collecting') {
                                 if (vector.elem.belong('graph-resizer')) {
-                                    paper.tool().activate('panzoom');    
+                                    paper.tool().activate('panzoom');
                                 } else {
                                     return;
                                 }
@@ -13901,7 +13993,7 @@
                                 return;
                             }
                         }
-                        
+
                         if (this.props.ghost) {
                             if (this.props.suspended) {
                                 this.resume();
@@ -13912,7 +14004,7 @@
                         }
 
                     }
-                }    
+                }
             }
 
             e.preventDefault();
@@ -13920,7 +14012,7 @@
         },
 
         onDragStart: function(e) {
-            var vector = this.vector(), 
+            var vector = this.vector(),
                 paper = vector.paper(),
                 helper = this.helper();
 
@@ -13941,15 +14033,14 @@
                 y: e.clientY,
                 dx: 0,
                 dy: 0,
-                ghost: this.props.ghost,
-                batch: false
+                ghost: this.props.ghost
             };
 
             this.fire('dragstart', edata);
         },
 
         onDragMove: function(e) {
-            
+
             var trans = this.trans,
                 paper = trans.paper,
                 vector = trans.vector,
@@ -13962,21 +14053,21 @@
                 scaleY = this.scaling.y;
 
             // check current scaling
-            var scaling = vector.globalMatrix().scale();
-            
+            var scaling = vector.matrixCurrent().scale();
+
             if (scaling.x !== scaleX || scaling.y !== scaleY) {
                 this.scale(scaling.x, scaling.y);
                 scaleX = scaling.x;
                 scaleY = scaling.y;
             }
-            
+
             var edx = _.defaultTo(e.dx, 0),
                 edy = _.defaultTo(e.dy, 0);
-            
+
             var dx, dy, hx, hy, tx, ty;
-            
+
             dx = dy = hx = hy = tx = ty = 0;
-                
+
             edx /= scaleX;
             edy /= scaleY;
 
@@ -13995,9 +14086,9 @@
             } else {
                 hx = edx;
                 hy = edy;
-                
+
                 dx = tx = edx *  cos + edy * sin;
-                dy = ty = edx * -sin + edy * cos;  
+                dy = ty = edx * -sin + edy * cos;
             }
 
             this.trans.dx += tx;
@@ -14005,35 +14096,34 @@
 
             this.trans.hx += hx;
             this.trans.hy += hy;
-            
+
             var pageX = _.defaultTo(e.pageX, e.x0),
                 pageX = _.defaultTo(e.pageY, e.y0);
 
             pageX /= scaleX;
             pageX /= scaleY;
-            
+
             var event = {
                 pageX: pageX,
                 pageY: pageX,
-                
+
                 ex: edx,
                 ey: edy,
 
                 dx: dx,
                 dy: dy,
-                
+
                 hx: hx,
                 hy: hy,
-                
+
                 ox: hx,
                 oy: hy,
-                
-                ghost: this.props.ghost,
-                batch: false
+
+                ghost: this.props.ghost
             };
 
             this.fire('dragmove', event);
-            
+
             if (helper) {
                 helper.translate(event.hx, event.hy).commit();
             } else {
@@ -14063,12 +14153,11 @@
             var edata = {
                 dx: dx,
                 dy: dy,
-                ghost: this.props.ghost,
-                batch: false
+                ghost: this.props.ghost
             };
-            
+
             this.fire('dragend', edata);
-            
+
             this.trans.vector = null;
             this.trans.paper = null;
             this.trans.helper = null;
@@ -14095,10 +14184,15 @@
 
             me.components.holder = null;
             me.listeners = {};
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Dragger';
         }
     });
 
 }());
+
 
 (function(){
 
@@ -14190,591 +14284,6 @@
 }());
 
 (function(){
-
-    Graph.plugin.Sorter = Graph.extend(Graph.plugin.Plugin, {
-
-        props: {
-            height: 0,
-            width: 0,
-            suspended: true,
-            enabled: true,
-            offsetTop: 0,
-            offsetLeft: 0
-        },
-
-        sortables: [],
-        origins: [],
-        guests: [],
-        batch: [],
-        
-        trans: {
-            sorting: false,
-            valid: false,
-            drag: null,
-            drop: null
-        },
-
-        components: {
-            helper: null
-        },
-
-        constructor: function(vector) {
-            var me = this;
-
-            me.vector = vector;
-            me.vector.addClass('graph-sorter');
-
-            me.components.helper = new Graph.svg.Rect(0, 0, 0, 0);
-            me.components.helper.addClass('graph-sorter-helper');
-            me.components.helper.removeClass('graph-elem graph-elem-rect');
-            me.components.helper.props.selectable = false;
-            me.components.helper.render(me.vector);
-            me.components.helper.$sorter = me;
-            
-            me.sortables.push(me.components.helper);
-
-            me.vector.on({
-                render: _.bind(me.onVectorRender, me),
-                appendchild: _.bind(me.onItemAdded, me),
-                prependchild: _.bind(me.onItemAdded, me)
-            });
-
-            if (me.vector.props.rendered) {
-                me.setup();
-            }
-        },
-
-        // setup plugin
-        setup: function() {
-            var me = this,
-                vector = me.vector,
-                paper = vector.paper(),
-                context = vector.node();
-
-            if (me.plugin) {
-                return;
-            }
-            
-            me.plugin = interact('.graph-sortable', {context: context}).dropzone({
-                accept: '.graph-sortable',
-                // overlap: 'center',
-                overlap: .1,
-                // checker: _.bind(me.snapping, me),
-                ondropactivate: _.bind(me.onSortActivate, me),
-                ondropdeactivate: _.bind(me.onSortDeactivate, me),
-                ondragenter: _.bind(me.onSortEnter, me),
-                ondragleave: _.bind(me.onSortLeave, me),
-                ondrop: _.bind(me.onSort, me)
-            });
-
-            me.plugin.styleCursor(false);
-
-            if (paper.plugins.collector) {
-                paper.plugins.collector.on({
-                    afterdrag: function(e) {
-                        var origin = e.origin;
-                        if (_.indexOf(me.sortables, origin) > -1) {
-                           me.props.offsetTop += e.dy;
-                        }
-                    }
-                });
-            }
-        },
-
-        snapping: function(drage, pointe, dropped, dropzone, dropel, draggable, dragel) {
-            return dropped;
-        },
-
-        suspend: function() {
-            this.props.suspended = true;
-
-            if (this.components.helper) {
-                this.components.helper.focus(false);
-                this.components.helper.removeClass('visible');
-            }
-        },
-
-        resume: function() {
-            var me = this;
-
-            me.props.suspended = false;
-
-            if (me.components.helper) {
-                me.components.helper.addClass('visible');
-            }
-        },
-
-        redraw: function() {
-            var me = this;
-
-            if (me.trans.valid) {
-
-                if (me.props.suspended) {
-                    me.resume();    
-                }
-
-                me.swap(me.components.helper, me.trans.drop);
-                me.components.helper.focus();
-            }
-        },
-
-        commit: function() {
-            var me = this;
-
-            _.forEach(me.guests, function(g){
-                me.vector.elem.append(g.node());
-            });
-
-            _.forEach(me.sortables, function(s){
-                s.$master  = false;
-                s.$sorter  = null;
-                s.$sorting = false;
-            });
-
-            me.components.helper.attr('height', 0);
-            
-            if (me.batch.length) {
-                me.permute();
-            } else {
-                me.swap(me.trans.drag, me.components.helper);
-            }
-
-            _.forEach(me.origins, function(o){
-                o.components.helper.attr('height', 0);
-                o.reset();
-                o.arrange();
-                o.suspend();
-            });
-
-            me.reset();
-            me.suspend();
-            me.resumeBatch(me.batch);
-        },
-
-        revert: function() {
-            var me = this;
-            
-            _.forEach(me.guests, function(g){
-                me.vector.elem.append(g.node());
-            });
-
-            _.forEach(me.sortables, function(s){
-                s.$sorting = false;
-                s.$sorter  = null;
-                s.$master  = false;
-            });
-
-            _.forEach(me.origins, function(o){
-                o.components.helper.attr('height', 0);
-                o.reset();
-                o.arrange();
-                o.suspend();
-            });
-
-            me.components.helper.attr('height', 0);
-            me.reset();
-            me.arrange();
-            me.suspend();
-            me.resumeBatch(me.batch);
-        },  
-
-        permute: function() {
-            var me = this,
-                target = _.indexOf(me.sortables, me.components.helper),
-                stacks = _.map(me.sortables, function(s, i){ return i; });
-
-            me.batch.sort(function(a, b){
-                var ta = a.offset().top,
-                    tb = b.offset().top;
-                return ta === tb ? 0 : (ta < tb ? -1 : 1);
-            });
-
-            orders = _.map(me.batch, function(b){
-                return _.indexOf(me.sortables, b);
-            });
-
-            var swaps  = _.difference(stacks, orders),
-                repos = _.indexOf(swaps, target);
-
-            _.insert(swaps, repos, orders);
-
-            me.sortables = _.permute(me.sortables, swaps);
-            me.arrange();
-        },
-
-        swap: function(source, target) {
-            var me = this,
-                from = _.indexOf(me.sortables, source),
-                to = _.indexOf(me.sortables, target);
-
-            _.move(me.sortables, from, to);
-            me.arrange();
-        },
-
-        arrange: function() {
-            var me = this;
-
-            me.props.height = 0;
-            me.props.width  = 0;
-
-            _.forEach(me.sortables, function(s){
-                if ( ! s.$sorting) {
-                    var sbox = s.bbox().toJson(),
-                        dy = me.props.height- sbox.y + me.props.offsetTop;
-
-                    s.translate(0, dy).commit();
-                    me.props.height += sbox.height;
-
-                    if (sbox.width > me.props.width) {
-                        me.props.width = sbox.width;
-                    }
-                }
-            });
-        },
-
-        suspendBatch: function(batch, predicate) {
-            _.forEach(batch, function(b){
-                b.cascade(function(c){
-                    if (c.props.selected && c.resizer) {
-                        c.resizer.suspend();
-                    }
-                });
-
-                if (predicate) {
-                    predicate.call(b, b);
-                }
-            });
-        },
-
-        resumeBatch: function(batch) {
-            var me = this, timer;
-            timer = _.delay(function(){
-                clearTimeout(timer);
-                _.forEach(batch, function(b){
-                    b.cascade(function(c){
-                        if (c.props.selected && c.resizer) {
-                            c.resizer.resume();
-                        }
-                    });
-                })
-            }, 0);
-        },
-
-        reset: function() {
-            this.guests = [];
-            this.origins = [];
-            this.trans.drag = null;
-            this.trans.sorting = false;
-            this.trans.valid = false;
-            this.trans.drop = null;
-        },
-
-        enroll: function(item) {
-            var me = this, sorter;
-
-            if (_.indexOf(me.sortables, item) === -1)  {
-                sorter = item.$sorter;
-                sorter.release(item);
-
-                if (_.indexOf(me.origins, sorter) === -1) {
-                    me.origins.push(sorter);
-                }
-
-                item.$sorter  = me;
-
-                if (item.$master) {
-                    me.trans.drag = item;
-                }
-                
-                item.off('.sorter');
-                item.tree.parent = me.vector;
-                me.vector.children().push(item);
-                me.guests.push(item);    
-            }
-            
-        },
-
-        release: function(item) {
-            var me = this, 
-                sorter = item.$sorter || me;
-
-            var offset;
-
-            item.off('.sorter');
-            item.$sorter = null;
-            item.tree.parent = null;
-
-            if (item.$master) {
-                sorter.trans.drag = null;
-            }
-
-            sorter.vector.children().pull(item);
-            
-            if ((offset = _.indexOf(sorter.sortables, item)) > -1) {
-                sorter.sortables.splice(offset, 1);
-            }
-
-            if ((offset = _.indexOf(sorter.batch, item)) > -1) {
-                sorter.batch.splice(offset, 1);
-            }
-
-            if ((offset = _.indexOf(sorter.guests, item)) > -1) {
-                sorter.guests.splice(offset, 1);
-            }
-        },
-
-        onVectorRender: function() {
-            this.setup();
-        },
-
-        onItemAdded: function(item) {
-            var me = this, delay;
-
-            if (_.indexOf(me.sortables, item) > -1) {
-                return;
-            }
-
-            if (item.hasClass('graph-sorter-helper')) {
-                return;
-            }
-
-            item.$sorter = this;
-            item.addClass('graph-sortable');
-            
-            item.off('.sorter');
-
-            item.on('render.sorter',    _.bind(me.onItemRender, me));
-            item.on('resize.sorter',    _.bind(me.onItemResize, me));
-            item.on('dragstart.sorter', _.bind(me.onItemDragStart, me));
-            item.on('dragend.sorter',   _.bind(me.onItemDragEnd, me));
-            item.on('collect.sorter',   _.bind(me.onItemCollect, me));
-            item.on('decollect.sorter', _.bind(me.onItemDecollect, me));
-
-            me.sortables.push(item);
-
-            if (item.props.rendered && ! item.$sorting) {
-                delay = _.delay(function(){
-                    clearTimeout(delay);
-                    me.arrange();
-                }, 0);
-            }
-        },
-
-        onItemRender: function(e) {
-            var me = this, delay;
-            delay = _.delay(function(){
-                clearTimeout(delay);
-                me.arrange();
-            }, 0);
-        },
-
-        onItemResize: function(e) {
-            var item = e.publisher,
-                sorter = item.$sorter || this, defer;
-
-            suppress(item, true);
-
-            _.forEach(sorter.sortables, function(s){
-                if (s !== item) {
-                    e.type = 'resize.sortable';
-                    s.fire(e);
-                }
-            });
-
-            defer = _.defer(function(item){
-                clearTimeout(defer);
-                sorter.arrange();
-                suppress(item, false);
-            }, item);
-
-            /////////
-            
-            function suppress(item, state) {
-                item.cascade(function(c){
-                    if (c.props.selected && c.resizer) {
-                        var method = state ? 'suspend' : 'resume';
-                        c.resizer[method].call(c.resizer);
-                    }
-                });
-            }
-        },
-
-        onItemDragStart: function(e) {
-            var me = this, 
-                item = e.publisher,
-                bsize = me.batch.length;
-
-            var bbox;
-            
-            me.props.enabled = bsize && (bsize + 1) === me.sortables.length ? false : true;
-
-            if ( ! me.props.enabled) {
-                return;
-            }
-
-            item.$sorter = me;
-            item.$master = true;
-            item.$sorting = true;
-
-            me.trans.drag = item;
-            me.trans.sorting = true;
-
-            bbox = item.bbox().toJson();  
-            width = me.props.width;
-            height = bbox.height;
-
-            if (bsize) {
-                if ( ! item.lasso) {
-                    me.batch.pop().lasso.clearCollection();
-                    me.batch = [];
-                } else {
-                    height = 0;
-                    me.suspendBatch(me.batch, function(b){
-                        var box = b.bbox().toJson();
-                        height += box.height;
-
-                        b.$sorter = me;
-                        b.$sorting = true;
-                    });
-                }
-            }
-
-            me.components.helper.attr({
-                width: width,
-                height: height
-            });   
-        },
-
-        onItemDragEnd: function(e) {
-            var me = this;
-
-            if ( ! me.props.enabled) {
-                return;
-            }
-
-            if (me.trans.sorting) {
-                if ( ! me.trans.valid) {
-                    me.revert();
-                }
-            } else {
-                me.revert();
-            }
-        },
-
-        onItemCollect: function(e) {
-            var item = e.publisher,
-                sorter = item.$sorter || this;
-
-            sorter.batch.push(item);
-        },
-
-        onItemDecollect: function(e, item) {
-            var item = e.publisher,
-                sorter = item.$sorter || this, offset;
-
-            offset = _.indexOf(sorter.batch, item);
-            
-            if (offset > -1) {
-                sorter.batch.splice(offset, 1);
-            }
-        },
-
-        onSortActivate: function() {},
-
-        onSortDeactivate: function() {},
-
-        onSortEnter: function(e) {
-            var me = this;
-            var drag, drop, bbox, width, height;
-            
-            if ( ! me.props.enabled) {
-                return;
-            }
-
-            drag = Graph.registry.vector.get(e.relatedTarget);
-            drop = Graph.registry.vector.get(e.target);
-
-            if (drag.lasso) {
-                
-                height = 0;
-                width  = me.props.width;
-
-                _.forEach(drag.lasso.collection, function(v){
-                    var box;
-
-                    if (v.$sorter) {
-
-                        if (v.$sorter !== me) {
-                            me.enroll(v);
-                            me.batch.push(v);
-                        }
-                        
-                        box = v.bbox().toJson();
-                        height += box.height;
-
-                        if (box.width > width) {
-                            width = box.width;
-                        }
-                    }
-                });
-
-                me.components.helper.attr({
-                    width: width,
-                    height: height
-                });
-            } else {
-                if (drag.$sorter) {
-                    if (drag.$sorter !== me) {
-                        if (me.batch.length) {
-                            me.suspendBatch(me.batch);
-                        }
-
-                        me.enroll(drag);
-
-                        bbox = drag.bbox().toJson();
-                        height = bbox.height;
-                        width = me.props.width;
-
-                        me.components.helper.attr({
-                            width: width,
-                            height: height    
-                        });
-                    }
-                }
-            }
-
-            me.trans.drop  = drop;
-            me.trans.valid = true;
-
-            me.redraw();
-        },
-
-        onSortLeave: function() {
-            var me = this;
-
-            if ( ! me.props.enabled) {
-                return;
-            }
-
-            me.trans.drop = null;
-            me.trans.valid = false;
-            me.suspend();
-        },
-
-        onSort: function() {
-            var me = this;
-
-            if ( ! me.props.enabled) {
-                return;
-            }
-
-            me.commit();
-        }
-    });
-
-}());
-
-(function(){
     
     var CLS_CONNECT_VALID = 'connect-valid',
         CLS_CONNECT_INVALID = 'connect-invalid',
@@ -14785,7 +14294,6 @@
     Graph.plugin.Network = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
-            context: null,
             vector: null,
             wiring: 'h:h'
         },
@@ -14803,12 +14311,6 @@
             var me = this, guid = vector.guid();
             
             options = options || {};
-
-            if (options.context) {
-                options.context = options.context.guid();
-            } else {
-                options.context = guid;
-            }
 
             _.assign(me.props, options);
 
@@ -14962,13 +14464,12 @@
         },
         
         orientation: function(network) {
-            var srcbox = this.bbox().toJson(),
-                refbox = network.bbox().toJson(),
-                orient = Graph.util.boxOrientation(srcbox, refbox, this.treshold());
-            
-            srcbox = refbox = null;
-            
-            return orient;
+            var sourceBox = this.vector().bboxView().toJson(),
+                targetBox = network.vector().bboxView().toJson(),
+                orientation = Graph.util.boxOrientation(sourceBox, targetBox, this.treshold());
+
+            sourceBox = targetBox = null;
+            return orientation;
         },
         
         isSource: function(link) {
@@ -15026,6 +14527,10 @@
 
             delete this.cached.cables[guid];
             conn = null;
+        },
+
+        repairLinks: function() {
+            console.log('called');
         },
         
         hasConnection: function(network) {
@@ -15104,6 +14609,10 @@
             // collect garbage
             this.cached.cables = null;
             this.cached.pairs  = null;
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Network';
         }
 
     });
@@ -15139,8 +14648,6 @@
             }
 
             this.items[prop].push(data);
-
-            console.log(this);
         },
 
         last: function(prop) {
@@ -15189,7 +14696,7 @@
             scale: 1,
             zoom: 1,
             origin: null,
-            range: {min: 0.2, max: 4}
+            range: {min: 0.2, max: 4.0}
         },
 
         components: {
@@ -15258,17 +14765,17 @@
 
                 toolbox = me.components.toolbox = Graph.$('<div class="graph-zoom-toolbox">');
                 toolbox.html(
-                    '<div>' + 
-                        '<a data-tool="zoom-reset" href="javascript:void(0)" title="' + Graph._('Reset zoom') + '">' + 
-                            '<i class="'+ Graph.icons.ZOOM_RESET +'"></i>' + 
+                    '<div>' +
+                        '<a data-tool="zoom-reset" href="javascript:void(0)" title="' + Graph._('Reset zoom') + '">' +
+                            '<i class="'+ Graph.icons.ZOOM_RESET +'"></i>' +
                         '</a>'+
                         '<div class="splitter"></div>'+
-                        '<a data-tool="zoom-in" href="javascript:void(0)" title="' + Graph._('Zoom in') + '">' + 
-                            '<i class="'+ Graph.icons.ZOOM_IN +'"></i>' + 
+                        '<a data-tool="zoom-in" href="javascript:void(0)" title="' + Graph._('Zoom in') + '">' +
+                            '<i class="'+ Graph.icons.ZOOM_IN +'"></i>' +
                         '</a>'+
                         '<div class="splitter"></div>'+
-                        '<a data-tool="zoom-out" href="javascript:void(0)" title="' + Graph._('Zoom out') + '">' + 
-                            '<i class="'+ Graph.icons.ZOOM_OUT +'"></i>' + 
+                        '<a data-tool="zoom-out" href="javascript:void(0)" title="' + Graph._('Zoom out') + '">' +
+                            '<i class="'+ Graph.icons.ZOOM_OUT +'"></i>' +
                         '</a>'+
                     '</div>'
                 );
@@ -15299,7 +14806,7 @@
                 y: bound.top
             };
         },
-        
+
         enable: function() {
             var vector = this.vector();
 
@@ -15324,7 +14831,7 @@
             viewport.reset();
 
             matrix = Graph.matrix();
-            matrix.translate(.5, .5);
+            // matrix.translate(.5, .5);
 
             viewport.attr('transform', matrix.toValue());
             viewport.graph.matrix = matrix;
@@ -15334,7 +14841,7 @@
             var paper = this.vector().paper(),
                 viewport = paper.viewport(),
                 origin = paper.layout().center(),
-                direction = 0.1;
+                direction = 0.1875;
 
             this.zoom(paper, viewport, direction, origin);
         },
@@ -15343,7 +14850,7 @@
             var paper = this.vector().paper(),
                 viewport = paper.viewport(),
                 origin = paper.layout().center(),
-                direction = -0.1;
+                direction = -0.1875;
 
             this.zoom(paper, viewport, direction, origin);
         },
@@ -15368,9 +14875,9 @@
 
             this.zooming.zoom  = zoom;
             this.zooming.scale = matrixScale.props.a;
-            
+
             if (paper.state() == 'panning') {
-                paper.cursor(zoomType == 'in' ? 'zoom-in' : 'zoom-out');    
+                paper.cursor(zoomType == 'in' ? 'zoom-in' : 'zoom-out');
             }
 
             this.onZoom(paper);
@@ -15384,7 +14891,7 @@
 
             dx /= scale;
             dy /= scale;
-            
+
             matrix.translate(dx, dy);
 
             viewport.attr('transform', matrix.toValue());
@@ -15436,20 +14943,22 @@
 
                 origin = {
                     x: event.clientX - offset.x,
-                    y: event.clientY - offset.y    
+                    y: event.clientY - offset.y
                 };
 
                 this.zooming.origin = origin;
 
+                // console.log(event.deltaY, factor, event.deltaY * factor / (-15));
+
                 this.zoom(
                     paper,
                     viewport,
-                    // event.deltaY * factor / (-5), 
-                    event.deltaY * factor / (-8), 
+                    // event.deltaY * factor / (-5),
+                    event.deltaY * factor / (-8),
                     origin
                 );
             }
-        }, 
+        },
 
         onPointerDown: function(e, paper, viewport, vendor) {
             var target = Graph.$(e.target),
@@ -15503,11 +15012,11 @@
         },
 
         onPointerMove: function(e, paper, viewport) {
-            
+
             var offset = this.caching.offset,
                 start = this.panning.start,
-                current = { 
-                    x: e.clientX - offset.x, 
+                current = {
+                    x: e.clientX - offset.x,
                     y: e.clientY - offset.y
                 },
                 dx = current.x - start.x,
@@ -15522,7 +15031,7 @@
             };
 
             paper.cursor('move');
-            
+
             // prevent select
             e.preventDefault();
         },
@@ -15547,7 +15056,7 @@
         },
 
         onBeforeZoom: _.debounce(function(paper){
-            
+
             Graph.topic.publish('paper/beforezoom', null, paper);
 
         }, 300, {leading: true, trailing: false}),
@@ -15562,19 +15071,23 @@
         }, 300),
 
         onBeforeScroll: _.debounce(function(paper){
-            
+
             Graph.topic.publish('paper/beforescroll', null, paper);
 
         }, 300, {leading: true, trailing: false}),
 
         onScroll: _.debounce(function() {
 
-        }, 300)
+        }, 300),
+
+        toString: function() {
+            return 'Graph.plugin.Panzoom';
+        }
 
     });
 
     ///////// HELPERS /////////
-    
+
     function logarithm(num, base) {
         base = base || 10;
         return Math.log(num) / Math.log(base);
@@ -15598,12 +15111,13 @@
             y = event.clientY - offset.top;
 
         return {
-            x: x, 
+            x: x,
             y: y
         };
     }
 
 }());
+
 
 (function(){
 
@@ -15615,7 +15129,6 @@
 
         props: {
             vector: null,
-            context: null,
             enabled: false,
             suspended: true,
             rendered: false
@@ -15706,7 +15219,6 @@
             this.component().render(paper);
 
             this.props.rendered = true;
-            this.props.context = paper.viewport().guid();
         },
 
         invalidate: function() {
@@ -15822,10 +15334,9 @@
                     this.resume();    
                 }
 
-                var path = this.component('path'),
-                    context = this.context();
+                var path = this.component('path');
 
-                this.linking.moveHandler = _.bind(this.onPointerMove, this, _, paper, path, context);    
+                this.linking.moveHandler = _.bind(this.onPointerMove, this, _, paper, path);    
                 
                 vendor = paper.interactable().vendor();
                 vendor.on('move', this.linking.moveHandler);
@@ -15835,12 +15346,7 @@
                 if (source.isConnectable()) {
                     
                     if ( ! this.linking.source) {
-                        // update context
-                        source.connectable({
-                            context: context
-                        });
-
-                        sbox = source.connectable().bbox();
+                        sbox = source.bboxView();
                         port = sbox.center(true);
 
                         this.linking.source = source;
@@ -15869,12 +15375,12 @@
             var spath, scrop, tpath, tcrop;
 
             if (source) {
-                spath = source.connectable().pathinfo();
+                spath = source.shapeView();
                 scrop = spath.intersection(cable, true);
             }
 
             if (target) {
-                tpath = target.connectable().pathinfo();
+                tpath = target.shapeView();
                 tcrop = tpath.intersection(cable, true);
             }
 
@@ -15916,7 +15422,7 @@
             layout = source = null;
         },
 
-        onPointerMove: function(e, paper, path, context) {
+        onPointerMove: function(e, paper, path) {
 
             if (this.linking.enabled) {
 
@@ -15960,12 +15466,7 @@
                             target.removeClass(CLS_CONNECT_INVALID);
                             target.addClass(CLS_CONNECT_VALID);
                             
-                            // update target context
-                            target.connectable({
-                                context: context
-                            });
-
-                            tbox = target.connectable().bbox();
+                            tbox = target.bboxView();
                             port = tbox.center(true);
 
                             this.linking.target = target;
@@ -16019,6 +15520,10 @@
             }
 
             e.preventDefault();
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Linker';
         }
 
     });
@@ -16150,6 +15655,10 @@
                     this.activate(tool);
                 }
             }
+        },
+
+        toString: function() {
+            return 'Graph.plugin.ToolManager';
         }
 
 
@@ -16249,6 +15758,9 @@
                 }
             }, this), 0);
             
+        },
+        toString: function() {
+            return 'Graph.plugin.Pencil';
         }
 
     });
@@ -16364,7 +15876,7 @@
         redraw: function() {
             var editor = this.components.editor,
                 vector = this.vector(),
-                matrix = vector.globalMatrix(),
+                matrix = vector.matrixCurrent(),
                 scale  = matrix.scale();
 
             var vbox = vector.bbox().clone().transform(matrix).toJson();
@@ -16466,6 +15978,10 @@
 
         destroy: function() {
 
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Editor';
         }
 
     });
@@ -16477,11 +15993,10 @@
     Graph.plugin.Snapper = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
-            enabled: true,
+            enabled: false,
             suspended: true,
             rendered: false,
-            vector: null,
-            context: null
+            vector: null
         },
 
         clients: {
@@ -16513,7 +16028,6 @@
             _.assign(this.props, options);
 
             this.props.vector  = vector.guid();
-            this.props.context = vector.viewport().guid();
 
             this.initComponent(vector);
             this.snapping.coords = {};
@@ -16547,7 +16061,7 @@
 
         component: function(name) {
             if (name === undefined) {
-                return Graph.registry.vector.get(this.components.block);    
+                return Graph.registry.vector.get(this.components.block);
             }
             return Graph.registry.vector.get(this.components[name]);
         },
@@ -16585,7 +16099,6 @@
             }
 
             var me = this,
-                contextId = this.props.context,
                 clientId = client.guid();
 
             var key;
@@ -16632,27 +16145,13 @@
             }
         },
 
+        repairClient: function(client) {
+            console.log(client);
+        },
+
         getClientCenter: function(client) {
-            var clientId = client.guid(),
-                contextId = this.props.context,
-                matrix = Graph.matrix(),
-                path = client.pathinfo();
-
-            var center, bbox;
-
-            client.bubble(function(curr){
-                if (curr.guid() == contextId) {
-                    return false;
-                }
-                matrix.multiply(curr.matrix());
-            });
-
-            path = path.transform(matrix);
-            bbox = path.bbox();
-
-            center = bbox.center().toJson();
-
-            matrix = path = bbox = null;
+            var bbox = client.bboxView(),
+                center = bbox.center(true);
 
             return center;
         },
@@ -16686,6 +16185,7 @@
         onClientDragStart: function(e, client) {
             var me = this,
                 paper = me.vector(),
+                viewport = paper.viewport(),
                 layout = paper.layout(),
                 offset = layout.offset(),
                 center = me.getClientCenter(client);
@@ -16698,7 +16198,7 @@
 
             var left = offset.left,
                 top = offset.top,
-                ma = this.context().matrix(),
+                ma = viewport.matrix(),
                 dx = ma.props.e,
                 dy = ma.props.f,
                 point = layout.grabLocation({clientX: e.x, clientY: e.y}),
@@ -16709,7 +16209,7 @@
 
             _.forOwn(coords, function(c){
                 var mx, my, vx, vy;
-                
+
                 mx = ma.x(c.x - diffx, c.y - diffy);
                 my = ma.y(c.x - diffx, c.y - diffy);
 
@@ -16724,6 +16224,7 @@
                 if (_.indexOf(snapy, vy) === -1) {
                     snapy.push(vy);
                 }
+
             });
 
             client.draggable().snap([
@@ -16769,7 +16270,7 @@
 
             if (options) {
                 var dragger = client.draggable();
-                
+
                 if (options.osnaps) {
                     dragger.snap(options.osnaps);
                 }
@@ -16787,11 +16288,11 @@
                     snapping.coords[key] = center;
                     options.coords = key;
                 }
-                
+
                 key = null;
                 center = null;
             }
-            
+
             this.suspend();
 
             _.assign(this.snapping, {
@@ -16813,39 +16314,19 @@
                 }
                 delete this.clients[guid];
             }
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Snapper';
         }
 
     });
 
     ///////// HELPERS /////////
 
-    function bboxCenter(client, context) {
-        if (client.guid() == context.guid()) {
-            return client.bbox().center(true);
-        }
-
-        var matrix = Graph.matrix();
-        var path, bbox, center;
-
-        client.bubble(function(curr){
-            matrix.multiply(curr.matrix());
-            if (curr === context) {
-                return false;
-            }
-        });
-
-        path = client.pathinfo().transform(matrix);
-        bbox = path.bbox();
-
-        center = bbox.center(true);
-        path = bbox = null;
-
-        return center;
-    }
-
     function snapValue(value, snaps, range) {
         range = _.defaultTo(range, 10);
-        
+
         var i = snaps.length, v;
 
         while(i--) {
@@ -16865,6 +16346,7 @@
     }
 
 }());
+
 
 (function(){
 
@@ -16940,7 +16422,7 @@
             var shape = e.shape,
                 meta = shape.metadata,
                 pad = this.components.pad;
-            
+
             pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
             
             var body = '';
@@ -17002,6 +16484,10 @@
             }
             
             e.preventDefault();
+        },
+
+        toString: function() {
+            return 'Graph.plugin.Toolpad';
         }
         
     });
@@ -17041,10 +16527,11 @@
         },
 
         cached: {
-            innerMatrix: null,
-            outerMatrix: null,
-            innerBBox: null,
-            outerBBox: null
+
+        },
+
+        plugins: {
+            manager: null
         },
 
         constructor: function(options) {
@@ -17056,6 +16543,7 @@
 
             this.props.guid = guid;
             this.tree.children = new Graph.collection.Shape();
+            this.plugins.manager = new Graph.plugin.Manager();
 
             this.initComponent();
             this.initMetadata();
@@ -17066,7 +16554,7 @@
                 if (this.metadata.style) {
                     style += ' ' + this.metadata.style;
                 }
-                
+
                 this.component().addClass(style);
                 style = null;
             }
@@ -17079,16 +16567,16 @@
         initMetadata: function() {
             this.metadata.tools = [
                 {
-                    name: 'config', 
-                    icon: Graph.icons.CONFIG, 
-                    title: Graph._('Click to config shape'), 
+                    name: 'config',
+                    icon: Graph.icons.CONFIG,
+                    title: Graph._('Click to config shape'),
                     enabled: true,
                     handler: _.bind(this.onConfigToolClick, this)
                 },
                 {
-                    name: 'link', 
-                    icon: Graph.icons.LINK, 
-                    title: Graph._('Click to start shape linking'), 
+                    name: 'link',
+                    icon: Graph.icons.LINK,
+                    title: Graph._('Click to start shape linking'),
                     enabled: true,
                     handler: _.bind(this.onLinkToolClick, this)
                 },
@@ -17107,9 +16595,9 @@
                     handler: _.bind(this.onBackToolClick, this)
                 },
                 {
-                    name: 'trash', 
-                    icon: Graph.icons.TRASH, 
-                    title: Graph._('Click to remove shape'), 
+                    name: 'trash',
+                    icon: Graph.icons.TRASH,
+                    title: Graph._('Click to remove shape'),
                     enabled: true,
                     handler: _.bind(this.onTrashToolClick, this)
                 }
@@ -17131,28 +16619,23 @@
         },
 
         invalidate: function() {
-            this.cached.innerMatrix = null;
-            this.cached.outerMatrix = null;
-            this.cached.innerBBox = null;
-            this.cached.outerBBox = null;
+
+        },
+        
+        connectable: function() {
+            return this.plugins.manager.get('network');
         },
 
-        provider: function(plugin) {    
-            var provider;
+        resizable: function() {
+            return this.plugins.manager.get('resizer');
+        },
 
-            switch(plugin) {
-                case 'network':
-                case 'resizer':
-                case 'dragger':
-                case 'snapper':
-                    provider = this.components.block;
-                    break;
-                default:
-                    provider = this.components.block;
-                    break;
-            }
+        draggable: function() {
+            return this.plugins.manager.get('dragger');
+        },
 
-            return Graph.registry.vector.get(provider);
+        snappable: function() {
+            return this.plugins.manager.get('snapper');
         },
 
         paper: function() {
@@ -17167,219 +16650,53 @@
             return this.tree.children;
         },
 
-        addChild: function(shape) {
-            var parent = shape.parent();
+        addChild: function(child) {
+            var children = this.children(),
+                parent = child.parent();
 
-            if (parent) {
-                parent.removeChild(shape);
+            if (parent && parent.guid() != this.guid()) {
+                parent.removeChild(child);
             }
 
-            this.children().push(shape);
-            shape.tree.parent = this.guid();
-
-            if (this.components.child) {
-                this.component('child').append(shape.component());
-            }
-
-            return this;
-        },
-
-        removeChild: function(shape) {
-            this.children().pull(shape);
-            shape.tree.parent = null;
-
-            var paper = shape.paper();
-
-            if (paper) {
-                paper.viewport().append(shape.component());
-            }
-
-            return this;
-        },
-        
-        addChild_: function(child, relocate) {
-            this.children().push(child);
-            child.tree.parent = this.guid();
-
-            if (this.components.child) {
-                var context = this.component(),
-                    target = this.component('child'),
-                    source = child.component();
-                
-                // sync vector tree
-                target.children().push(source);
-                source.tree.parent = target.guid();
-
-                relocate = _.defaultTo(relocate, true);
-
-                if (relocate) {
-
-                    target.elem.append(source.elem);
-
-                    var matrix = source.innerMatrix(context);
-
-                    source.graph.matrix = matrix;
-                    source.attr('transform', matrix.toValue());
-                    source.dirty(true);
-
-                    // update child props
-                    _.assign(child.props, {
-                        left: matrix.props.e,
-                        top:  matrix.props.f
-                    });
-
-                    matrix = null;
-                }
+            if ( ! children.has(child)) {
+                children.push(child);
+                child.tree.parent = this.guid();
             }
         },
 
-        removeChild_: function(child, relocate) {
-            // sync shape tree
-            this.children().pull(child);
-            child.tree.parent = null;
+        removeChild: function(child) {
+            var children = this.children();
 
-            // sync vector tree => revert back to paper
-            var paper = child.paper();
-
-            if (paper) {
-                var source = child.component(),
-                    target = paper.viewport();
-
-                // need relocate node ?
-                relocate = _.defaultTo(relocate, true);
-
-                if (relocate) {
-                    var context = this.component(),
-                        srcmat = Graph.matrix();
-
-                    source.bubble(function(curr){
-                        srcmat.multiply(curr.matrix());
-                        if (curr === context) {
-                            return false;
-                        }
-                    });
-
-                    source.graph.matrix = srcmat;
-                    source.attr('transform', srcmat.toValue());
-                    source.dirty(true);
-
-                    // update child props
-                    _.assign(child.props, {
-                        left: srcmat.props.e,
-                        top: srcmat.props.f
-                    });
-
-                    srcmat = null;
-
-                    target.children().push(source);
-                    source.tree.parent = target.guid();    
-                    target.elem.append(source.elem);
-
-                } else {
-                    target.children().push(source);
-                    source.tree.parent = target.guid();    
-                }
+            if (children.has(child)) {
+                children.pull(child);
+                child.tree.parent = null;
             }
         },
-        
+
         guid: function() {
             return this.props.guid;
         },
 
         data: function(name, value) {
             var me = this;
-            
+
             if (_.isPlainObject(name)) {
                 _.forOwn(name, function(v, k){
                     me.data(k, v);
                 });
                 return me;
             }
-            
+
             if (value === undefined) {
                 return me.props[name];
             }
-            
+
             me.props[name] = value;
             return me;
         },
 
         matrix: function() {
             return this.component().matrix();
-        },
-
-        innerMatrix: function() {
-            var paper = this.paper();
-            var matrix;
-
-            if (paper) {
-                matrix = this.cached.innerMatrix;
-
-                if ( ! matrix) {
-
-                    var context = paper.viewport(),
-                        contextId = context.guid(),
-                        current = this.component(),
-                        currentId = current.guid(),
-                        component = this.component(),
-                        outerMatrix = Graph.matrix();
-
-                    component.bubble(function(curr){
-                        var guid = curr.guid();
-
-                        if (guid == contextId) {
-                            return false;
-                        }
-
-                        if (guid != currentId) {
-                            outerMatrix.multiply(curr.matrix());    
-                        }
-                    });
-
-                    outerMatrix.invert();
-                    matrix = component.matrix().clone().multiply(outerMatrix);
-
-                    this.cached.innerMatrix = matrix;
-
-                    outerMatrix = null;
-                }
-            } else {
-                matrix = this.matrix();
-            }
-
-            return matrix.clone();
-        },
-
-        outerMatrix: function() {
-            var paper = this.paper();
-            var matrix;
-
-            if (paper) {
-                matrix = this.cached.outerMatrix;
-
-                if ( ! matrix) {
-                    var context = paper.viewport(),
-                        contextId = context.guid(),
-                        component = this.component();
-
-                    matrix = Graph.matrix();
-
-                    component.bubble(function(curr){
-                        if (curr.guid() == contextId) {
-                            return false;
-                        }
-                        matrix.multiply(curr.matrix());
-                    });
-
-                    this.cached.outerMatrix = matrix;
-
-                    context = component = null;
-                }
-            } else {
-                matrix = this.matrix();
-            }
-
-            return matrix.clone();
         },
 
         bbox: function() {
@@ -17393,37 +16710,10 @@
             });
         },
 
-        innerBBox: function() {
-            var bbox = this.cached.innerBBox;
-        },
-
-        outerBBox: function() {
-            var bbox = this.cached.outerBBox;
-
-            if ( ! bbox) {
-                var matrix = this.outerMatrix(),
-                    path = this.component().pathinfo().transform(matrix);
-
-                bbox = path.bbox();
-                this.cached.outerBBox = bbox;
-            }
-
-            return bbox.clone();
-        },
-
-        contains: function(shape) {
-            var bbox1, bbox2;
-
-            bbox1 = this.outerBBox();
-            bbox2 = shape.outerBBox();
-
-            return bbox1.contains(bbox2);
-        },
-
         render: function(paper) {
             var component = this.component();
             component && component.render(paper);
-            
+
             // save
             this.tree.paper = paper.guid();
         },
@@ -17432,21 +16722,21 @@
             // just fire block removal
             this.component('block').remove();
         },
-        
+
         redraw: _.debounce(function() {
             var label = this.component('label'),
                 block = this.component('block'),
                 bound = block.bbox().toJson();
 
             label.attr({
-                x: bound.x + bound.width  / 2, 
+                x: bound.x + bound.width  / 2,
                 y: bound.x + bound.height / 2
             });
 
             label.wrap(bound.width - 10);
 
         }, 1),
-        
+
         translate: function(dx, dy) {
             var component = this.component();
             component.translate(dx, dy).commit();
@@ -17455,11 +16745,16 @@
             var matrix = component.matrix(),
                 left = matrix.props.e,
                 top = matrix.props.f;
-            
+
             this.data({
                 left: left,
                 top: top
             });
+
+        },
+
+        cascade: function(handler) {
+            cascade(this, handler);
         },
 
         sendToBack: function() {
@@ -17477,43 +16772,50 @@
          */
         attr: function(name, value) {
             var me = this;
-            
+
             if (_.isPlainObject(name)) {
                 _.forOwn(name, function(v, k){
                     me.props[k] = v;
                 });
                 return this;
             }
-            
+
             if (value === undefined) {
                 return this.props[name];
             }
-            
+
             this.props[name] = value;
             return this;
         },
-        
+
         height: function(value) {
             if (value === undefined) {
                 return this.props.height;
             }
-            
+
             return this.attr('height', value);
+        },
+
+        width: function(value) {
+            if (value === undefined) {
+                return this.props.width;
+            }
+            return this.attr('width', value);
         },
 
         left: function(value) {
             if (value === undefined) {
                 return this.props.left;
             }
-            
+
             return this.attr('left', value);
         },
-        
+
         top: function(value) {
             if (value === undefined) {
                 return this.props.top;
             }
-            
+
             return this.attr('top', value);
         },
 
@@ -17524,35 +16826,35 @@
         },
 
         onDragStart: function(e) {
-            var shape = this.component();
-            shape.addClass('shape-dragging');
+            this.component().addClass('shape-dragging');
         },
-        
+
         onDragEnd: function(e) {
-            var block = this.component('block'),
-                shape = this.component('shape'),
-                matrix = block.matrix();
+            var blockComponent = this.component('block'),
+                shapeComponent = this.component('shape'),
+                blockMatrix = blockComponent.matrix();
 
-            block.reset();
+            var shapeMatrix;
 
-            shape.matrix().multiply(matrix);
-            shape.attr('transform', shape.matrix().toValue());
-            shape.dirty(true);
-            
+            blockComponent.reset();
+
+            shapeComponent.matrix().multiply(blockMatrix);
+            shapeComponent.attr('transform', shapeComponent.matrix().toValue());
+            shapeComponent.dirty(true);
+
             // update props
-            var matrix = shape.matrix();
+            shapeMatrix = shapeComponent.matrix();
 
             this.data({
-                left: matrix.props.e,
-                top: matrix.props.f
+                left: shapeMatrix.props.e,
+                top: shapeMatrix.props.f
             });
 
             // forward
             this.fire(e);
-
-            shape.removeClass('shape-dragging');
+            shapeComponent.removeClass('shape-dragging');
         },
-        
+
         onSelect: function() {
             this.component('shape').addClass('shape-selected');
             Graph.topic.publish('shape/select', {shape: this});
@@ -17566,7 +16868,7 @@
         onResize: function() {
             this.redraw();
         },
-        
+
         onRemove: function() {
             // remove label
             this.component('label').remove();
@@ -17577,28 +16879,28 @@
             for (var name in this.components) {
                 this.components[name] = null;
             }
-            
+
             Graph.registry.shape.unregister(this);
         },
-        
+
         onConfigToolClick: function(e) {
-            
+
         },
-        
+
         onTrashToolClick: function(e) {
             this.remove();
         },
-        
+
         onLinkToolClick: function(e) {
             var paper = this.paper();
-            
+
             if (paper) {
                 var layout = paper.layout(),
                     linker = paper.plugins.linker,
                     coord  = layout.grabLocation(e);
-                
+
                 paper.tool().activate('linker');
-                linker.start(this.provider('network'), coord);
+                linker.start(this.connectable().component(), coord);
             }
         },
 
@@ -17612,27 +16914,40 @@
     });
 
     ///////// STATICS /////////
-    
+
     Shape.guid = 0;
 
-    Shape.toString = function() {
-        return 'function(options)';
-    };
-
     ///////// EXTENSION /////////
-    
+
     Graph.isShape = function(obj) {
         return obj instanceof Graph.shape.Shape;
     };
 
+    ///////// HELPERS /////////
+
+    function cascade(shape, handler) {
+        var child = shape.children().toArray();
+        var result;
+
+        result = handler.call(shape, shape);
+        result = _.defaultTo(result, true);
+
+        if (result && child.length) {
+            _.forEach(child, function(curr){
+                cascade(curr, handler);
+            });
+        }
+    }
+
 }());
+
 
 (function(){
 
     Graph.ns('Graph.shape.activity');
 
     Graph.shape.activity.Start = Graph.extend(Graph.shape.Shape, {
-        
+
         props: {
             label: 'START',
             width: 60,
@@ -17647,43 +16962,39 @@
         },
 
         initComponent: function() {
-            var me = this, 
-                comp = me.components;
+            var comp = this.components,
+                pmgr = this.plugins.manager;
 
             var shape, block, label;
 
-            shape = (new Graph.svg.Group(me.props.left, me.props.top))
+            shape = (new Graph.svg.Group(this.props.left, this.props.top))
                 .selectable(false);
 
-            var cx = me.props.width / 2,
-                cy = me.props.height / 2;
+            var cx = this.props.width / 2,
+                cy = this.props.height / 2;
 
             block = (new Graph.svg.Ellipse(cx, cy, cx, cy))
                 .addClass(Graph.styles.SHAPE_BLOCK)
-                .data('text', me.props.label)
+                .data('text', this.props.label)
                 .render(shape);
-
-            block.draggable({
-                ghost: true,
-                dragClass: Graph.styles.SHAPE_DRAG
-            });
-            
-            block.connectable({wiring: 'h:v'});
-            block.resizable();
-            block.editable();
-            block.snappable();
 
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            block.on('edit.shape',    _.bind(me.onLabelEdit, me));
-            block.on('dragstart.shape', _.bind(me.onDragStart, me));
-            block.on('dragend.shape', _.bind(me.onDragEnd, me));
-            block.on('resize.shape',  _.bind(me.onResize, me));
-            block.on('remove.shape',  _.bind(me.onRemove, me));
-            block.on('select.shape',  _.bind(me.onSelect, me));
-            block.on('deselect.shape',  _.bind(me.onDeselect, me));
+            pmgr.install('dragger', block, {ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('network', block, {wiring: 'h:v'});
+            pmgr.install('resizer', block);
+            pmgr.install('editor',  block);
+            pmgr.install('snapper', block);
 
-            label = (new Graph.svg.Text(cx, cy, me.props.label))
+            block.on('edit.shape',      _.bind(this.onLabelEdit, this));
+            block.on('dragstart.shape', _.bind(this.onDragStart, this));
+            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
+            block.on('resize.shape',    _.bind(this.onResize, this));
+            block.on('remove.shape',    _.bind(this.onRemove, this));
+            block.on('select.shape',    _.bind(this.onSelect, this));
+            block.on('deselect.shape',  _.bind(this.onDeselect, this));
+
+            label = (new Graph.svg.Text(cx, cy, this.props.label))
                 .addClass(Graph.styles.SHAPE_LABEL)
                 .selectable(false)
                 .clickable(false)
@@ -17719,25 +17030,25 @@
 
             block.dirty(true);
             block.resizable().redraw();
-            
+
             label.attr({
-                x: cx, 
+                x: cx,
                 y: cy
             });
 
             label.wrap(bound.width - 10);
 
             // update props
-            
+
             matrix = shape.matrix();
-            
+
             this.data({
                 left: matrix.props.e,
                 top: matrix.props.f,
                 width: bound.width,
                 height: bound.height
             });
-            
+
             bound  = null;
             matrix = null;
         },
@@ -17749,24 +17060,21 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.shape.activity.Start.toString = function() {
-        return 'function(options)';
-    };
 
 }());
+
 
 (function(){
 
     Graph.shape.activity.Final = Graph.extend(Graph.shape.Shape, {
-        
+
         props: {
             label: 'STOP',
             width: 60,
             height: 60,
             left: 0,
             top: 0
-        }, 
+        },
 
         metadata: {
             name: 'activity.final',
@@ -17774,31 +17082,37 @@
         },
 
         initComponent: function() {
-            var me = this, 
-                comp = me.components;
+            var comp = this.components,
+                pmgr = this.plugins.manager;
 
             var shape, block, inner, label;
 
-            shape = (new Graph.svg.Group(me.props.left, me.props.top))
+            shape = (new Graph.svg.Group(this.props.left, this.props.top))
                 .selectable(false);
 
-            var cx = me.props.width / 2,
-                cy = me.props.height / 2;
+            var cx = this.props.width / 2,
+                cy = this.props.height / 2;
 
             block = (new Graph.svg.Ellipse(cx, cy, cx, cy))
-                .addClass('comp-block')
-                .data('text', me.props.label)
+                .addClass(Graph.styles.SHAPE_BLOCK)
+                .data('text', this.props.label)
                 .render(shape);
 
-            block.draggable({ghost: true});
-            block.connectable();
-            block.resizable();
-            block.editable();
+            block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            block.on('edit',    _.bind(me.onLabelEdit, me));
-            block.on('dragend', _.bind(me.onDragEnd, me));
-            block.on('resize',  _.bind(me.onResize, me));
-            block.on('remove',  _.bind(me.onRemove, me));
+            pmgr.install('dragger', block, {ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('network', block, {wiring: 'h:v'});
+            pmgr.install('resizer', block);
+            pmgr.install('editor',  block);
+            pmgr.install('snapper', block);
+
+            block.on('edit.shape',      _.bind(this.onLabelEdit, this));
+            block.on('dragstart.shape', _.bind(this.onDragStart, this));
+            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
+            block.on('resize.shape',    _.bind(this.onResize, this));
+            block.on('remove.shape',    _.bind(this.onRemove, this));
+            block.on('select.shape',    _.bind(this.onSelect, this));
+            block.on('deselect.shape',  _.bind(this.onDeselect, this));
 
             inner = (new Graph.svg.Ellipse(cx, cy, cx - 6, cy - 6))
                 .addClass('comp-inner')
@@ -17806,7 +17120,8 @@
                 .selectable(false)
                 .render(shape);
 
-            label = (new Graph.svg.Text(cx, cy, me.props.label))
+            label = (new Graph.svg.Text(cx, cy, this.props.label))
+                .addClass(Graph.styles.SHAPE_LABEL)
                 .addClass('comp-label')
                 .selectable(false)
                 .clickable(false)
@@ -17817,7 +17132,7 @@
             comp.label = label.guid();
             comp.inner = inner.guid();
 
-            shape = block = label = null;
+            shape = block = label = inner = null;
         },
 
         redraw: function() {
@@ -17830,7 +17145,7 @@
 
             bound  = block.bbox().toJson(),
             matrix = Graph.matrix().translate(bound.x, bound.y);
-            
+
             shape.matrix().multiply(matrix);
             shape.attr('transform', shape.matrix().toValue());
 
@@ -17846,7 +17161,7 @@
             block.resizable().redraw();
 
             label.attr({
-                x: cx, 
+                x: cx,
                 y: cy
             });
 
@@ -17861,14 +17176,14 @@
 
             // update props
             matrix = shape.matrix();
-            
+
             this.data({
                 left: matrix.props.e,
                 top: matrix.props.f,
                 width: bound.width,
                 height: bound.height
             });
-            
+
             bound  = null;
             matrix = null;
         },
@@ -17897,12 +17212,10 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.shape.activity.Final.toString = function() {
-        return 'function(options)';
-    };
+
 
 }());
+
 
 (function(){
 
@@ -17923,37 +17236,39 @@
         },
 
         initComponent: function() {
-            var me = this, comp = this.components;
+            var comp = this.components,
+                pmgr = this.plugins.manager;
+
             var shape, block, label;
 
-            var cx = me.props.width / 2,
-                cy = me.props.height / 2;
+            var cx = this.props.width / 2,
+                cy = this.props.height / 2;
 
-            shape = (new Graph.svg.Group(me.props.left, me.props.top))
+            shape = (new Graph.svg.Group(this.props.left, this.props.top))
                 .selectable(false);
 
-            block = (new Graph.svg.Rect(0, 0, me.props.width, me.props.height))
+            block = (new Graph.svg.Rect(0, 0, this.props.width, this.props.height))
                 .addClass(Graph.styles.SHAPE_BLOCK)
-                .data('text', me.props.label)
+                .data('text', this.props.label)
                 .render(shape);
 
-            block.elem.data(Graph.string.ID_SHAPE, me.guid());
+            block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            block.draggable({ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
-            block.resizable();
-            block.editable();
-            block.connectable({wiring: 'h:v'});
-            block.snappable();
+            pmgr.install('dragger', block, {ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('resizer', block);
+            pmgr.install('editor',  block);
+            pmgr.install('network', block, {wiring: 'h:v'});
+            pmgr.install('snapper', block);
 
-            block.on('edit.shape',    _.bind(me.onLabelEdit, me));
-            block.on('dragstart.shape', _.bind(me.onDragStart, me));
-            block.on('dragend.shape', _.bind(me.onDragEnd, me));
-            block.on('resize.shape',  _.bind(me.onResize, me));
-            block.on('remove.shape',  _.bind(me.onRemove, me));
-            block.on('select.shape',  _.bind(me.onSelect, me));
-            block.on('deselect.shape',  _.bind(me.onDeselect, me));
+            block.on('edit.shape',      _.bind(this.onLabelEdit, this));
+            block.on('dragstart.shape', _.bind(this.onDragStart, this));
+            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
+            block.on('resize.shape',    _.bind(this.onResize, this));
+            block.on('remove.shape',    _.bind(this.onRemove, this));
+            block.on('select.shape',    _.bind(this.onSelect, this));
+            block.on('deselect.shape',  _.bind(this.onDeselect, this));
 
-            label = (new Graph.svg.Text(cx, cy, me.props.label))
+            label = (new Graph.svg.Text(cx, cy, this.props.label))
                 .addClass(Graph.styles.SHAPE_LABEL)
                 .clickable(false)
                 .selectable(false)
@@ -17986,25 +17301,25 @@
 
             block.dirty(true);
             block.resizable().redraw();
-            
+
             label.attr({
-                x: bound.width  / 2, 
+                x: bound.width  / 2,
                 y: bound.height / 2
             });
 
             label.wrap(bound.width - 10);
-            
+
             // update props
-            
+
             matrix = shape.matrix();
-            
+
             this.data({
                 left: matrix.props.e,
                 top: matrix.props.f,
                 width: bound.width,
                 height: bound.height
             });
-            
+
             bound  = null;
             matrix = null;
         },
@@ -18020,12 +17335,9 @@
     });
 
     ///////// STATIC /////////
-    
-    Graph.shape.activity.Action.toString = function() {
-        return 'function(options)';
-    };
 
 }());
+
 
 (function(){
 
@@ -18046,43 +17358,47 @@
         },
 
         initComponent: function() {
-            var me = this, comp = me.components;
+            var comp = this.components,
+                pmgr = this.plugins.manager;
+
             var shape, block, label;
 
             var points = [
-                me.props.width / 2, 0,
-                me.props.width, me.props.height / 2,
-                me.props.width / 2, me.props.height,
-                0, me.props.height / 2
+                this.props.width / 2, 0,
+                this.props.width, this.props.height / 2,
+                this.props.width / 2, this.props.height,
+                0, this.props.height / 2
             ];
 
             var cx = points[0],
                 cy = points[3];
 
-            shape = (new Graph.svg.Group(me.props.left, me.props.top))
+            shape = (new Graph.svg.Group(this.props.left, this.props.top))
                 .selectable(false);
 
             block = (new Graph.svg.Polygon(points))
-                .data('text', me.props.label)
+                .addClass(Graph.styles.SHAPE_BLOCK)
+                .data('text', this.props.label)
                 .render(shape);
 
-            block.elem.data(Graph.string.ID_SHAPE, me.guid());
+            block.elem.data(Graph.string.ID_SHAPE, this.guid());
+            
+            pmgr.install('dragger', block, {ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('resizer', block);
+            pmgr.install('editor',  block);
+            pmgr.install('network', block, {wiring: 'h:v'});
+            pmgr.install('snapper', block);
 
-            block.draggable({ghost: true, dragClass: 'shape-draggable'});
-            block.resizable();
-            block.editable();
-            block.connectable({wiring: 'h:v'});
-            block.snappable();
+            block.on('edit.shape',      _.bind(this.onLabelEdit, this));
+            block.on('dragstart.shape', _.bind(this.onDragStart, this));
+            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
+            block.on('resize.shape',    _.bind(this.onResize, this));
+            block.on('remove.shape',    _.bind(this.onRemove, this));
+            block.on('select.shape',    _.bind(this.onSelect, this));
+            block.on('deselect.shape',  _.bind(this.onDeselect, this));
 
-            block.on('edit', _.bind(me.onLabelEdit, me));
-            block.on('dragstart', _.bind(me.onDragStart, me));
-            block.on('dragend', _.bind(me.onDragEnd, me));
-            block.on('resize', _.bind(me.onResize, me));
-            block.on('remove',  _.bind(me.onRemove, me));
-            block.on('select.shape',  _.bind(me.onSelect, me));
-            block.on('deselect.shape',  _.bind(me.onDeselect, me));
-
-            label = (new Graph.svg.Text(cx, cy, me.props.label))
+            label = (new Graph.svg.Text(cx, cy, this.props.label))
+                .addClass(Graph.styles.SHAPE_LABEL)
                 .clickable(false)
                 .selectable(false)
                 .render(shape);
@@ -18122,16 +17438,16 @@
             block.resizable().redraw();
 
             label.attr({
-                x: bound.width  / 2, 
+                x: bound.width  / 2,
                 y: bound.height / 2
             });
 
             label.wrap(bound.width - 10);
 
             // update props
-            
+
             matrix = shape.matrix();
-            
+
             this.data({
                 left: matrix.props.e,
                 top: matrix.props.f,
@@ -18141,17 +17457,18 @@
 
             matrix = null;
             bound  = null;
+        },
+
+        toString: function() {
+            return 'Graph.shape.activity.Router';
         }
 
     });
 
     ///////// STATIC /////////
-    
-    Graph.shape.activity.Router.toString = function() {
-        return 'function(options)';
-    };
 
 }());
+
 
 (function(){
 
@@ -18177,15 +17494,15 @@
                 .selectable(false);
 
             comp.shape = shape.guid();
+        },
+
+        toString: function() {
+            return 'Graph.shape.activity.Fork';
         }
 
     });
 
     ///////// STATIC /////////
-    
-    Graph.shape.activity.Fork.toString = function() {
-        return 'function(options)';
-    };
 
 }());
 
@@ -18205,32 +17522,36 @@
         },
 
         initComponent: function() {
-            var me = this, comp = this.components;
+            var comp = this.components,
+                pmgr = this.plugins.manager;
+
             var shape, block, beam, label;
 
-            shape = (new Graph.svg.Group(me.props.left, me.props.top))
+            shape = (new Graph.svg.Group(this.props.left, this.props.top))
                 .selectable(false);
 
-            block = (new Graph.svg.Rect(0, 0, me.props.width, me.props.height, 0))
+            block = (new Graph.svg.Rect(0, 0, this.props.width, this.props.height, 0))
                 .addClass('block')
                 .render(shape);
 
-            block.draggable({ghost: true});
-            block.connectable();
-            block.on('dragend', _.bind(me.onDragEnd, me));
+            pmgr.install('dragger', block, {ghost: true});
+            pmgr.install('network', block);
 
+            block.on('dragend', _.bind(this.onDragEnd, this));
+            
             comp.shape = shape.guid();
             comp.block = block.guid();
+        },
+
+        toString: function() {
+            return 'Graph.shape.activity.Join';
         }
     });
 
     ///////// STATIC /////////
-    
-    Graph.shape.activity.Join.toString = function() {
-        return 'function(options)';
-    };
 
 }());
+
 
 (function(){
 
@@ -18267,26 +17588,26 @@
             this.superclass.prototype.constructor.call(this, options);
             this.initDropzone();
         },
-        
+
         initMetadata: function() {
             this.metadata.tools = [
                 {
-                    name: 'config', 
-                    icon: Graph.icons.CONFIG, 
-                    title: Graph._('Click to config shape'), 
+                    name: 'config',
+                    icon: Graph.icons.CONFIG,
+                    title: Graph._('Click to config shape'),
                     enabled: true
                 },
                 {
-                    name: 'above', 
+                    name: 'above',
                     icon: Graph.icons.LANE_ABOVE,
-                    title: Graph._('Add shape above'), 
+                    title: Graph._('Add shape above'),
                     enabled: true,
                     handler: _.bind(this.onAboveToolClick, this)
                 },
                 {
-                    name: 'below', 
+                    name: 'below',
                     icon: Graph.icons.LANE_BELOW,
-                    title: Graph._('Add shape below'), 
+                    title: Graph._('Add shape below'),
                     enabled: true,
                     handler: _.bind(this.onBelowToolClick, this)
                 },
@@ -18319,9 +17640,9 @@
                     handler: _.bind(this.onBackToolClick, this)
                 },
                 {
-                    name: 'trash', 
-                    icon: Graph.icons.TRASH, 
-                    title: Graph._('Click to remove shape'), 
+                    name: 'trash',
+                    icon: Graph.icons.TRASH,
+                    title: Graph._('Click to remove shape'),
                     enabled: true,
                     handler: _.bind(this.onTrashToolClick, this)
                 }
@@ -18329,48 +17650,43 @@
         },
 
         initComponent: function() {
-            var me = this, 
-                comp = me.components;
+            var comp = this.components,
+                pmgr = this.plugins.manager;
 
             var shape, block, header, label, child;
 
-            shape = (new Graph.svg.Group(me.props.left, me.props.top))
+            shape = (new Graph.svg.Group(this.props.left, this.props.top))
                 .selectable(false);
 
-            block = (new Graph.svg.Rect(0, 0, me.props.width, me.props.height, 0))
+            block = (new Graph.svg.Rect(0, 0, this.props.width, this.props.height, 0))
                 .addClass(Graph.styles.SHAPE_BLOCK)
                 .render(shape);
 
-            block.resizable();
+            pmgr.install('resizer', block, {minWidth: 200, minHeight: 100});
+            pmgr.install('dragger', block, {ghost: true, batchSync: false});
 
-            block.draggable({
-                ghost: true,
-                batchSync: false
-            });
+            block.on('dragstart.shape', _.bind(this.onDragStart, this));
+            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
+            block.on('resize.shape',    _.bind(this.onResize, this));
+            block.on('remove.shape',    _.bind(this.onRemove, this));
+            block.on('select.shape',    _.bind(this.onSelect, this));
+            block.on('deselect.shape',  _.bind(this.onDeselect, this));
 
-            block.on('dragend.shape', _.bind(me.onDragEnd, me));
-            block.on('resize.shape', _.bind(me.onResize, me));
-            block.on('remove.shape',  _.bind(me.onRemove, me));
-            block.on('select.shape',  _.bind(me.onSelect, me));
-            block.on('deselect.shape',  _.bind(me.onDeselect, me));
-
-            header = (new Graph.svg.Rect(0, 0, 30, me.props.height, 0))
+            header = (new Graph.svg.Rect(0, 0, 30, this.props.height, 0))
                 .addClass(Graph.styles.SHAPE_HEADER)
                 .selectable(false)
                 .render(shape);
 
-            header.data('text', me.props.label);
-            header.editable({
-                width: 200,
-                height: 100
-            });
+            header.data('text', this.props.label);
 
-            header.on('edit.shape', _.bind(me.onLabelEdit, me));
+            pmgr.install('editor', header, {width: 200, height: 100});
+
+            header.on('edit.shape', _.bind(this.onLabelEdit, this));
 
             var tx = 15,
-                ty = me.props.height / 2;
+                ty = this.props.height / 2;
 
-            label = (new Graph.svg.Text(tx, ty, me.props.label))
+            label = (new Graph.svg.Text(tx, ty, this.props.label))
                 .addClass(Graph.styles.SHAPE_LABEL)
                 .selectable(false)
                 .clickable(false)
@@ -18392,8 +17708,8 @@
             comp.child = child.guid();
 
             // set virtual pool
-            me.tree.pool = new Graph.shape.activity.Pool();
-            me.tree.pool.insert(me);
+            this.tree.pool = new Graph.shape.activity.Pool();
+            this.tree.pool.insert(this);
 
             shape = block = header = label = null;
         },
@@ -18411,6 +17727,8 @@
             .on('dragenter', function laneDragEnter(e){
                 var vector, shape, batch;
 
+                comp.addClass('receiving');
+
                 if ( ! me.transfer) {
                     vector = Graph.registry.vector.get(e.relatedTarget);
 
@@ -18421,50 +17739,73 @@
                         if (shape) {
                             me.transfer = {
                                 shape: shape,
-                                batch: [],
-                                startHandler: _.bind(me.onTransferStart, me),
-                                stopHandler: _.bind(me.onTransferEnd, me)
+                                batch: []
                             };
 
-                            shape.on('dragend', me.transfer.stopHandler);
+                            me.transfer.shape.on('dragend', onTransferEnd);
+                            me.transfer.batch = [shape];
 
-                            // handle batch
                             if (vector.lasso) {
                                 batch = vector.lasso.collection.slice();
+
                                 _.forEach(batch, function(v){
                                     var s = Graph.registry.shape.get(v);
-                                    if (s && s !== shape) {
+                                    if (s && s.guid() != shape.guid()) {
                                         me.transfer.batch.push(s);
                                     }
                                 });
+
                                 batch = null;
                             }
-
-                            // handle shape
-                            if ( ! children.has(shape)) {
-                                me.transfer.trans = TRANSFER_RECEIVE;
-                                comp.addClass('receiving');
-                            }
                         }
-                    }
-                } else {
-                    if (me.transfer.trans == TRANSFER_RECEIVE) {
-                        comp.addClass('receiving');
                     }
                 }
             })
             .on('dragleave', function laneDragLeave(e){
-                if (me.transfer) {
-                    comp.removeClass('receiving');
-                }
+                comp.removeClass('receiving');
             })
             .on('drop', function laneDrop(e){
                 if (me.transfer) {
-                    comp.removeClass('receiving');
+                    var delay;
+
+                    delay = _.delay(function(){
+                        clearTimeout(delay);
+                        delay = null;
+
+                        var placeTarget = me.component('child');
+
+                        _.forEach(me.transfer.batch, function(shape){
+                            var shapeComponent = shape.component();
+
+                            shapeComponent.relocate(placeTarget);
+                            me.addChild(shape);
+                        });
+
+                        me.autoResize();
+                    }, 0);
+
                 }
+
+                comp.removeClass('receiving');
             });
 
             block = null;
+
+            /////////
+
+            function onTransferEnd() {
+                var delay;
+
+                delay = _.delay(function(){
+
+                    clearTimeout(delay);
+                    delay = null;
+
+                    me.transfer.shape.off('dragend', onTransferEnd);
+                    me.transfer = null;
+
+                }, 0);
+            }
         },
 
         pool: function() {
@@ -18478,7 +17819,7 @@
             method = _.defaultTo(method, 'prepend');
 
             component.render(paper, method, sibling);
-            
+
             // save
             this.tree.paper = paper.guid();
         },
@@ -18490,7 +17831,7 @@
         sendToFront: function() {
             this.pool().bringToFront(this);
         },
-        
+
         redraw: function() {
             var block = this.component('block'),
                 shape = this.component('shape'),
@@ -18501,11 +17842,11 @@
 
             bound  = block.bbox().toJson();
             matrix = Graph.matrix().translate(bound.x, bound.y);
-            
+
             shape.matrix().multiply(matrix);
             shape.attr('transform', shape.matrix().toValue());
             shape.dirty(true);
-            
+
             block.attr({
                 x: 0,
                 y: 0
@@ -18532,25 +17873,25 @@
                 x: tx,
                 y: ty
             });
-            
+
             label.wrap(bound.height - 10);
             label.rotate(270, tx, ty).commit();
-            
+
             // update props
-            
+
             matrix = shape.matrix();
-            
+
             this.data({
                 left: matrix.props.e,
                 top: matrix.props.f,
                 width: bound.width,
                 height: bound.height
             });
-            
+
             bound  = null;
             matrix = null;
         },
-        
+
         attr: function(name, value) {
             var result = this.superclass.prototype.attr.call(this, name, value),
                 maps = {
@@ -18559,91 +17900,181 @@
                     left: 'x',
                     top: 'y'
                 };
-                
+
             var block, key, val;
-            
+
             if (_.isPlainObject(name)) {
-                
+
                 block = this.component('block');
-                
+
                 for (key in name) {
                     if (maps[key]) {
                         val = name[key];
                         block.attr(maps[key], val);
                     }
                 }
-                
+
                 this.redraw();
-                
+
             } else if (value !== undefined) {
                 block = this.component('block');
-                
+
                 if (maps[name]) {
                     block.attr(maps[name], value);
                 }
-                
+
                 this.redraw();
             }
-            
+
             return result;
         },
-        
+
         addSiblingAbove: function() {
             var sibling = new Graph.shape.activity.Lane(),
                 paper = this.paper(),
                 pool = this.pool();
-                
+
             // create space above
             pool.createSpaceAbove(this, sibling.height());
-                
+
             // sync position 'above'
             var top = (this.top() - sibling.height());
-            
+
             sibling.attr({
                 width: this.props.width,
                 left: this.props.left,
                 top: top
             });
-            
+
             // sync pool
             sibling.tree.pool = pool;
 
             var result = pool.insert(sibling);
-            
+
             if (result !== undefined) {
                 sibling.render(paper, 'before', this.component());
             }
-            
-            sibling = null;
+
+            return sibling;
         },
-        
+
         addSiblingBellow: function() {
             var sibling = new Graph.shape.activity.Lane(),
                 paper = this.paper(),
                 pool = this.pool();
-            
+
             // create space
             pool.createSpaceBellow(this, sibling.height());
-            
+
             // sync position 'bellow'
             var bottom = (this.top() + this.height());
-            
+
             sibling.attr({
                 width: this.props.width,
                 left: this.props.left,
                 top: bottom
             });
-            
+
             // sync pool
             sibling.tree.pool = pool;
-            
+
             var result = pool.insert(sibling);
-            
+
             if (result !== undefined) {
                 sibling.render(paper, 'after', this.component());
             }
-            
-            sibling = null;
+
+            return sibling;
+        },
+
+        autoResize: function() {
+
+            var shapeComponent = this.component(),
+                blockComponent = this.component('block');
+
+            if (blockComponent.isSelected()) {
+                blockComponent.deselect();
+            }
+
+            var bbox = this.bbox().toJson(),
+                actualBBox = shapeComponent.bbox().toJson(),
+                blockComponent = this.component('block'),
+                childComponent = this.component('child'),
+
+                offset = {
+                    top: 20,
+                    bottom: 20,
+                    left: 40,
+                    right: 20
+                },
+
+                padding = {
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    right: 0
+                };
+
+            var bounds = _.extend({}, bbox);
+
+            if (actualBBox.y - bbox.y < padding.top) {
+                bounds.y = actualBBox.y - offset.top;
+            }
+
+            if (actualBBox.x - bbox.x < padding.left) {
+                bounds.x = actualBBox.x - offset.left;
+            }
+
+            if ((bbox.x + bbox.width) - (actualBBox.x + actualBBox.width) < padding.right) {
+                bounds.x2 = (actualBBox.x + actualBBox.width) + offset.right;
+            }
+
+            if ((bbox.y + bbox.height) - (actualBBox.y + actualBBox.height) < padding.bottom) {
+                bounds.y2 = (actualBBox.y + actualBBox.height) + offset.bottom;
+            }
+
+            var dx = bounds.x - bbox.x,
+                dy = bounds.y - bbox.y;
+
+            var width = bounds.x2 - bounds.x,
+                height = bounds.y2 - bounds.y;
+
+            // preserver child component
+            childComponent.translate(Math.abs(dx), Math.abs(dy)).commit();
+
+            this.translate(dx, dy);
+            // this.pool().translateBy(this, dx, dy);
+
+            this.attr({
+                width: width,
+                height: height
+            });
+
+            this.pool().resizeBy(this);
+        },
+
+        redrawChildren: function() {
+            var pool = this.pool(),
+                lanes = pool.children().toArray(),
+                children = [];
+
+            _.forEach(lanes, function(lane){
+                var laneChild = lane.children().toArray();
+                // repair links
+                _.forEach(laneChild, function(shape){
+                    var connectable = shape.connectable(),
+                        snappable = shape.snappable();
+
+                    connectable.plugin().repairLinks();
+                    snappable.plugin().repairClient(snappable.component());
+                });
+                // children = _.concat(children, laneChild);
+            });
+
+            // TODO: redraw links if any
+
+
+            // TODO: redraw snapper if exists
         },
 
         toString: function() {
@@ -18666,13 +18097,64 @@
 
             Graph.registry.shape.unregister(this);
         },
-        
-        onDragEnd: function(e) {
-            this.superclass.prototype.onDragEnd.call(this, e);
 
-            if ( ! e.batch) {
-                this.pool().translateBy(this, e.dx, e.dy);
+        onSelect: function() {
+            this.superclass.prototype.onSelect.call(this, arguments);
+
+            var me = this,
+                guid = me.guid();
+
+            var delay = _.delay(function(){
+
+                clearTimeout(delay);
+                delay = null;
+
+                me.cascade(function(curr){
+                    if (curr.guid() != guid) {
+                        var vector = curr.draggable().component();
+                        if (vector && vector.lasso) {
+                            vector.lasso.decollect(vector);
+                        }
+                    }
+                });
+
+            }, 0)
+
+        },
+
+        onDragEnd: function(e) {
+            if (e.master) {
+                var blockComponent = this.component('block'),
+                    shapeComponent = this.component('shape'),
+                    blockMatrix = blockComponent.matrix(),
+                    pool = this.pool();
+
+                var shapeMatrix;
+
+                blockComponent.reset();
+
+                shapeComponent.matrix().multiply(blockMatrix);
+                shapeComponent.attr('transform', shapeComponent.matrix().toValue());
+                shapeComponent.dirty(true);
+
+                // update props
+                shapeMatrix = shapeComponent.matrix();
+
+                this.data({
+                    left: shapeMatrix.props.e,
+                    top: shapeMatrix.props.f
+                });
+
+                // forward
+                this.fire(e);
+                shapeComponent.removeClass('shape-dragging');
+
+                // sync other
+                pool.translateBy(this, e.dx, e.dy);
+
+                this.redrawChildren();
             }
+
         },
 
         onResize: function(e) {
@@ -18683,7 +18165,7 @@
         onAboveToolClick: function(e) {
             this.addSiblingAbove();
         },
-        
+
         onBelowToolClick: function(e) {
             this.addSiblingBellow();
         },
@@ -18694,133 +18176,14 @@
 
         onDownToolClick: function(e) {
             this.pool().moveDown(this);
-        },
-
-        onTransferStart: function(e) {
-
-        },
-
-        onTransferEnd: function(e) {
-            var delay;
-
-            _.delay(function(me){
-
-                clearTimeout(delay);
-                delay = null;
-
-                var children = me.children(),
-                    transfer = me.transfer;
-
-                var shapeMatrix, shapeComp;
-
-                console.log(me.contains(transfer.shape));
-
-                // handle shape
-                if (me.contains(transfer.shape)) {
-                    
-                    shapeComp = transfer.shape.component(); 
-                    
-                    if ( ! children.has(transfer.shape)) {
-                        me.addChild(transfer.shape);
-
-                        // sync matrix
-                        // shapeMatrix = transfer.shape.innerMatrix();
-
-                        // shapeComp.graph.matrix = shapeMatrix;
-                        // shapeComp.attr('transform', shapeMatrix.toValue());
-                        // shapeComp.dirty(true);
-
-                    } else {
-                        // shapeMatrix = shapeComp.matrix();
-                    }
-                    
-                    // update props
-                    // transfer.shape.data({
-                    //     left: shapeMatrix.props.e,
-                    //     top: shapeMatrix.props.f
-                    // });
-                    
-                    // invalidate
-                    transfer.shape.invalidate();
-
-                    // shapeMatrix = null;
-                } else {
-                    if (children.has(transfer.shape)) {
-                        me.removeChild(transfer.shape);
-
-                        // sync matrix
-                        
-                    }
-
-                    transfer.shape.invalidate();
-                }
-
-                /*console.log(me.contains(transfer.shape));
-
-                var parent;
-                
-                // handle shape
-                if (children.has(transfer.shape)) {
-                    if ( ! bbox.contains(transfer.shape.outerBBox(me))) {
-                        //me.removeChild(transfer.shape);
-                    } else {
-                        // just update matrix
-                        var matrix = transfer.shape.matrix();
-
-                        transfer.shape.data({
-                            left: matrix.props.e,
-                            top: matrix.props.f
-                        });
-                    }
-                } else {
-                    if (bbox.contains(transfer.shape.bbox())) {
-                        parent = transfer.shape.parent();
-                        if (parent) {
-                            //parent.removeChild(transfer.shape, false);
-                        }
-                        //me.addChild(transfer.shape);
-                        console.log(transfer.shape.outerBBox(me).toJson());
-                        console.log(bbox.contains(transfer.shape.outerBBox(me)));
-                    }
-                }
-
-                
-
-                // handle batch
-                _.forEach(me.transfer.batch, function(shape){
-                    if (children.has(shape)) {
-                        if ( ! bbox.contains(shape.innerBBox(me))) {
-                            me.removeChild(shape);
-                        }
-                    } else {
-                        if (bbox.contains(shape.outerBBox(me))) {
-                            parent = shape.parent();
-                            if (parent) {
-                                parent.removeChild(shape, false);
-                            }
-                            me.addChild(shape);
-                        }
-                    }
-                });*/
-
-                transfer.shape.off('dragend', transfer.stopHandler);
-                me.transfer = transfer = null;
-
-                console.log(me.children().items);
-
-            }, 0, this);
-
         }
 
     });
 
     ///////// STATIC /////////
-    
-    Graph.shape.activity.Lane.toString = function() {
-        return 'function(options)';
-    };
 
 }());
+
 
 (function(){
 
@@ -18840,6 +18203,17 @@
         
         // raw nodes
         this.cached = {};
+    };
+
+    Pool.prototype.children = function() {
+        var children = [];
+        
+        _.forEach(this.lanes.toArray(), function(node){
+            var lane = Graph.registry.shape.get(node.lane);
+            children.push(lane);
+        });
+
+        return new Graph.collection.Shape(children);
     };
 
     Pool.prototype.bbox = function() {
@@ -18906,6 +18280,10 @@
         }
         
         return null;
+    };
+
+    Pool.prototype.refresh = function(lane) {
+        console.log(lane);
     };
     
     /**
@@ -19050,7 +18428,7 @@
             var dx1 = 0,
                 dy1 = prevBox.y - laneBox.y,
                 dx2 = 0,
-                dy2 = laneBox.y - prevBox.y;
+                dy2 = laneBox.height;
             
             laneNode.bbox.y  += dy1;
             laneNode.bbox.y2 += dy1;
@@ -19076,7 +18454,7 @@
                 nextBox = next.bbox().toJson();
 
             var dx1 = 0,
-                dy1 = nextBox.y - laneBox.y,
+                dy1 = nextBox.height,
                 dx2 = 0,
                 dy2 = laneBox.y - nextBox.y;
             
@@ -19146,10 +18524,6 @@
     ///////// STATIC /////////
     
     Pool.guid = 0;
-
-    Pool.toString = function() {
-        return 'function(options)';
-    };
     
 }());
 
@@ -19173,7 +18547,7 @@
             
             width  = bounds.width;
             height = bounds.height;
-            scale  = vector.globalMatrix().scale();
+            scale  = vector.matrixCurrent().scale();
         }
         
         _.assign(this.options, {
@@ -19453,38 +18827,38 @@
                             '<path d="M 1 5 L 11 10 L 1 15 Z" fill="#30D0C6" stroke-linecap="round" stroke-dasharray="10000, 1"/>' + 
                         '</marker>' + 
                     '</defs>' + 
-                    '<g class="graph-pallet-item" data-shape="activity.start" transform="matrix(1,0,0,1,40,0)">' + 
+                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Start" transform="matrix(1,0,0,1,40,0)">' + 
                         '<circle cx="32" cy="32" r="30"/>' +
                         '<text x="32" y="36">Start</text>' + 
                     '</g>' + 
-                    '<g class="graph-pallet-item" data-shape="activity.final" transform="matrix(1,0,0,1,40,80)">' + 
+                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Final" transform="matrix(1,0,0,1,40,80)">' + 
                         '<circle cx="32" cy="32" r="30"/>' + 
                         '<circle cx="32" cy="32" r="24" class="full"/>' + 
                         '<text x="32" y="36">Stop</text>' + 
                     '</g>' + 
-                    '<g class="graph-pallet-item" data-shape="activity.action" transform="matrix(1,0,0,1,40,160)">' + 
+                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Action" transform="matrix(1,0,0,1,40,160)">' + 
                         '<rect x="2" y="2" width="60" height="60" rx="7" ry="7"/>' + 
                         '<text x="32" y="34">Action</text>' + 
                     '</g>' + 
-                    '<g class="graph-pallet-item" data-shape="activity.router" transform="matrix(1,0,0,1,40,250)">' + 
+                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Router" transform="matrix(1,0,0,1,40,250)">' + 
                         '<rect x="4" y="4" width="54" height="54" transform="rotate(45,32,32)"/>' + 
                         '<text x="30" y="34">Route</text>' + 
                     '</g>' + 
-                    '<g class="graph-pallet-item" data-shape="activity.join" transform="matrix(1,0,0,1,40,340)">' + 
+                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Join" transform="matrix(1,0,0,1,40,340)">' + 
                         '<rect x="2" y="28" width="60" height="6" rx="0" ry="0" class="full"/>' + 
                         '<path d="M 10  0 L 10 28"></path>' + 
                         '<path d="M 54  0 L 54 28"></path>' + 
                         '<path d="M 32 34 L 32 60" marker-end="url(#marker-arrow-pallet)"></path>' + 
                         '<text x="32" y="20">Join</text>' + 
                     '</g>' + 
-                    '<g class="graph-pallet-item" data-shape="activity.fork" transform="matrix(1,0,0,1,40,420)">' + 
+                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Fork" transform="matrix(1,0,0,1,40,420)">' + 
                         '<rect x="2" y="28" width="60" height="6" rx="0" ry="0" class="full"/>' + 
                         '<path d="M 10 34 L 10 60" marker-end="url(#marker-arrow-pallet)"></path>' + 
                         '<path d="M 54 34 L 54 60" marker-end="url(#marker-arrow-pallet)"></path>' + 
                         '<path d="M 32  0 L 32 28"></path>' + 
                         '<text x="32" y="50">Fork</text>' + 
                     '</g>' + 
-                    '<g class="graph-pallet-item" data-shape="activity.lane" transform="matrix(1,0,0,1,40,500)">' + 
+                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Lane" transform="matrix(1,0,0,1,40,500)">' + 
                         '<rect x="2" y="2" width="60" height="60" rx="0" ry="0"/>' + 
                         '<rect x="2" y="2" width="10" height="60" rx="0" ry="0"/>' + 
                         '<text x="32" y="34">Role</text>' + 
@@ -19497,8 +18871,6 @@
             
             pallet = Graph.$(template);
             
-            pallet.on('click', '[data-shape]', _.bind(this.onShapeClick, this));
-            
             var me = this;
 
             // setup draggable
@@ -19506,14 +18878,16 @@
                 manualStart: true,
                 onstart: function(e) {
                     var target = Graph.$(e.target),
-                        transform = Graph.util.transform2segments(target.attr('transform'));
+                        transform = Graph.util.transform2segments(target.attr('transform')),
+                        shape = target.data('shape');
 
                     transform = transform[0].slice(1);
                     me.cached.matrix = Graph.factory(Graph.lang.Matrix, transform);
 
                     target.addClass('grabbing');
-                    transform = target = null;
                     
+                    me.fire('drawstart', {shape: shape});
+                    transform = target = null;
                 },
                 onmove: function(e) {
                     me.cached.matrix.translate(e.dx, e.dy);
@@ -19527,6 +18901,8 @@
 
                     me.cached.matrix = null;
                     target = null;
+
+                    me.fire('drawend');
                 }
             })
             .on('move', function(e){
@@ -19545,7 +18921,6 @@
             });
             
             draggable.styleCursor(false);
-            
             this.components.pallet = pallet;
         },
 
@@ -19555,10 +18930,6 @@
             container = null;
         },
         
-        onShapeClick: function(e) {
-            
-        },
-
         toString: function() {
             return 'Graph.pallet.Activity';
         }
@@ -19583,15 +18954,11 @@
             options = options || {};
             _.assign(this.props, options);
         },
-
+        
         toString: function() {
             return 'Graph.diagram.Diagram';
         }
     });
-
-    Graph.diagram.Diagram.toString = function() {
-        return 'function(options)';
-    };
 
 }());
 
@@ -19604,10 +18971,6 @@
         }
         
     });
-
-    Graph.diagram.Activity.toString = function() {
-        return 'function(options)';
-    };
 
 }());
 
@@ -19765,10 +19128,6 @@
     });
 
     ///////// STATICS /////////
-    
-    Graph.popup.Dialog.toString = function() {
-        return 'function(element, options)';
-    };
 
     ///////// SHORTCUT /////////
     

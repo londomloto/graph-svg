@@ -43,7 +43,7 @@
     Sweeplink.prototype.constructor = Sweeplink;
 
     Sweeplink.prototype.extract = function(link) {
-        var segments = link.router.pathinfo().curve().segments, 
+        var segments = link.router.path().curve().segments, 
             dots = [];
 
         var x, y;

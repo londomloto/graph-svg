@@ -63,6 +63,7 @@ gulp.task('build', function(cb){
             'src/util/sweeplink.js',
 
             'src/plugin/plugin.js',
+            'src/plugin/manager.js',
             'src/plugin/definer.js',
             'src/plugin/reactor.js',
             'src/plugin/transformer.js',
@@ -71,7 +72,6 @@ gulp.task('build', function(cb){
             'src/plugin/collector.js',
             'src/plugin/dragger.js',
             'src/plugin/dropper.js',
-            'src/plugin/sorter.js',
             'src/plugin/network.js',
             'src/plugin/history.js',
             'src/plugin/panzoom.js',

@@ -118,7 +118,7 @@
                     events.translate = true;
                 } else if (cmd == 'rotate') {
                     if (len == 1) {
-                        bb = bb || vector.bbox(true).toJson();
+                        bb = bb || vector.bboxPristine().toJson();
                         mat.rotate(arg[0], bb.x + bb.width / 2, bb.y + bb.height / 2);
                         deg += arg[0];
                     } else if (len == 3) {
@@ -134,7 +134,7 @@
                     events.rotate = true;
                 } else if (cmd == 'scale') {
                     if (len === 1 || len === 2) {
-                        bb = bb || vector.bbox(true).toJson();
+                        bb = bb || vector.bboxPristine().toJson();
                         mat.scale(arg[0], arg[len - 1], bb.x + bb.width / 2, bb.y + bb.height / 2);
                         sx *= arg[0];
                         sy *= arg[len - 1];

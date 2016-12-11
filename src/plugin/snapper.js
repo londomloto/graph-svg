@@ -7,8 +7,7 @@
             enabled: false,
             suspended: true,
             rendered: false,
-            vector: null,
-            context: null
+            vector: null
         },
 
         clients: {
@@ -40,7 +39,6 @@
             _.assign(this.props, options);
 
             this.props.vector  = vector.guid();
-            this.props.context = vector.viewport().guid();
 
             this.initComponent(vector);
             this.snapping.coords = {};
@@ -74,7 +72,7 @@
 
         component: function(name) {
             if (name === undefined) {
-                return Graph.registry.vector.get(this.components.block);    
+                return Graph.registry.vector.get(this.components.block);
             }
             return Graph.registry.vector.get(this.components[name]);
         },
@@ -112,7 +110,6 @@
             }
 
             var me = this,
-                contextId = this.props.context,
                 clientId = client.guid();
 
             var key;
@@ -159,31 +156,13 @@
             }
         },
 
-        refresh: function(client) {
-
+        repairClient: function(client) {
+            console.log(client);
         },
 
         getClientCenter: function(client) {
-            var clientId = client.guid(),
-                contextId = this.props.context,
-                matrix = Graph.matrix(),
-                path = client.pathinfo();
-
-            var center, bbox;
-
-            client.bubble(function(curr){
-                if (curr.guid() == contextId) {
-                    return false;
-                }
-                matrix.multiply(curr.matrix());
-            });
-
-            path = path.transform(matrix);
-            bbox = path.bbox();
-
-            center = bbox.center().toJson();
-
-            matrix = path = bbox = null;
+            var bbox = client.bboxView(),
+                center = bbox.center(true);
 
             return center;
         },
@@ -217,6 +196,7 @@
         onClientDragStart: function(e, client) {
             var me = this,
                 paper = me.vector(),
+                viewport = paper.viewport(),
                 layout = paper.layout(),
                 offset = layout.offset(),
                 center = me.getClientCenter(client);
@@ -229,7 +209,7 @@
 
             var left = offset.left,
                 top = offset.top,
-                ma = this.context().matrix(),
+                ma = viewport.matrix(),
                 dx = ma.props.e,
                 dy = ma.props.f,
                 point = layout.grabLocation({clientX: e.x, clientY: e.y}),
@@ -240,7 +220,7 @@
 
             _.forOwn(coords, function(c){
                 var mx, my, vx, vy;
-                
+
                 mx = ma.x(c.x - diffx, c.y - diffy);
                 my = ma.y(c.x - diffx, c.y - diffy);
 
@@ -301,7 +281,7 @@
 
             if (options) {
                 var dragger = client.draggable();
-                
+
                 if (options.osnaps) {
                     dragger.snap(options.osnaps);
                 }
@@ -319,11 +299,11 @@
                     snapping.coords[key] = center;
                     options.coords = key;
                 }
-                
+
                 key = null;
                 center = null;
             }
-            
+
             this.suspend();
 
             _.assign(this.snapping, {
@@ -355,33 +335,9 @@
 
     ///////// HELPERS /////////
 
-    function bboxCenter(client, context) {
-        if (client.guid() == context.guid()) {
-            return client.bbox().center(true);
-        }
-
-        var matrix = Graph.matrix();
-        var path, bbox, center;
-
-        client.bubble(function(curr){
-            matrix.multiply(curr.matrix());
-            if (curr === context) {
-                return false;
-            }
-        });
-
-        path = client.pathinfo().transform(matrix);
-        bbox = path.bbox();
-
-        center = bbox.center(true);
-        path = bbox = null;
-
-        return center;
-    }
-
     function snapValue(value, snaps, range) {
         range = _.defaultTo(range, 10);
-        
+
         var i = snaps.length, v;
 
         while(i--) {

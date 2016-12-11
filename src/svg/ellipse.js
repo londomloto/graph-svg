@@ -20,7 +20,7 @@
             });
         },
 
-        pathinfo: function() {
+        shape: function() {
             var a = this.attrs;
 
             return Graph.path([

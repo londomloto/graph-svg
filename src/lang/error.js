@@ -10,7 +10,7 @@
         err = null;
     };
 
-    Err.defaults = {
+    Err.options = {
         message: ''
     };
     Err.extend = Graph.lang.Class.extend;
@@ -21,7 +21,7 @@
     Err.prototype.message = "";
 
     ///////// SHORTCUT /////////
-    
+
     Graph.error = function(message) {
         return new Graph.lang.Error(message);
     };

@@ -4,7 +4,6 @@
     Graph.plugin.Resizer = Graph.extend(Graph.plugin.Plugin, {
         
         props: {
-            context: null,
             vector: null,
             enabled: true,
             suspended: true,
@@ -43,12 +42,6 @@
             var me = this, guid = vector.guid();
             
             options = options || {};
-
-            if (options.context) {
-                options.context = options.context.guid();
-            } else {
-                options.context = guid;
-            }
 
             _.assign(me.props, options);
 
@@ -176,9 +169,9 @@
 
             if ( ! vertices) {
                 // get original bounding
-                var path = vector.pathinfo(),
+                var path = vector.shape(),
                     bbox = path.bbox().toJson(),
-                    rotate = vector.globalMatrix().rotate();
+                    rotate = vector.matrixCurrent().rotate();
 
                 var ro, cx, cy, ox, oy, hs, hw, hh;
 
@@ -191,7 +184,7 @@
 
                 if (ro) {
                     var rmatrix = Graph.matrix(),
-                        path = me.pathinfo();
+                        path = vector.shapeRelative();
 
                     cx = bbox.x + bbox.width / 2,
                     cy = bbox.y + bbox.height / 2;
@@ -200,11 +193,6 @@
 
                     path = path.transform(rmatrix);
                     bbox = path.bbox().toJson();
-                } else {
-                    if (this.props.context != this.props.vector) {
-                        path = me.pathinfo();
-                        bbox = path.bbox().toJson();
-                    }
                 }
 
                 hw = bbox.width / 2;
@@ -341,6 +329,10 @@
             }
         },
 
+        setupRestriction: function(handle) {
+            
+        },
+
         onHolderRender: function(e) {
             
         },
@@ -362,15 +354,36 @@
             }
             
             // set restriction
+            var minWidth = +me.props.minWidth || 0,
+                minHeight = +me.props.minHeight || 0;
+
+            if (minWidth || minHeight) {
+                var dir = handle.props.dir,
+                    box = me.vector().bboxView().toJson(),
+                    xAxis = null,
+                    yAxis = null;
+
+                switch(dir) {
+                    case 'e':
+
+                        break;
+                }
+
+                // handle.draggable().restrict(function(x, y){
+
+                // });
+            }
+
             if ( ! _.isNull(me.props.minWidth) || ! _.isNull(me.props.minHeight)) {
-                handle.draggable().restrict(function(x, y){
-                    return {
-                        x: 800, 
-                        y: 0,
-                        width: 1000,
-                        height: 1000
-                    }
-                });
+                
+                // handle.draggable().restrict(function(x, y){
+                //     return {
+                //         x: 800, 
+                //         y: 0,
+                //         width: Infinity,
+                //         height: Infinity
+                //     }
+                // });
             }
 
             handle.show();

@@ -20,7 +20,7 @@
         },
 
         collecting: {
-            
+
         },
 
         constructor: function(paper) {
@@ -29,7 +29,7 @@
             if ( ! paper.isPaper()) {
                 throw Graph.error('Lasso tool only available for paper !');
             }
-            
+
             me.paper = paper;
             me.components.rubber = Graph.$('<div class="graph-rubberband">');
 
@@ -85,11 +85,11 @@
                     _.assign(collecting, {
                         start: {
                             x: e.clientX,
-                            y: e.clientY,    
+                            y: e.clientY,
                         },
                         end: {
                             x: e.clientX,
-                            y: e.clientY,    
+                            y: e.clientY,
                         },
                         bounds: {}
                     });
@@ -97,10 +97,10 @@
                     rubber.query.css({
                         width: 0,
                         height: 0,
-                        transform: 'translate(' + (collecting.start.x - offset.left) + 'px, ' + (collecting.start.y - offset.top) + 'px)'   
+                        transform: 'translate(' + (collecting.start.x - offset.left) + 'px, ' + (collecting.start.y - offset.top) + 'px)'
                     });
                 },
-                
+
                 onmove: function(e) {
                     var start = collecting.start,
                         end = {
@@ -163,7 +163,7 @@
                         scale = layout.scale();
 
                     var start = layout.grabLocation({
-                        clientX: bounds.x, 
+                        clientX: bounds.x,
                         clientY: bounds.y
                     });
 
@@ -182,7 +182,7 @@
                     });
 
                     bbox.transform(paper.viewport().matrix());
-                    
+
                     _.forEach(vectors, function(v){
                         if (v.guid() != context && v.isSelectable() && ! v.isGroup()) {
                             if (bbox.contains(v)) {
@@ -192,7 +192,7 @@
                     });
 
                     if (me.props.activator == 'tool') {
-                        paper.tool().activate('panzoom');    
+                        paper.tool().activate('panzoom');
                     }
 
                     bbox = null;
@@ -207,7 +207,7 @@
                     if ( ! vector.isSelectable()) {
                         if ( ! vector.elem.belong('graph-resizer') && ! vector.elem.belong('graph-link')) {
                             if (single) {
-                                me.clearCollection(); 
+                                me.clearCollection();
                             }
                         }
                     }
@@ -216,7 +216,7 @@
             .on('tap', function(e){
                 var vector = Graph.registry.vector.get(e.target),
                     single = ! (e.ctrlKey || e.shiftKey);
-                
+
                 if (vector && vector.isSelectable()) {
                     if (vector.paper().state() == 'linking') {
                         me.clearCollection();
@@ -226,7 +226,7 @@
                     if (single) {
                         me.clearCollection();
                     }
-                    
+
                     me.collect(vector, ! single);
                 }
 
@@ -284,7 +284,7 @@
 
         decollect: function(vector) {
             var batch, offset;
-            
+
             batch = vector.batch;
 
             delete vector.lasso;
@@ -299,7 +299,7 @@
         },
 
         clearCollection: function(except) {
-            var me = this, 
+            var me = this,
                 collection = me.collection.slice();
 
             _.forEach(collection, function(v){
@@ -327,11 +327,11 @@
             }
         },
 
-        syncDragStart: function(origin, e) {
+        syncDragStart: function(master, e) {
             var me = this;
 
             _.forEach(me.collection, function(v){
-                if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== origin) {
+                if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(){
                         var mat = v.graph.matrix.data(),
                             sin = mat.sin,
@@ -353,11 +353,11 @@
                         };
 
                         v.addClass('dragging');
-                        
+
                         v.fire('dragstart', {
                             dx: e.dx *  cos + e.dy * sin,
                             dy: e.dx * -sin + e.dy * cos,
-                            batch: true
+                            master: false
                         });
 
                     }());
@@ -367,11 +367,11 @@
             me.fire('beforedrag');
         },
 
-        syncDragMove: function(origin, e) {
+        syncDragMove: function(master, e) {
             var me = this, dx, dy;
 
             _.forEach(me.collection, function(v){
-                if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== origin) {
+                if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(v, e){
                         var dx = e.ox *  v.syncdrag.cos + e.oy * v.syncdrag.sin,
                             dy = e.ox * -v.syncdrag.sin + e.oy * v.syncdrag.cos;
@@ -388,52 +388,50 @@
                         v.fire('dragmove', {
                             dx: dx,
                             dy: dy,
-                            batch: true
+                            master: false
                         });
 
-                    }(v, e));    
+                    }(v, e));
                 }
             });
 
         },
 
-        syncDragEnd: function(origin, e) {
+        syncDragEnd: function(master, e) {
             var me = this;
 
             _.forEach(me.collection, function(v, i){
-                if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== origin) {
+                if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(v, e){
                         var batchSync = v.plugins.dragger.props.batchSync,
                             ghost = v.plugins.dragger.props.ghost;
 
                         if (ghost) {
                             if (batchSync) {
-                                v.translate(v.syncdrag.tdx, v.syncdrag.tdy).commit();    
+                                v.translate(v.syncdrag.tdx, v.syncdrag.tdy).commit();
                             }
                             v.plugins.dragger.suspend();
                         }
-                        
+
                         if ( ! batchSync) {
-                            v.dirty(true);    
+                            v.dirty(true);
                         }
 
                         v.fire('dragend', {
                             dx: v.syncdrag.tdx,
                             dy: v.syncdrag.tdy,
-                            batch: true
+                            master: false
                         });
-                        
+
                         v.removeClass('dragging');
-                        
+
                         delete v.syncdrag;
 
                     }(v, e));
                 }
             });
 
-            e.origin = origin;
             e.type = 'afterdrag';
-            
             me.fire(e);
         },
 
@@ -462,7 +460,7 @@
                     tool.activate('panzoom');
                 }
             }
-        }   
+        }
 
     });
 

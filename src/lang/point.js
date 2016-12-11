@@ -23,7 +23,7 @@
         this.props.y = y;
     };
 
-    Point.defaults = {
+    Point.options = {
         props: {
             x: 0,
             y: 0
@@ -69,7 +69,7 @@
     Point.prototype.angle = function(b) {
         return Graph.util.angle(a.toJson(), b.toJson());
     };
-    
+
     Point.prototype.triangle = function(b, c) {
         return this.angle(c) - b.angle(c);
     };
@@ -89,7 +89,7 @@
     Point.prototype.bbox = function() {
         var x = this.props.x,
             y = this.props.y;
-            
+
         return Graph.bbox({
             x: x,
             y: y,
@@ -143,7 +143,7 @@
     };
 
     Point.prototype.rotate = function(angle, origin) {
-        var rd = Graph.util.rad(angle), 
+        var rd = Graph.util.rad(angle),
             dx = this.props.x - (origin ? origin.props.x : 0),
             dy = this.props.y - (origin ? origin.props.y : 0),
             si = Math.sin(rd),
@@ -182,7 +182,7 @@
 
         this.props.x = Math.min(Math.max(this.props.x, box.props.x), box.props.x + box.props.width);
         this.props.y = Math.min(Math.max(this.props.y, box.props.y), box.props.y + box.props.height);
-        
+
         return this;
     };
 
@@ -201,7 +201,7 @@
 
     Point.prototype.toJson = function() {
         return {
-            x: this.props.x, 
+            x: this.props.x,
             y: this.props.y
         };
     };
@@ -209,15 +209,15 @@
     Point.prototype.clone = function(){
         return new Point(this.props.x, this.props.y);
     };
-    
+
     ///////// HELPER /////////
-    
+
     function snap(value, size) {
         return size * Math.round(value / size);
     }
 
     ///////// EXTENSION /////////
-    
+
     Graph.isPoint = function(obj) {
         return obj instanceof Graph.lang.Point;
     };
@@ -225,5 +225,5 @@
     Graph.point = function(x, y) {
         return new Graph.lang.Point(x, y);
     };
-    
+
 }());

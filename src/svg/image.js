@@ -87,7 +87,7 @@
             return this;
         },
 
-        pathinfo: function() {
+        shape: function() {
             var a = this.attrs;
 
             return new Graph.lang.Path([

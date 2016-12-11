@@ -22,7 +22,7 @@
             scale: 1,
             zoom: 1,
             origin: null,
-            range: {min: 0.2, max: 4}
+            range: {min: 0.2, max: 4.0}
         },
 
         components: {
@@ -91,17 +91,17 @@
 
                 toolbox = me.components.toolbox = Graph.$('<div class="graph-zoom-toolbox">');
                 toolbox.html(
-                    '<div>' + 
-                        '<a data-tool="zoom-reset" href="javascript:void(0)" title="' + Graph._('Reset zoom') + '">' + 
-                            '<i class="'+ Graph.icons.ZOOM_RESET +'"></i>' + 
+                    '<div>' +
+                        '<a data-tool="zoom-reset" href="javascript:void(0)" title="' + Graph._('Reset zoom') + '">' +
+                            '<i class="'+ Graph.icons.ZOOM_RESET +'"></i>' +
                         '</a>'+
                         '<div class="splitter"></div>'+
-                        '<a data-tool="zoom-in" href="javascript:void(0)" title="' + Graph._('Zoom in') + '">' + 
-                            '<i class="'+ Graph.icons.ZOOM_IN +'"></i>' + 
+                        '<a data-tool="zoom-in" href="javascript:void(0)" title="' + Graph._('Zoom in') + '">' +
+                            '<i class="'+ Graph.icons.ZOOM_IN +'"></i>' +
                         '</a>'+
                         '<div class="splitter"></div>'+
-                        '<a data-tool="zoom-out" href="javascript:void(0)" title="' + Graph._('Zoom out') + '">' + 
-                            '<i class="'+ Graph.icons.ZOOM_OUT +'"></i>' + 
+                        '<a data-tool="zoom-out" href="javascript:void(0)" title="' + Graph._('Zoom out') + '">' +
+                            '<i class="'+ Graph.icons.ZOOM_OUT +'"></i>' +
                         '</a>'+
                     '</div>'
                 );
@@ -132,7 +132,7 @@
                 y: bound.top
             };
         },
-        
+
         enable: function() {
             var vector = this.vector();
 
@@ -167,7 +167,7 @@
             var paper = this.vector().paper(),
                 viewport = paper.viewport(),
                 origin = paper.layout().center(),
-                direction = 0.1;
+                direction = 0.1875;
 
             this.zoom(paper, viewport, direction, origin);
         },
@@ -176,7 +176,7 @@
             var paper = this.vector().paper(),
                 viewport = paper.viewport(),
                 origin = paper.layout().center(),
-                direction = -0.1;
+                direction = -0.1875;
 
             this.zoom(paper, viewport, direction, origin);
         },
@@ -195,15 +195,15 @@
             this.onBeforeZoom(paper);
 
             matrixScale.scale(scale, scale, origin.x, origin.y);
-            
+
             viewport.attr('transform', matrixScale.toValue());
             viewport.graph.matrix = matrixScale;
 
             this.zooming.zoom  = zoom;
             this.zooming.scale = matrixScale.props.a;
-            
+
             if (paper.state() == 'panning') {
-                paper.cursor(zoomType == 'in' ? 'zoom-in' : 'zoom-out');    
+                paper.cursor(zoomType == 'in' ? 'zoom-in' : 'zoom-out');
             }
 
             this.onZoom(paper);
@@ -217,7 +217,7 @@
 
             dx /= scale;
             dy /= scale;
-            
+
             matrix.translate(dx, dy);
 
             viewport.attr('transform', matrix.toValue());
@@ -269,20 +269,22 @@
 
                 origin = {
                     x: event.clientX - offset.x,
-                    y: event.clientY - offset.y    
+                    y: event.clientY - offset.y
                 };
 
                 this.zooming.origin = origin;
 
+                // console.log(event.deltaY, factor, event.deltaY * factor / (-15));
+
                 this.zoom(
                     paper,
                     viewport,
-                    // event.deltaY * factor / (-5), 
-                    event.deltaY * factor / (-8), 
+                    // event.deltaY * factor / (-5),
+                    event.deltaY * factor / (-8),
                     origin
                 );
             }
-        }, 
+        },
 
         onPointerDown: function(e, paper, viewport, vendor) {
             var target = Graph.$(e.target),
@@ -336,11 +338,11 @@
         },
 
         onPointerMove: function(e, paper, viewport) {
-            
+
             var offset = this.caching.offset,
                 start = this.panning.start,
-                current = { 
-                    x: e.clientX - offset.x, 
+                current = {
+                    x: e.clientX - offset.x,
                     y: e.clientY - offset.y
                 },
                 dx = current.x - start.x,
@@ -355,7 +357,7 @@
             };
 
             paper.cursor('move');
-            
+
             // prevent select
             e.preventDefault();
         },
@@ -380,7 +382,7 @@
         },
 
         onBeforeZoom: _.debounce(function(paper){
-            
+
             Graph.topic.publish('paper/beforezoom', null, paper);
 
         }, 300, {leading: true, trailing: false}),
@@ -395,7 +397,7 @@
         }, 300),
 
         onBeforeScroll: _.debounce(function(paper){
-            
+
             Graph.topic.publish('paper/beforescroll', null, paper);
 
         }, 300, {leading: true, trailing: false}),
@@ -411,7 +413,7 @@
     });
 
     ///////// HELPERS /////////
-    
+
     function logarithm(num, base) {
         base = base || 10;
         return Math.log(num) / Math.log(base);
@@ -435,7 +437,7 @@
             y = event.clientY - offset.top;
 
         return {
-            x: x, 
+            x: x,
             y: y
         };
     }

@@ -108,7 +108,7 @@
         redraw: function() {
             var editor = this.components.editor,
                 vector = this.vector(),
-                matrix = vector.globalMatrix(),
+                matrix = vector.matrixCurrent(),
                 scale  = matrix.scale();
 
             var vbox = vector.bbox().clone().transform(matrix).toJson();

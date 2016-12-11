@@ -28,8 +28,6 @@
             }
 
             this.items[prop].push(data);
-
-            console.log(this);
         },
 
         last: function(prop) {

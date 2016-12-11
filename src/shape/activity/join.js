@@ -15,20 +15,23 @@
         },
 
         initComponent: function() {
-            var me = this, comp = this.components;
+            var comp = this.components,
+                pmgr = this.plugins.manager;
+
             var shape, block, beam, label;
 
-            shape = (new Graph.svg.Group(me.props.left, me.props.top))
+            shape = (new Graph.svg.Group(this.props.left, this.props.top))
                 .selectable(false);
 
-            block = (new Graph.svg.Rect(0, 0, me.props.width, me.props.height, 0))
+            block = (new Graph.svg.Rect(0, 0, this.props.width, this.props.height, 0))
                 .addClass('block')
                 .render(shape);
 
-            block.draggable({ghost: true});
-            block.connectable();
-            block.on('dragend', _.bind(me.onDragEnd, me));
+            pmgr.install('dragger', block, {ghost: true});
+            pmgr.install('network', block);
 
+            block.on('dragend', _.bind(this.onDragEnd, this));
+            
             comp.shape = shape.guid();
             comp.block = block.guid();
         },

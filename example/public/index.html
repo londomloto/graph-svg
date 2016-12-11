@@ -15,7 +15,7 @@
     <link rel="stylesheet" type="text/css" href="../../css/graph.css">
     
 </head>
-<body>
+<body data-ng-cloak>
 
     <div>
         <div id="aside" class="app-aside xs modal fade nav-dropdown">
@@ -41,8 +41,8 @@
                         <i class="ion-navicon-round icon-md"></i>
                     </a>
                     <div class="ui-caption hidden-sm-down">
-                        <p class="text-md m-b-0 _700 text-accent">Example Diagram</p>
-                        <span class="text-sm _300">Type your example diagram description here.</span>
+                        <p class="text-md m-b-0 _700 text-accent">{{ diagram.name }}</p>
+                        <div class="_300 text-sm text-ellipsis" style="max-width: 340px;">{{ diagram.description }}</div>
                     </div>
                     <div class="ui-toolbar hidden-sm-down">
                         <a href="javascript:;" data-ng-click="open()" title="Open diagram"><i class="ion-folder"></i></a>
@@ -116,8 +116,7 @@
                                     </ul>
                                 </div>
                                 <div class="box-body p-t-0">
-                                    <button class="btn btn-xs btn-outline b-info text-info">Open diagram</button>
-                                    <!-- <p class="m-a-0">{{ item.description }}</p> -->
+                                    <button data-ng-click="openDiagram(item)" class="btn btn-xs btn-outline b-info text-info">Open diagram</button>
                                 </div>
                               </div>
                         </div>
@@ -194,6 +193,7 @@
     <script src="../../src/util/sweeplink.js"></script>
 
     <script src="../../src/plugin/plugin.js"></script>
+    <script src="../../src/plugin/manager.js"></script>
     <script src="../../src/plugin/definer.js"></script>
     <script src="../../src/plugin/reactor.js"></script>
     <script src="../../src/plugin/transformer.js"></script>
@@ -202,7 +202,6 @@
     <script src="../../src/plugin/collector.js"></script>
     <script src="../../src/plugin/dragger.js"></script>
     <script src="../../src/plugin/dropper.js"></script>
-    <script src="../../src/plugin/sorter.js"></script>
     <script src="../../src/plugin/network.js"></script>
     <script src="../../src/plugin/history.js"></script>
     <script src="../../src/plugin/panzoom.js"></script>

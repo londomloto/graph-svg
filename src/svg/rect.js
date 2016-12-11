@@ -25,7 +25,7 @@
                 height: _.defaultTo(height, 0)
             });
             
-            me.origpath = me.pathinfo();
+            me.origpath = me.shape();
         },
 
         attr: function(name, value) {
@@ -38,7 +38,7 @@
             return result;
         },
 
-        pathinfo: function() {
+        shape: function() {
             var a = this.attrs, p;
 
             if (a.r) {

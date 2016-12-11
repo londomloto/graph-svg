@@ -32,18 +32,23 @@
         },
 
         cached: {
-            
+
+        },
+
+        plugins: {
+            manager: null
         },
 
         constructor: function(options) {
             var guid;
-            
+
             _.assign(this.props, options || {});
 
             guid = 'graph-shape-' + (++Shape.guid);
 
             this.props.guid = guid;
             this.tree.children = new Graph.collection.Shape();
+            this.plugins.manager = new Graph.plugin.Manager();
 
             this.initComponent();
             this.initMetadata();
@@ -54,7 +59,7 @@
                 if (this.metadata.style) {
                     style += ' ' + this.metadata.style;
                 }
-                
+
                 this.component().addClass(style);
                 style = null;
             }
@@ -67,16 +72,16 @@
         initMetadata: function() {
             this.metadata.tools = [
                 {
-                    name: 'config', 
-                    icon: Graph.icons.CONFIG, 
-                    title: Graph._('Click to config shape'), 
+                    name: 'config',
+                    icon: Graph.icons.CONFIG,
+                    title: Graph._('Click to config shape'),
                     enabled: true,
                     handler: _.bind(this.onConfigToolClick, this)
                 },
                 {
-                    name: 'link', 
-                    icon: Graph.icons.LINK, 
-                    title: Graph._('Click to start shape linking'), 
+                    name: 'link',
+                    icon: Graph.icons.LINK,
+                    title: Graph._('Click to start shape linking'),
                     enabled: true,
                     handler: _.bind(this.onLinkToolClick, this)
                 },
@@ -95,9 +100,9 @@
                     handler: _.bind(this.onBackToolClick, this)
                 },
                 {
-                    name: 'trash', 
-                    icon: Graph.icons.TRASH, 
-                    title: Graph._('Click to remove shape'), 
+                    name: 'trash',
+                    icon: Graph.icons.TRASH,
+                    title: Graph._('Click to remove shape'),
                     enabled: true,
                     handler: _.bind(this.onTrashToolClick, this)
                 }
@@ -119,25 +124,23 @@
         },
 
         invalidate: function() {
-            
+
+        },
+        
+        connectable: function() {
+            return this.plugins.manager.get('network');
         },
 
-        provider: function(plugin) {    
-            var provider;
+        resizable: function() {
+            return this.plugins.manager.get('resizer');
+        },
 
-            switch(plugin) {
-                case 'network':
-                case 'resizer':
-                case 'dragger':
-                case 'snapper':
-                    provider = this.components.block;
-                    break;
-                default:
-                    provider = this.components.block;
-                    break;
-            }
+        draggable: function() {
+            return this.plugins.manager.get('dragger');
+        },
 
-            return Graph.registry.vector.get(provider);
+        snappable: function() {
+            return this.plugins.manager.get('snapper');
         },
 
         paper: function() {
@@ -168,7 +171,7 @@
 
         removeChild: function(child) {
             var children = this.children();
-            
+
             if (children.has(child)) {
                 children.pull(child);
                 child.tree.parent = null;
@@ -181,18 +184,18 @@
 
         data: function(name, value) {
             var me = this;
-            
+
             if (_.isPlainObject(name)) {
                 _.forOwn(name, function(v, k){
                     me.data(k, v);
                 });
                 return me;
             }
-            
+
             if (value === undefined) {
                 return me.props[name];
             }
-            
+
             me.props[name] = value;
             return me;
         },
@@ -215,7 +218,7 @@
         render: function(paper) {
             var component = this.component();
             component && component.render(paper);
-            
+
             // save
             this.tree.paper = paper.guid();
         },
@@ -224,21 +227,21 @@
             // just fire block removal
             this.component('block').remove();
         },
-        
+
         redraw: _.debounce(function() {
             var label = this.component('label'),
                 block = this.component('block'),
                 bound = block.bbox().toJson();
 
             label.attr({
-                x: bound.x + bound.width  / 2, 
+                x: bound.x + bound.width  / 2,
                 y: bound.x + bound.height / 2
             });
 
             label.wrap(bound.width - 10);
 
         }, 1),
-        
+
         translate: function(dx, dy) {
             var component = this.component();
             component.translate(dx, dy).commit();
@@ -247,11 +250,12 @@
             var matrix = component.matrix(),
                 left = matrix.props.e,
                 top = matrix.props.f;
-            
+
             this.data({
                 left: left,
                 top: top
             });
+
         },
 
         cascade: function(handler) {
@@ -273,27 +277,27 @@
          */
         attr: function(name, value) {
             var me = this;
-            
+
             if (_.isPlainObject(name)) {
                 _.forOwn(name, function(v, k){
                     me.props[k] = v;
                 });
                 return this;
             }
-            
+
             if (value === undefined) {
                 return this.props[name];
             }
-            
+
             this.props[name] = value;
             return this;
         },
-        
+
         height: function(value) {
             if (value === undefined) {
                 return this.props.height;
             }
-            
+
             return this.attr('height', value);
         },
 
@@ -308,15 +312,15 @@
             if (value === undefined) {
                 return this.props.left;
             }
-            
+
             return this.attr('left', value);
         },
-        
+
         top: function(value) {
             if (value === undefined) {
                 return this.props.top;
             }
-            
+
             return this.attr('top', value);
         },
 
@@ -327,35 +331,35 @@
         },
 
         onDragStart: function(e) {
-            var shape = this.component();
-            shape.addClass('shape-dragging');
+            this.component().addClass('shape-dragging');
         },
-        
+
         onDragEnd: function(e) {
-            var block = this.component('block'),
-                shape = this.component('shape'),
-                matrix = block.matrix();
+            var blockComponent = this.component('block'),
+                shapeComponent = this.component('shape'),
+                blockMatrix = blockComponent.matrix();
 
-            block.reset();
+            var shapeMatrix;
 
-            shape.matrix().multiply(matrix);
-            shape.attr('transform', shape.matrix().toValue());
-            shape.dirty(true);
-            
+            blockComponent.reset();
+
+            shapeComponent.matrix().multiply(blockMatrix);
+            shapeComponent.attr('transform', shapeComponent.matrix().toValue());
+            shapeComponent.dirty(true);
+
             // update props
-            var matrix = shape.matrix();
+            shapeMatrix = shapeComponent.matrix();
 
             this.data({
-                left: matrix.props.e,
-                top: matrix.props.f
+                left: shapeMatrix.props.e,
+                top: shapeMatrix.props.f
             });
 
             // forward
             this.fire(e);
-
-            shape.removeClass('shape-dragging');
+            shapeComponent.removeClass('shape-dragging');
         },
-        
+
         onSelect: function() {
             this.component('shape').addClass('shape-selected');
             Graph.topic.publish('shape/select', {shape: this});
@@ -369,7 +373,7 @@
         onResize: function() {
             this.redraw();
         },
-        
+
         onRemove: function() {
             // remove label
             this.component('label').remove();
@@ -380,28 +384,28 @@
             for (var name in this.components) {
                 this.components[name] = null;
             }
-            
+
             Graph.registry.shape.unregister(this);
         },
-        
+
         onConfigToolClick: function(e) {
-            
+
         },
-        
+
         onTrashToolClick: function(e) {
             this.remove();
         },
-        
+
         onLinkToolClick: function(e) {
             var paper = this.paper();
-            
+
             if (paper) {
                 var layout = paper.layout(),
                     linker = paper.plugins.linker,
                     coord  = layout.grabLocation(e);
-                
+
                 paper.tool().activate('linker');
-                linker.start(this.provider('network'), coord);
+                linker.start(this.connectable().component(), coord);
             }
         },
 
@@ -415,20 +419,20 @@
     });
 
     ///////// STATICS /////////
-    
+
     Shape.guid = 0;
 
     ///////// EXTENSION /////////
-    
+
     Graph.isShape = function(obj) {
         return obj instanceof Graph.shape.Shape;
     };
 
     ///////// HELPERS /////////
-    
+
     function cascade(shape, handler) {
         var child = shape.children().toArray();
-        var result; 
+        var result;
 
         result = handler.call(shape, shape);
         result = _.defaultTo(result, true);

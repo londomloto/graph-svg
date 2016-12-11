@@ -9,7 +9,7 @@
             var points = this.cached.bendpoints;
 
             if ( ! points) {
-                var segments = this.pathinfo().curve().segments;
+                var segments = this.path().curve().segments;
                 var segment, curve, length, point, x, y;
 
                 points = [];
@@ -65,24 +65,24 @@
         
         route: function(start, end) {
             var source = this.source(),
-                srcnet = source.connectable(),
-                srcbox = srcnet.bbox(),
-                sbound = srcbox.toJson(),
+                sourceNetwork = source.connectable(),
+                sourceBBox = source.bboxView(),
+                sourceBox = sourceBBox.toJson(),
                 target = this.target(),
-                tarnet = target.connectable(),
-                tarbox = tarnet.bbox(),
-                tbound = tarbox.toJson(),
-                orient = srcnet.orientation(tarnet),
-                direct = srcnet.direction(tarnet),
+                targetNetwork = target.connectable(),
+                targetBBox = target.bboxView(),
+                targetBox = targetBBox.toJson(),
+                orient = sourceNetwork.orientation(targetNetwork),
+                direct = sourceNetwork.direction(targetNetwork),
                 tuneup = false,
                 routes = [];
             
             if ( ! start) {
-                start = srcbox.center(true);
+                start = sourceBBox.center(true);
             }
             
             if ( ! end) {
-                end = tarbox.center(true);
+                end = targetBBox.center(true);
             }
             
             var sdot, edot;
@@ -94,12 +94,12 @@
                         case 'right':
                         case 'bottom-right':
                             sdot = { 
-                                x: sbound.x, 
+                                x: sourceBox.x, 
                                 y: start.y 
                             };
                             
                             edot = { 
-                                x: tbound.x + tbound.width, 
+                                x: targetBox.x + targetBox.width, 
                                 y: end.y 
                             };
 
@@ -108,12 +108,12 @@
                         case 'left':
                         case 'bottom-left':
                             sdot = { 
-                                x: sbound.x + sbound.width, 
+                                x: sourceBox.x + sourceBox.width, 
                                 y: start.y 
                             };
 
                             edot = { 
-                                x: tbound.x, 
+                                x: targetBox.x, 
                                 y: end.y 
                             };
 
@@ -129,12 +129,12 @@
                         case 'top-right':
                             sdot = {
                                 x: start.x, 
-                                y: sbound.y + sbound.height
+                                y: sourceBox.y + sourceBox.height
                             };
 
                             edot = { 
                                 x: end.x, 
-                                y: tbound.y
+                                y: targetBox.y
                             };
                             break;
                         case 'bottom-left':
@@ -142,12 +142,12 @@
                         case 'bottom-right':
                             sdot = { 
                                 x: start.x, 
-                                y: sbound.y
+                                y: sourceBox.y
                             };
 
                             edot = { 
                                 x: end.x, 
-                                y: tbound.y + tbound.height
+                                y: targetBox.y + targetBox.height
                             };
                             break;
                     }
@@ -164,13 +164,13 @@
             var cable = Graph.path(Graph.util.points2path(routes));
             var inter;
             
-            inter = srcnet.pathinfo().intersection(cable, true);
+            inter = source.shapeView().intersection(cable, true);
             
             if (inter.length) {
                 routes[0] = inter[0];
             }
             
-            inter = tarnet.pathinfo().intersection(cable, true);
+            inter = target.shapeView().intersection(cable, true);
             
             if (inter.length) {
                 routes[1] = inter[inter.length - 1];
@@ -188,11 +188,9 @@
         
         repair: function(component, port) {
             var source = this.source(),
-                srcnet = source.connectable(),
-                srcbox = srcnet.bbox(),
+                sourceBBox = source.bboxView(),
                 target = this.target(),
-                tarnet = target.connectable(),
-                tarbox = tarnet.bbox(),
+                targetBBox = target.bboxView(),
                 routes = this.values.waypoints,
                 maxlen = routes.length - 1;
             
@@ -204,13 +202,13 @@
             
             var closest;
             
-            closest = Router.getClosestIntersect(routes, srcnet.pathinfo(), tarbox.center(true));
+            closest = Router.getClosestIntersect(routes, source.shapeView(), targetBBox.center(true));
             
             if (closest) {
                 routes[0] = closest;
             }
             
-            closest = Router.getClosestIntersect(routes, tarnet.pathinfo(), srcbox.center(true));
+            closest = Router.getClosestIntersect(routes, target.shapeView(), sourceBBox.center(true));
             
             if (closest) {
                 routes[maxlen] = closest;
@@ -223,10 +221,8 @@
         initTrans: function(context) {
             var source = this.source(),
                 target = this.target(),
-                srcnet = source.connectable(),
-                tarnet = target.connectable(),
-                sourcePath = srcnet.pathinfo(),
-                targetPath = tarnet.pathinfo(),
+                sourcePath = source.shapeView(),
+                targetPath = target.shapeView(),
                 waypoints = this.waypoints(),
                 rangeStart = context.range.start,
                 rangeEnd = context.range.end,
@@ -289,18 +285,18 @@
                 
                 if (oldSource && connect.source) {
                     if (oldSource.guid() != connect.source.guid()) {
-                        connect.sourcePath = connect.source.connectable().pathinfo();
+                        connect.sourcePath = connect.source.shapeView();
                     }
                 } else if ( ! oldSource && connect.source) {
-                    connect.sourcePath = connect.source.connectable().pathinfo();
+                    connect.sourcePath = connect.source.shapeView();
                 }
                 
                 if (oldTarget && connect.target) {
                     if (oldTarget.guid() != connect.target.guid()) {
-                        connect.targetPath = connect.target.connectable().pathinfo();
+                        connect.targetPath = connect.target.shapeView();
                     }
                 } else if ( ! oldTarget && connect.target) {
-                    connect.targetPath = connect.target.connectable().pathinfo();
+                    connect.targetPath = connect.target.shapeView();
                 }
                 
             }

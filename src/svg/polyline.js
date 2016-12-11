@@ -21,7 +21,7 @@
             });
         },
 
-        pathinfo: function() {
+        shape: function() {
             var command = Graph.util.polygon2path(this.attrs.points);
             command = command.replace(/Z/i, '');
             return Graph.path(command);

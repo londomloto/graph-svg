@@ -14,6 +14,7 @@
     function AppController($scope, $http, modalManager) {
 
         $scope.diagrams = [];
+        $scope.diagram = null;
         $scope.paper = null;
         $scope.pallet = null;
 
@@ -27,6 +28,11 @@
             modalManager.open('open-diagram').then(function(){
                 $scope.loadDiagrams();
             });
+        };
+
+        $scope.openDiagram = function(diagram) {
+            $scope.diagram = diagram;
+            modalManager.hide('open-diagram');
         };
 
         $scope.create = function() {
@@ -131,7 +137,7 @@
             link: link,
             scope: true
         };
-        
+
         return directive;
 
         function link(scope, element, attrs) {
@@ -153,7 +159,7 @@
             restrict: 'A',
             link: link
         };
-        
+
         return directive;
 
         function link(scope, element, attrs) {
@@ -193,12 +199,14 @@
         return directive;
 
         function link(scope, element, attrs) {
+
             var paper = Graph.paper();
+
             scope.paper = paper;
 
             paper.on({
                 activatetool: function(e) {
-                    toolManager.activate(e.name);  
+                    toolManager.activate(e.name);
                 },
                 deactivatetool: function(e) {
                     toolManager.deactivate(e.name);
@@ -208,7 +216,7 @@
             paper.render(element);
 
             ///////// examples /////////
-            
+
             var s1 = Graph.shape('activity.action', {left: 300, top: 100});
             var s2 = Graph.shape('activity.action', {left: 100, top: 300});
             var s3 = Graph.shape('activity.action', {left: 300, top: 400});
@@ -219,8 +227,8 @@
             var s8 = Graph.shape('activity.final', {left: 300, top: 400});
 
             s1.render(paper);
-            
             s2.render(paper);
+
             s3.render(paper);
             s4.render(paper);
             s5.render(paper);
@@ -228,12 +236,15 @@
             s7.render(paper);
             s8.render(paper);
 
+            var link = paper.connect(s1, s2);
+
             var s9 = s6.addSiblingBellow();
             s9.height(100);
             var s10 = s9.addSiblingBellow();
+
         }
     }
 
-    
+
 
 }());

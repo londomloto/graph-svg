@@ -183,7 +183,7 @@
             }
         },
 
-        pathinfo: function() {
+        shape: function() {
             var size = this.dimension();
 
             return new Graph.lang.Path([

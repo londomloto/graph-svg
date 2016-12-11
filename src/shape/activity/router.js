@@ -18,44 +18,46 @@
         },
 
         initComponent: function() {
-            var me = this, comp = me.components;
+            var comp = this.components,
+                pmgr = this.plugins.manager;
+
             var shape, block, label;
 
             var points = [
-                me.props.width / 2, 0,
-                me.props.width, me.props.height / 2,
-                me.props.width / 2, me.props.height,
-                0, me.props.height / 2
+                this.props.width / 2, 0,
+                this.props.width, this.props.height / 2,
+                this.props.width / 2, this.props.height,
+                0, this.props.height / 2
             ];
 
             var cx = points[0],
                 cy = points[3];
 
-            shape = (new Graph.svg.Group(me.props.left, me.props.top))
+            shape = (new Graph.svg.Group(this.props.left, this.props.top))
                 .selectable(false);
 
             block = (new Graph.svg.Polygon(points))
                 .addClass(Graph.styles.SHAPE_BLOCK)
-                .data('text', me.props.label)
+                .data('text', this.props.label)
                 .render(shape);
 
-            block.elem.data(Graph.string.ID_SHAPE, me.guid());
+            block.elem.data(Graph.string.ID_SHAPE, this.guid());
+            
+            pmgr.install('dragger', block, {ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('resizer', block);
+            pmgr.install('editor',  block);
+            pmgr.install('network', block, {wiring: 'h:v'});
+            pmgr.install('snapper', block);
 
-            block.draggable({ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
-            block.resizable();
-            block.editable();
-            block.connectable({wiring: 'h:v'});
-            block.snappable();
+            block.on('edit.shape',      _.bind(this.onLabelEdit, this));
+            block.on('dragstart.shape', _.bind(this.onDragStart, this));
+            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
+            block.on('resize.shape',    _.bind(this.onResize, this));
+            block.on('remove.shape',    _.bind(this.onRemove, this));
+            block.on('select.shape',    _.bind(this.onSelect, this));
+            block.on('deselect.shape',  _.bind(this.onDeselect, this));
 
-            block.on('edit.shape', _.bind(me.onLabelEdit, me));
-            block.on('dragstart.shape', _.bind(me.onDragStart, me));
-            block.on('dragend.shape', _.bind(me.onDragEnd, me));
-            block.on('resize.shape', _.bind(me.onResize, me));
-            block.on('remove.shape',  _.bind(me.onRemove, me));
-            block.on('select.shape',  _.bind(me.onSelect, me));
-            block.on('deselect.shape',  _.bind(me.onDeselect, me));
-
-            label = (new Graph.svg.Text(cx, cy, me.props.label))
+            label = (new Graph.svg.Text(cx, cy, this.props.label))
                 .addClass(Graph.styles.SHAPE_LABEL)
                 .clickable(false)
                 .selectable(false)
@@ -96,16 +98,16 @@
             block.resizable().redraw();
 
             label.attr({
-                x: bound.width  / 2, 
+                x: bound.width  / 2,
                 y: bound.height / 2
             });
 
             label.wrap(bound.width - 10);
 
             // update props
-            
+
             matrix = shape.matrix();
-            
+
             this.data({
                 left: matrix.props.e,
                 top: matrix.props.f,

@@ -1,11 +1,18 @@
 
 (function(){
-    
+
     var BBox = Graph.lang.BBox = function(bounds) {
-        this.props = _.extend({x: 0, y: 0, x2: 0, y2: 0, width: 0, height: 0}, bounds || {});
+        this.props = _.extend({
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 0,
+            width: 0,
+            height: 0
+        }, bounds || {});
     };
 
-    BBox.defaults = {
+    BBox.options = {
         props: {
             x: 0,
             y: 0,
@@ -15,21 +22,21 @@
             height: 0
         }
     };
-    
+
     BBox.extend = Graph.lang.Class.extend;
 
     BBox.prototype = Object.create(Graph.lang.Class.prototype);
     BBox.prototype.constructor = BBox;
     BBox.prototype.superclass = Graph.lang.Class;
 
-    BBox.prototype.pathinfo = function() {
+    BBox.prototype.shape = function() {
         var prop = this.props;
 
         return new Graph.lang.Path([
-            ['M', prop.x, prop.y], 
-            ['l', prop.width, 0], 
-            ['l', 0, prop.height], 
-            ['l', -prop.width, 0], 
+            ['M', prop.x, prop.y],
+            ['l', prop.width, 0],
+            ['l', 0, prop.height],
+            ['l', -prop.width, 0],
             ['z']
         ]);
     };
@@ -103,9 +110,9 @@
             var l = dots.length;
             while(l--) {
                 dot = dots[l];
-                contain = dot[0] >= bbox.x  && 
-                          dot[0] <= bbox.x2 && 
-                          dot[1] >= bbox.y  && 
+                contain = dot[0] >= bbox.x  &&
+                          dot[0] <= bbox.x2 &&
+                          dot[1] >= bbox.y  &&
                           dot[1] <= bbox.y2;
                 if ( ! contain) {
                     break;
@@ -120,7 +127,7 @@
         var ax, ay;
         if (_.isUndefined(dy)) {
             ax = Math.abs(dx);
-            
+
             dx = -ax;
             dy = -ax;
             dw = 2 * ax;
@@ -134,7 +141,7 @@
             dw = 2 * ax;
             dh = 2 * ay;
         }
-        
+
         this.props.x += dx;
         this.props.y += dy;
         this.props.width  += dw;
@@ -148,7 +155,7 @@
         this.props.y  += dy;
         this.props.x2 += dx;
         this.props.y2 += dy;
-        
+
         return this;
     };
 
@@ -164,7 +171,7 @@
 
         this.props.x2 = matrix.x(x, y);
         this.props.y2 = matrix.y(x, y);
-        
+
         this.props.width  = this.props.x2 - this.props.x;
         this.props.height = this.props.y2 - this.props.y;
 
@@ -232,7 +239,7 @@
         }
         return point.clone().adhereToBox(this);
     };
-    
+
     BBox.prototype.toJson = function() {
         return _.clone(this.props);
     };
@@ -253,7 +260,7 @@
     };
 
     ///////// EXTENSION /////////
-    
+
     Graph.isBBox = function(obj) {
         return obj instanceof Graph.lang.BBox;
     };
@@ -261,5 +268,5 @@
     Graph.bbox = function(bounds) {
         return new Graph.lang.BBox(bounds);
     };
-    
+
 }());

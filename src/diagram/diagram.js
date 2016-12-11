@@ -13,7 +13,7 @@
             options = options || {};
             _.assign(this.props, options);
         },
-
+        
         toString: function() {
             return 'Graph.diagram.Diagram';
         }

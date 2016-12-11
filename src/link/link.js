@@ -2,7 +2,7 @@
 (function(){
 
     var Link = Graph.link.Link = Graph.extend({
-        
+
         props: {
             id: null,
             guid: null,
@@ -30,14 +30,14 @@
             controls: null,
             convex: null
         },
-        
+
         handlers: {
             source: null,
             target: null
         },
-        
+
         router: null,
-        
+
         metadata: {
             icon: Graph.icons.SHAPE_LINK
         },
@@ -54,13 +54,13 @@
 
             this.initComponent();
             this.initMetadata();
-            
+
             this.bindResource('source', router.source());
             this.bindResource('target', router.target());
 
             this.router.on('route', _.bind(this.onRouterRoute, this));
             this.router.on('reroute', _.bind(this.onRouterReroute, this));
-            
+
             Graph.registry.link.register(this);
         },
 
@@ -71,7 +71,7 @@
             block = (new Graph.svg.Group())
                 .addClass('graph-link')
                 .selectable(false);
-                
+
             block.elem.data(Graph.string.ID_LINK, this.props.guid);
 
             coat = (new Graph.svg.Path())
@@ -86,7 +86,7 @@
                 manual: true,
                 batchSync: false
             });
-            
+
             coat.editable({
                 width: 150,
                 height: 80,
@@ -115,27 +115,27 @@
                 .addClass('graph-link-label')
                 .selectable(false)
                 .render(block);
-            
+
             label.draggable({ghost: true});
-            
+
             label.on('render.link', _.bind(this.onLabelRender, this));
             label.on('dragend.link', _.bind(this.onLabelDragend, this));
 
             // enable label doubletap
             var labelVendor = label.interactable().vendor();
             labelVendor.on('doubletap', _.bind(this.onLabelDoubletap, this));
-                
+
             editor = (new Graph.svg.Group())
                 .selectable(false)
                 .render(block);
-                
+
             comp.block = block.guid();
             comp.coat = coat.guid();
             comp.path = path.guid();
             comp.label = label.guid();
             comp.editor = editor.guid();
         },
-        
+
         initMetadata: function() {
             this.metadata.tools = [
                 {
@@ -153,19 +153,19 @@
                     handler: _.bind(this.onBackToolClick, this)
                 },
                 {
-                    name: 'trash', 
-                    icon: Graph.icons.TRASH, 
-                    title: Graph._('Click to remove link'), 
+                    name: 'trash',
+                    icon: Graph.icons.TRASH,
+                    title: Graph._('Click to remove link'),
                     enabled: true,
                     handler: _.bind(this.onTrashToolClick, this)
                 }
             ];
         },
-        
+
         unbindResource: function(type) {
             var existing = this.props[type],
                 handlers = this.handlers[type];
-            
+
             if (existing && handlers) {
                 existing = Graph.registry.vector.get(existing);
                 if (existing) {
@@ -177,20 +177,20 @@
                     }
                 }
             }
-            
+
             handlers = null;
-            
+
             return this;
         },
-        
+
         bindResource: function(type, resource) {
             var router = this.router,
                 handlers = this.handlers[type];
-            
+
             this.unbindResource(type, resource);
-            
+
             handlers = {};
-    
+
             handlers.resize    = _.bind(getHandler(this, type, 'resize'), this);
             handlers.rotate    = _.bind(getHandler(this, type, 'rotate'), this);
             handlers.dragstart = _.bind(getHandler(this, type, 'dragstart'), this, _, resource);
@@ -199,10 +199,10 @@
 
             this.handlers[type] = handlers;
             this.props[type] = resource.guid();
-            
+
             resource.on('resize.link', handlers.resize);
             resource.on('rotate.link', handlers.rotate);
-            
+
             // VERY EXPENSIVE!!!
             if (resource.isDraggable()) {
                 resource.on('dragstart.link', handlers.dragstart);
@@ -223,11 +223,11 @@
         bindTarget: function(target) {
             return this.bindResource('target', target);
         },
-        
+
         unbindSource: function(source) {
             return this.unbindResource('source');
         },
-        
+
         unbindTarget: function(target) {
             return this.unbindResource('target');
         },
@@ -238,7 +238,7 @@
             }
             return Graph.registry.vector.get(this.components[name]);
         },
-        
+
         invalidate: function() {
             this.cached.bendpoints = null;
         },
@@ -267,7 +267,7 @@
             if (this.props.connected) {
                 return;
             }
-            
+
             this.router.route();
 
             var source = this.router.source(),
@@ -284,31 +284,31 @@
             if ( ! this.props.connected) {
                 return;
             }
-            
+
             // unbind resource
             // this.unbindResource('source');
             // sthis.unbindResource('target');
-            
+
             this.props.connected = false;
             this.router.reset();
             this.update(this.router.command());
         },
-        
+
         update: function(command, silent) {
-            
+
             silent = _.defaultTo(silent, false);
-            
+
             this.component('coat').attr('d', command).dirty(true);
             this.component('path').attr('d', command);
             this.invalidate();
-            
+
             if ( ! silent) {
                 this.redraw();
                 this.fire('update');
                 Graph.topic.publish('link/update');
             }
         },
-        
+
         refresh: function(silent) {
             var command = this.router.command();
             this.update(command, silent);
@@ -317,69 +317,69 @@
         updateConvex: function(convex) {
             this.cached.convex = convex;
         },
-        
+
         removeConvex: function() {
             this.cached.convex = null;
         },
-        
+
         redraw: function() {
             // TODO: update label position
-            
+
             if (this.props.label) {
                 var label = this.component('label'),
                     bound = label.bbox().toJson(),
                     distance = this.props.labelDistance || .5,
                     scale = this.router.layout().scale(),
-                    path = this.router.pathinfo(),
+                    path = this.router.path(),
                     dots = path.pointAt(distance * path.length(), true),
                     align = Graph.util.pointAlign(dots.start, dots.end, 10);
-                
+
                 if (align == 'h') {
                     dots.x += ((10 + bound.width / 2) / scale.x);
                 } else {
                     dots.y -= ((10 + bound.height / 2) / scale.y);
                 }
-                
+
                 label.attr({
                     x: dots.x,
                     y: dots.y
                 });
-                
+
                 path = null;
                 dots = null;
 
                 label.dirty(true);
             }
-            
+
         },
-        
+
         label: function(text, x, y) {
             var path, distance, point, align;
-            
+
             if (text === undefined) {
                 return this.props.label;
             }
 
             this.props.label = text;
-            
+
             if (x !== undefined && y !== undefined) {
-                path = this.router.pathinfo();
+                path = this.router.path();
                 point = path.nearest({x: x, y: y});
                 distance = point.distance / path.length();
             } else if (_.isNull(this.props.labelDistance)) {
-                path = this.router.pathinfo();
+                path = this.router.path();
                 distance = 0.5;
                 point = path.pointAt(path.length() / 2, true);
             }
-            
+
             if (point) {
                 this.props.labelDistance = distance;
                 path = point = null;
             }
-            
+
             this.component('label').write(text);
             this.component('coat').data('text', text);
-            
+
             this.redraw();
             return this;
         },
@@ -387,7 +387,7 @@
         select: function(batch) {
             this.props.selected = true;
             this.component('block').addClass('selected');
-            
+
             if ( ! batch) {
                 //this.sendToFront();
                 this.resumeControl();
@@ -402,14 +402,14 @@
 
             if ( ! batch) {
                 this.suspendControl();
-                Graph.topic.publish('link/deselect', {link: this});    
+                Graph.topic.publish('link/deselect', {link: this});
             }
         },
-        
+
         renderControl: function() {
             // TODO: render bends control
         },
-        
+
         resumeControl: function() {
             var me = this, editor = me.component('editor');
 
@@ -420,7 +420,7 @@
 
             editor.elem.appendTo(this.component('block').elem);
         },
-        
+
         suspendControl: function() {
             this.component('editor').elem.detach();
         },
@@ -433,17 +433,17 @@
         remove: function() {
             var me = this;
             var prop;
-            
+
             // disconnect first
             this.disconnect();
-            
+
             // remove from source & target
             var source = this.router.source(),
                 target = this.router.target();
-            
+
             source.connectable().removeLink(this);
             target.connectable().removeLink(this);
-            
+
             // remove label
             me.component('label').remove();
 
@@ -464,7 +464,7 @@
 
             // remove block
             me.component('block').remove();
-            
+
             for (prop in me.components) {
                 me.components[prop] = null;
             }
@@ -483,7 +483,7 @@
 
             // unregister
             Graph.registry.link.unregister(me);
-            
+
             // publish
             Graph.topic.publish('link/remove');
         },
@@ -493,12 +493,12 @@
         },
 
         ///////// OBSERVERS /////////
-        
+
         onRouterRoute: function(e) {
             var command = e.command;
             this.update(command);
         },
-        
+
         onRouterReroute: function(e) {
             var source = e.source,
                 target = e.target;
@@ -507,13 +507,13 @@
             this.bindResource('target', target);
             this.sendToFront();
         },
-        
+
         onLabelRender: function(e) {
             if (this.props.label) {
                 this.label(this.props.label);
             }
         },
-        
+
         onLabelDragend: function(e) {
             var label = this.component('label'),
                 matrix = label.matrix(),
@@ -523,20 +523,20 @@
                     x: matrix.x(x, y),
                     y: matrix.y(x, y)
                 }
-            
+
             label.attr({
                 x: p.x,
                 y: p.y
             });
-            
+
             // update label distance
-            var path = this.router.pathinfo(),
+            var path = this.router.path(),
                 near = path.nearest(p);
-            
+
             this.props.labelDistance = near.distance / path.length();
-            
+
             label.reset();
-            
+
             matrix = path = null;
         },
 
@@ -587,14 +587,14 @@
         },
 
         ///////// OBSERVERS /////////
-        
+
         onSourceRotate: function() {
-    
+
         },
 
         onSourceDragstart: function(e, source) {
             var lasso = this.component('coat').lasso;
-            
+
             if ( ! source.lasso) {
                 if (lasso) {
                     lasso.decollect(this.component('coat'));
@@ -626,13 +626,13 @@
             if (port) {
                 port.x += e.translate.dx;
                 port.y += e.translate.dy;
-            
+
                 this.router.repair(this.router.source(), port);
             }
         },
 
         onTargetRotate: function() {
-            
+
         },
 
         onTargetDragstart: function(e, target) {
@@ -659,7 +659,7 @@
                 if (port) {
                     port.x += e.dx;
                     port.y += e.dy;
-                    
+
                     this.router.repair(this.router.target(), port);
                 }
             }
@@ -670,11 +670,11 @@
             if (port) {
                 port.x += e.translate.dx;
                 port.y += e.translate.dy;
-                
+
                 this.router.repair(this.router.target(), port);
             }
         },
-        
+
         onTrashToolClick: function(e) {
             this.component('coat').remove();
         },
@@ -684,21 +684,21 @@
         },
 
         onBackToolClick: function(e) {
-            
+
         },
 
         destroy: function() {
-            
+
         }
 
     });
 
     ///////// STATICS /////////
-    
+
     Link.guid = 0;
 
     ///////// HELPERS /////////
-    
+
     function getHandler(scope, resource, handler) {
         var name = 'on' + _.capitalize(resource) + _.capitalize(handler),
             func = scope[name];

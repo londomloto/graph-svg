@@ -16,9 +16,9 @@
         },
 
         cached: {
+            path: null,
             command: null,
             segments: null,
-            pathinfo: null,
             bendpoints: null,
             bending: null,
             connect: null
@@ -35,9 +35,9 @@
         },
 
         invalidate: function() {
+            this.cached.path = null;
             this.cached.command = null;
             this.cached.segments = null;
-            this.cached.pathinfo = null;
             this.cached.bendpoints = null;
         },
 
@@ -76,7 +76,7 @@
         },
         
         center: function() {
-            var path = this.pathinfo(),
+            var path = this.path(),
                 center = path.pointAt(path.length() / 2, true);
             path = null;
             return center;
@@ -147,11 +147,11 @@
             return points;
         },
         
-        pathinfo: function() {
-            var path = this.cached.pathinfo;
+        path: function() {
+            var path = this.cached.path;
             if ( ! path) {
                 path = Graph.path(this.command());
-                this.cached.pathinfo = path;
+                this.cached.path = path;
             }
             return path;
         },
@@ -165,12 +165,6 @@
         commit: function() {
             // reset cache;
             this.invalidate();
-
-            // update cache;
-            // this.segments();
-            // this.command();
-            // this.pathinfo();
-            // this.bendpoints();
 
             return this;
         },

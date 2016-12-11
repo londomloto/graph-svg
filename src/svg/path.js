@@ -21,20 +21,20 @@
             });
         },
 
-        pathinfo: function() {
+        shape: function() {
             return Graph.path(this.attrs.d)
         },
 
         segments: function() {
-            return this.pathinfo().segments;
+            return this.shape().segments;
         },
 
         intersection: function(path, dots) {
-            return this.pathinfo().intersection(path.pathinfo(), dots);
+            return this.shape().intersection(path.shape(), dots);
         },
 
         intersectnum: function(path) {
-            return this.pathinfo().intersectnum(path.pathinfo());
+            return this.shape().intersectnum(path.shape());
         },
 
         angle: function() {
@@ -58,19 +58,19 @@
         },
 
         slice: function(from, to) {
-            return this.pathinfo().slice(from, to);
+            return this.shape().slice(from, to);
         },
 
         pointAt: function(length) {
-            return this.pathinfo().pointAt(length);
+            return this.shape().pointAt(length);
         },
 
         length: function() {
-            return this.pathinfo().length();
+            return this.shape().length();
         },
 
         addVertext: function(vertext) {
-            var path = this.pathinfo();
+            var path = this.shape();
 
             path.addVertext(vertext);
             this.attr('d', path.command());
@@ -85,7 +85,7 @@
                 rd = mr.rad,
                 si = Math.sin(rd),
                 co = Math.cos(rd),
-                pa = this.pathinfo(),
+                pa = this.shape(),
                 ps = pa.segments,
                 rx = ps[0][1],
                 ry = ps[0][2];
@@ -128,7 +128,7 @@
         },
 
         moveTo: function(x, y) {
-            var path = this.pathinfo();
+            var path = this.shape();
             
             path.moveTo(x, y);
             this.attr('d', path.command());
@@ -137,7 +137,7 @@
         },
 
         lineTo: function(x, y, append) {
-            var path = this.pathinfo();
+            var path = this.shape();
             
             path.lineTo(x, y, append);
             this.attr('d', path.command());

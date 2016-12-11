@@ -1,6 +1,6 @@
 
 (function(){
-    
+
     var Matrix = Graph.lang.Matrix = function(a, b, c, d, e, f) {
         this.props = {};
 
@@ -12,7 +12,7 @@
         this.props.f = _.defaultTo(f, 0);
     };
 
-    Matrix.defaults = {
+    Matrix.options = {
         props: {
             a: 1,
             b: 0,
@@ -34,22 +34,22 @@
     Matrix.prototype.y = function(x, y) {
         return x * this.props.b + y * this.props.d + this.props.f;
     };
-        
+
     Matrix.prototype.get = function(chr) {
         return +this.props[chr].toFixed(4);
     };
 
     Matrix.prototype.multiply = function(a, b, c, d, e, f) {
-        var 
+        var
             result = [[], [], []],
             source = [
-                [this.props.a, this.props.c, this.props.e], 
-                [this.props.b, this.props.d, this.props.f], 
+                [this.props.a, this.props.c, this.props.e],
+                [this.props.b, this.props.d, this.props.f],
                 [0, 0, 1]
             ],
             matrix = [
-                [a, c, e], 
-                [b, d, f], 
+                [a, c, e],
+                [b, d, f],
                 [0, 0, 1]
             ];
 
@@ -57,8 +57,8 @@
 
         if (Graph.isMatrix(a)) {
             matrix = [
-                [a.props.a, a.props.c, a.props.e], 
-                [a.props.b, a.props.d, a.props.f], 
+                [a.props.a, a.props.c, a.props.e],
+                [a.props.b, a.props.d, a.props.f],
                 [0, 0, 1]
             ];
         }
@@ -104,7 +104,7 @@
             this.props.c = c;
             this.props.d = d;
             this.props.e = e;
-            this.props.f = f;    
+            this.props.f = f;
 
             return this;
         }
@@ -120,7 +120,7 @@
 
     Matrix.prototype.rotate = function(angle, cx, cy) {
         if (angle === undefined) {
-            
+
             var px = this.delta(0, 1),
                 py = this.delta(1, 0),
                 deg = 180 / Math.PI * Math.atan2(px.y, px.x) - 90,
@@ -171,10 +171,10 @@
         (cx || cy) && this.multiply(1, 0, 0, 1, cx, cy);
         this.multiply(sx, 0, 0, sy, 0, 0);
         (cx || cy) && this.multiply(1, 0, 0, 1, -cx, -cy);
-        
+
         return this;
     };
-        
+
     Matrix.prototype.determinant = function() {
         return this.props.a * this.props.d - this.props.b * this.props.c;
     };
@@ -224,21 +224,21 @@
     };
 
     Matrix.prototype.toFilter = function() {
-        return "progid:DXImageTransform.Microsoft.Matrix(" + 
-           "M11=" + this.get('a') + ", " + 
-           "M12=" + this.get('c') + ", " + 
-           "M21=" + this.get('b') + ", " + 
-           "M22=" + this.get('d') + ", " + 
-           "Dx="  + this.get('e') + ", " + 
-           "Dy="  + this.get('f') + ", " + 
-           "sizingmethod='auto expand'"  + 
+        return "progid:DXImageTransform.Microsoft.Matrix(" +
+           "M11=" + this.get('a') + ", " +
+           "M12=" + this.get('c') + ", " +
+           "M21=" + this.get('b') + ", " +
+           "M22=" + this.get('d') + ", " +
+           "Dx="  + this.get('e') + ", " +
+           "Dy="  + this.get('f') + ", " +
+           "sizingmethod='auto expand'"  +
         ")";
     };
 
     Matrix.prototype.toArray = function() {
         return [
-            [this.get('a'), this.get('c'), this.get('e')], 
-            [this.get('b'), this.get('d'), this.get('f')], 
+            [this.get('a'), this.get('c'), this.get('e')],
+            [this.get('b'), this.get('d'), this.get('f')],
             [0, 0, 1]
         ];
     };
@@ -257,15 +257,15 @@
 
     Matrix.prototype.toString = function() {
         return 'Graph.lang.Matrix';
-    };  
+    };
 
     Matrix.prototype.clone = function() {
         return new Matrix(
-            this.props.a, 
-            this.props.b, 
-            this.props.c, 
-            this.props.d, 
-            this.props.e, 
+            this.props.a,
+            this.props.b,
+            this.props.c,
+            this.props.d,
+            this.props.e,
             this.props.f
         );
     };
@@ -279,5 +279,5 @@
     Graph.matrix = function(a, b, c, d, e, f) {
         return new Graph.lang.Matrix(a, b, c, d, e, f);
     };
-    
+
 }());

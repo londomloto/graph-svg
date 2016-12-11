@@ -3,30 +3,28 @@
 
     var Class = Graph.lang.Class = function() {};
 
-    Class.defaults  = {};
+    Class.options = {};
 
     Class.prototype.constructor = Class;
+    Class.prototype.toString = function() { return 'Graph.lang.Class'; };
 
-    Class.prototype.toString = function() {
-        return 'Graph.lang.Class';
-    };
-    
     Class.extend = function(config) {
-        var _super, _proto, _constructor, _definition, _class, _classdef;
-            
+        var _super, _proto, _constructor, _definition, _class, _classopt;
+
         _super = this.prototype;
         _proto = Object.create(_super);
 
-        _classdef = {};
+        _classopt = {};
 
         _.forOwn(config, function(v, k){
-            _proto[k] = v;
+
             if (_.isFunction(v)) {
+                _proto[k] = v;
                 if (k == 'constructor') {
                     _constructor = v;
                 }
             } else {
-                _classdef[k] = _.cloneDeep(v);
+                _classopt[k] = v;
             }
         });
 
@@ -36,26 +34,27 @@
 
         _class = function() {
 
-            if ( ! this.constructed) {
-                this.constructed = true;
+            if ( ! this.__initialized__) {
+                this.__initialized__ = true;
+
                 this.listeners = {};
 
                 var _superclass = this.superclass;
-                var _superdef, key, val;
+                var _superopt, key, val;
 
-                for (key in _classdef) {
-                    this[key] = _.cloneDeep(_classdef[key]);
+                for (key in _classopt) {
+                    this[key] = _.cloneDeep(_classopt[key]);
                 }
 
                 while(_superclass) {
-                    _superdef = _superclass.defaults;
-                    
-                    if (_superdef) {
-                        for (key in _superdef) {
+                    _superopt = _superclass.options;
+
+                    if (_superopt) {
+                        for (key in _superopt) {
                             if (this[key] !== undefined) {
-                                this[key] = _.merge(_.cloneDeep(_superdef[key]), this[key]);
+                                this[key] = _.merge(_.cloneDeep(_superopt[key]), this[key]);
                             } else {
-                                this[key] = _.cloneDeep(_superdef[key]);
+                                this[key] = _.cloneDeep(_superopt[key]);
                             }
                         }
                     }
@@ -69,20 +68,19 @@
             }
         }
 
-        _definition = _constructor.toString().match(/(function)?\s?([^\{=]+)/);
-        _definition = 'function ' + _definition[2];
-        
+        _definition = _constructor.toString().match(/(function)?([^\{=]+)/);
+        _definition = 'function' + _definition[2];
+
         _class.toString = function() {
             return _definition;
         };
 
         _class.extend = _super.constructor.extend;
-        _class.defaults = _classdef;
+        _class.options = _classopt;
 
         _class.prototype = _proto;
         _class.prototype.constructor = _class;
         _class.prototype.superclass = _super.constructor;
-        _class.prototype.constructed = false;
 
         _class.prototype.on = function(eventType, handler, once, priority) {
             if (_.isPlainObject(eventType)) {
@@ -136,7 +134,7 @@
 
         _class.prototype.fire = function(eventType, data) {
             var args = [], onces = [];
-            var eventObject, eventNames, eventRoot, listeners, 
+            var eventObject, eventNames, eventRoot, listeners,
                 eventRegex, cachedRegex, ii, i;
 
             data = data || {};
@@ -193,7 +191,7 @@
     };
 
     /////////
-    
+
     function bind(context, eventType, handler, once, priority) {
         var eventNames = eventType.split(/\./),
             eventRoot = eventNames.shift();
@@ -211,7 +209,7 @@
             once: once
         });
     }
-    
+
     function unbind(context, eventType, handler) {
         var eventNames = eventType.split(/\./),
             eventRoot = eventNames.shift(),
@@ -235,7 +233,7 @@
                         listeners.splice(i, 1);
                     }
                 } else {
-                    listeners.splice(i, 1);    
+                    listeners.splice(i, 1);
                 }
             }
         }

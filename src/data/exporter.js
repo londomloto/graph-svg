@@ -19,7 +19,7 @@
             
             width  = bounds.width;
             height = bounds.height;
-            scale  = vector.globalMatrix().scale();
+            scale  = vector.matrixCurrent().scale();
         }
         
         _.assign(this.options, {
