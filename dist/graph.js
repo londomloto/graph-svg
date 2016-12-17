@@ -234,6 +234,10 @@
             family: 'Segoe UI',
             size: '12px',
             line: 1
+        },
+        resizer: {
+            image: 'resize-control.png',
+            size: 17
         }
     };
 
@@ -372,21 +376,31 @@
 
     /**
      * Simple hashing
+     * http://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript-jquery
      */
     Graph.hash = function(str) {
-        var hash = 0, chr, len, i;
+        var hval = 0x811c9dc5, i, l;
         
-        if ( ! str.length) {
-            return hash;
+        for (i = 0, l = str.length; i < l; i++) {
+            hval ^= str.charCodeAt(i);
+            hval += (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
         }
 
-        for (i = 0, len = str.length; i < len; i++) {
-            chr   = str.charCodeAt(i);
-            hash  = ((hash << 5) - hash) + chr;
-            hash |= 0;
-        }
+        return ('0000000' + (hval >>> 0).toString(16)).substr(-8);
 
-        return hash;
+        // var hash = 0, chr, len, i;
+        
+        // if ( ! str.length) {
+        //     return hash;
+        // }
+
+        // for (i = 0, len = str.length; i < len; i++) {
+        //     chr   = str.charCodeAt(i);
+        //     hash  = ((hash << 5) - hash) + chr;
+        //     hash |= 0;
+        // }
+
+        // return hash;
     };
 
     // prepare for prototypal factory
@@ -559,17 +573,20 @@
      */
     Graph.diagram = function(name, options) {
         var clazz, diagram;
-        clazz = Graph.diagram[_.capitalize(name)];
-        diagram = Graph.factory(clazz, [options]);
-        console.log(diagram);
+        clazz = Graph.diagram.type[_.capitalize(name)];
+        return Graph.factory(clazz, [options]);
     };
+
+    Graph.diagram.type = {};
+    Graph.diagram.util = {};
+    Graph.diagram.pallet = {};
 
     /**
      * Pallet
      */
     Graph.pallet = function(type, options) {
         var clazz;
-        clazz = Graph.pallet[_.capitalize(type)];
+        clazz = Graph.diagram.pallet[_.capitalize(type)];
         return Graph.factory(clazz, [options]);
     };
     
@@ -585,9 +602,9 @@
                 lsnr = subs[topic] || [];
 
             _.forEach(lsnr, function(handler){
-                (function(){
-                    handler.call(null, message, scope);
-                }(handler));
+                if (handler) {
+                    handler.call(null, message, scope);  
+                }
             });
         },
 
@@ -647,6 +664,15 @@
         }
     };
 
+    Graph.message = function(message, type) {
+        type = _.defaultTo(type, 'info');
+        
+        Graph.topic.publish('graph:message', {
+            type: type,
+            message: message
+        });
+    };
+
     ///////////////////////////// LOAD CONFIG /////////////////////////////
     
     if (GLOBAL.graphConfig) {
@@ -667,6 +693,7 @@
     Graph.ns('Graph.data');
     Graph.ns('Graph.popup');
     Graph.ns('Graph.shape.activity');
+    Graph.ns('Graph.shape.common');
 
     ///////////////////////// HOOK DOCUMENT CLICK /////////////////////////
     
@@ -994,6 +1021,59 @@
                 return ver + '-' + hor;
             } else {
                 return hor || ver || 'intersect';
+            }
+        },
+
+        expandBox: function(box, dx, dy) {
+            dx = _.defaultTo(dx, 0);
+            dy = _.defaultTo(dy, 0);
+
+            box.x  -= dx;
+            box.x2 += dx;
+            box.y  -= dy;
+            box.y2 += dy;
+            box.width = box.x2 - box.x;
+            box.height = box.y2 - box.y;
+
+            return box;
+        },
+
+        groupBox: function(boxes) {
+            var x  = [], 
+                y  = [], 
+                x2 = [], 
+                y2 = [];
+
+            if (boxes.length) {
+                _.forEach(boxes, function(box){
+                    x.push(box.x);
+                    y.push(box.y);
+                    x2.push(box.x + box.width);
+                    y2.push(box.y + box.height);
+                });
+
+                x  = _.min(x);
+                y  = _.min(y);
+                x2 = _.max(x2);
+                y2 = _.max(y2);
+
+                return {
+                    x: x,
+                    y: y,
+                    x2: x2,
+                    y2: y2,
+                    width: (x2 - x),
+                    height: (y2 - y)
+                };
+            } else {
+                return {
+                    x: 0,
+                    y: 0,
+                    x2: 0,
+                    y2: 0,
+                    width: 0,
+                    height: 0
+                }
             }
         },
         
@@ -1800,7 +1880,7 @@
             cachedRegex.rgex = eventRegex;
         }
 
-        for (i = listeners.length - 1; i >= 0; i--) {
+        for (var i = listeners.length - 1; i >= 0; i--) {
             if (eventRegex.test(listeners[i].eventType)) {
                 if (handler) {
                     if (handler === listeners[i].original) {
@@ -3905,7 +3985,7 @@
             ];
 
         var x, y, z, tmp;
-
+        
         if (Graph.isMatrix(a)) {
             matrix = [
                 [a.props.a, a.props.c, a.props.e],
@@ -4204,6 +4284,7 @@
         this.items = _.map(vectors || [], function(v){
             return v.guid();
         });
+        vectors = null;
     };
 
     Collection.prototype.constructor = Collection;
@@ -4223,10 +4304,10 @@
         return new Collection(items);
     };
 
-    Collection.prototype.count = function() {
+    Collection.prototype.size = function() {
         return this.items.length;
     };
-
+    
     Collection.prototype.index = function(vector) {
         var id = vector.guid();
         return _.indexOf(this.items, id);
@@ -4344,11 +4425,16 @@
         this.items = _.map(shapes, function(s){
             return s.guid();
         });
+        shapes = null;
     };
 
     Collection.prototype.constructor = Collection;
 
-    Collection.prototype.count = function() {
+    Collection.prototype.keys = function() {
+        return this.items.slice();
+    };
+
+    Collection.prototype.size = function() {
         return this.items.length;
     };
 
@@ -4362,10 +4448,24 @@
         return _.indexOf(this.items, id) !== -1;
     };
 
+    Collection.prototype.find = function(identity) {
+        var shapes = this.toArray();
+        return _.find(shapes, identity);
+    };
+
     Collection.prototype.push = function(shape) {
-        var id = shape.guid();
-        this.items.push(id);
-        return this.items.length;
+        var me = this;
+        
+        if (_.isArray(shape)) {
+            _.forEach(shape, function(s){
+                var id = s.guid();
+                me.items.push(id);
+            });
+        } else {
+            me.items.push(shape.guid());
+        }
+        
+        return me.items.length;
     };
 
     Collection.prototype.pop = function() {
@@ -4462,7 +4562,7 @@
         return this.nodes[index];
     };
 
-    Tree.prototype.count = function() {
+    Tree.prototype.size = function() {
         return this.nodes.length;
     };
 
@@ -4533,6 +4633,101 @@
         return this.nodes.slice();
     };
 
+}());
+
+(function(){
+
+    var Collection = Graph.collection.Link = function(links) {
+        this.items = _.map(links, function(l){
+            return l.guid();
+        });
+        links = null;
+    };
+
+    Collection.prototype.constructor = Collection;
+
+    Collection.prototype.keys = function() {
+        return this.items.slice();
+    };
+
+    Collection.prototype.size = function() {
+        return this.items.length;
+    };
+
+    Collection.prototype.index = function(link) {
+        var id = link.guid();
+        return _.indexOf(this.items, id);
+    };
+
+    Collection.prototype.has = function(link) {
+        var id = link.guid();
+        return _.indexOf(this.items, id) !== -1;
+    };
+
+    Collection.prototype.find = function(identity) {
+        var links = this.toArray();
+        return _.find(links, identity);
+    };
+
+    Collection.prototype.push = function(link) {
+        var me = this;
+        
+        if (_.isArray(link)) {
+            _.forEach(link, function(s){
+                var id = s.guid();
+                me.items.push(id);
+            });
+        } else {
+            me.items.push(link.guid());
+        }
+        
+        return me.items.length;
+    };
+
+    Collection.prototype.pop = function() {
+        var id = this.items.pop();
+        return Graph.registry.link.get(id);
+    };
+
+    Collection.prototype.shift = function() {
+        var id = this.items.shift();
+        return Graph.registry.link.get(id);
+    };
+
+    Collection.prototype.unshift = function(link) {
+        this.items.unshift(link);
+        return link;
+    };
+
+    Collection.prototype.pull = function(link) {
+        var id = link.guid();
+        _.pull(this.items, id);
+    };
+
+    Collection.prototype.last = function() {
+        return _.last(this.items);
+    };
+
+    Collection.prototype.each = function(iteratee) {
+        var me = this;
+        _.forEach(me.items, function(id, i){
+            var link = Graph.registry.link.get(id);
+            if (link) {
+                iteratee.call(link, link, i);
+            }
+        });
+    };
+    
+    Collection.prototype.toArray = function() {
+        return _.map(this.items, function(id){
+            return Graph.registry.link.get(id);
+        });
+    };
+
+    Collection.prototype.toString = function() {
+        return 'Graph.collection.link';
+    };
+    
 }());
 
 (function(_, $){
@@ -4682,7 +4877,18 @@
     };
 
     E.prototype.offset = function() {
-        return this.query.offset();
+        var node = this.query[0];
+        if (Graph.isSVG(node)) {
+            var offset = node.getBoundingClientRect();
+            return {
+                left: offset.left,
+                top: offset.top,
+                width: offset.width,
+                height: offset.height
+            };
+        } else {
+           return this.query.offset(); 
+        }
     };
 
     E.prototype.position = function() {
@@ -4835,8 +5041,41 @@
         return this;
     };
 
-    E.prototype.focus = function() {
-        this.query.focus();
+    E.prototype.focus = function(select, delay) {
+        var query = this.query, timer;
+
+        delay = _.defaultTo(delay, 0);
+
+        if (this.query.attr('contenteditable') !== undefined) {
+            timer = _.delay(function(){
+                clearTimeout(timer);
+                timer = null;
+
+                query[0].focus();
+
+                if (document.createRange && window.getSelection) {
+                    var range = document.createRange();
+                    range.selectNodeContents(query[0]);
+                    var selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+
+            }, delay);
+            
+        } else {
+            timer = _.delay(function(){
+                clearTimeout(timer);
+                timer = null;
+
+                query.focus();
+
+                if (select) {
+                    query.select();
+                }
+            }, delay);
+        }
+        
         return this;
     };
 
@@ -4986,7 +5225,7 @@
             me.tree.children = new Graph.collection.Vector();
 
             guid  = 'graph-elem-' + (++Vector.guid);
-            attrs = _.extend({ id: guid }, me.attrs, attrs || {});
+            attrs = _.extend({}, me.attrs, attrs || {});
 
             me.elem = Graph.$(document.createElementNS(Graph.config.xmlns.svg, type));
 
@@ -5005,6 +5244,7 @@
             guid = null;
 
             me.elem.data(Graph.string.ID_VECTOR, me.props.guid);
+            me.elem.attr('data-elem', me.props.guid);
 
             // me.plugins.history = new Graph.plugin.History(me);
             me.plugins.transformer = (new Graph.plugin.Transformer(me))
@@ -5045,11 +5285,12 @@
 
                     matrix = Graph.matrix();
 
+                    // TODO: check this....
                     this.bubble(function(curr){
-                        matrix.multiply(curr.matrix());
                         if (curr.guid() == viewportGuid) {
                             return false;
                         }
+                        matrix.multiply(curr.matrix());
                     });
                 } else {
                     matrix = this.matrix();
@@ -5212,7 +5453,8 @@
             if ( ! this.plugins.resizer) {
                 this.plugins.resizer = new Graph.plugin.Resizer(this, options);
                 this.plugins.resizer.on({
-                    resize: _.bind(this.onResizerResize, this)
+                    beforeresize: _.bind(this.onResizerBeforeResize, this),
+                    afterresize: _.bind(this.onResizerAfterResize, this)
                 });
             } else if (options !== undefined) {
                 this.plugins.resizer.options(options);
@@ -5229,9 +5471,9 @@
                 this.plugins.dragger = new Graph.plugin.Dragger(this, config);
 
                 this.plugins.dragger.on({
-                    dragstart: _.bind(this.onDraggerStart, this),
-                    dragmove: _.bind(this.onDraggerMove, this),
-                    dragend: _.bind(this.onDraggerEnd, this)
+                    beforedrag: _.bind(this.onDraggerStart, this),
+                    drag: _.bind(this.onDraggerMove, this),
+                    afterdrag: _.bind(this.onDraggerEnd, this)
                 });
             }
             return this.plugins.dragger;
@@ -5336,16 +5578,6 @@
 
             var enabled, snapper;
 
-            if ( ! paper) {
-                // try to get default paper
-                paper = Graph.svg.Paper.getDefaultInstance();
-            }
-
-            // still no exists?
-            if ( ! paper) {
-                throw Graph.error("Unable to install snapper plugin. Paper doesn't rendered yet!");
-            }
-
             if (_.isBoolean(options)) {
                 options = {
                     enabled: options
@@ -5358,8 +5590,21 @@
 
             me.props.snappable = options.enabled;
 
-            snapper = paper.plugins.snapper;
-            snapper.setup(me, options);
+            if ( ! paper) {
+                paper = Graph.svg.Paper.getDefaultInstance();
+                snapper = paper.plugins.snapper;
+                
+                me.on('render', function(){
+                    me.paper().plugins.snapper.setup(me, options);
+                });
+            } else {
+                snapper = paper.plugins.snapper;
+            }
+            
+            // still no exists?
+            if ( ! paper) {
+                throw Graph.error("Unable to install snapper plugin. Paper doesn't rendered yet!");
+            }
 
             return snapper;
         },
@@ -5848,9 +6093,11 @@
                 applyMatrix = this.matrix().clone();
 
             applyMatrix.multiply(targetMatrix.invert());
-
+            
             this.graph.matrix = applyMatrix;
             this.attr('transform', applyMatrix.toValue());
+
+            targetMatrix = applyMatrix = null;
 
             // flag as dirty
             this.dirty(true);
@@ -5911,9 +6158,8 @@
         remove: function() {
             var parent = this.parent();
 
-            if (this.lasso) {
-                this.lasso.decollect(this);
-            }
+            this.fire('beforedestroy');
+            this.deselect();
 
             // destroy plugins
             for (var name in this.plugins) {
@@ -5935,8 +6181,7 @@
             Graph.registry.vector.unregister(this);
 
             // last chance
-            this.fire('remove');
-
+            this.fire('afterdestroy');
             this.listeners = null;
         },
 
@@ -5955,35 +6200,62 @@
             return this;
         },
 
-        select: function(batch) {
+        select: function() {
+            var paper = this.paper(),
+                initial = false;
+            
+            if (paper) {
+                var collector = paper.collector();
+                collector.add(this);
+
+                if (collector.index(this) === 0) {
+                    initial = true;
+                }
+
+            } else {
+                initial = true;
+            }
+
             this.addClass('graph-selected');
             this.props.selected = true;
 
-            batch = _.defaultTo(batch, false);
-            this.fire('select', {batch: batch});
-
-            if ( ! batch) {
-                if (this.plugins.resizer) {
-                    this.plugins.resizer.resume();
-                }
+            if (initial && this.isResizable()) {
+                this.resizable().resume();
             }
+
+            this.fire('select', {
+                initial: initial
+            });
 
             return this;
         },
 
-        deselect: function(batch) {
+        deselect: function() {
+            var paper = this.paper(),
+                initial = false;
+
+            if (paper) {
+                var collector = paper.collector();
+                initial = collector.index(this) === 0 ? true : false;
+                collector.remove(this);
+            }
 
             this.removeClass('graph-selected');
             this.props.selected = false;
 
-            batch = _.defaultTo(batch, false);
-            this.fire('deselect', {batch: batch});
-
-            if (this.plugins.resizer) {
-                this.plugins.resizer.suspend();
+            if (this.isResizable()) {
+                this.resizable().suspend();
             }
 
+            this.fire('deselect', {
+                initial: initial
+            });
+            
             return this;
+        },
+
+        collector: function() {
+            return this._collector;
         },
 
         transform: function(command) {
@@ -6098,21 +6370,27 @@
 
         ///////// OBSERVERS /////////
 
-        onResizerResize: function(e) {
+        onResizerBeforeResize: function(e) {
+            this.fire(e);
+        },
+
+        onResizerAfterResize: function(e) {
             this.dirty(true);
             // forward
             this.fire(e);
 
             // publish
-            Graph.topic.publish('vector/resize', e);
+            Graph.topic.publish('vector:afterresize', e);
         },
 
         onDraggerStart: function(e) {
             e.master = true;
             this.fire(e);
+            
+            var collector = this.collector();
 
-            if (this.lasso) {
-                this.lasso.syncDragStart(this, e);
+            if (collector) {
+                collector.syncBeforeDrag(this, e);
             }
 
             // invoke core plugins
@@ -6128,11 +6406,14 @@
         onDraggerMove: function(e) {
             // forward event
             e.master = true;
-            this.fire(e);
+            
+            var collector = this.collector();
 
-            if (this.lasso) {
-                this.lasso.syncDragMove(this, e);
+            if (collector) {
+                collector.syncDrag(this, e);
             }
+
+            this.fire(e);
         },
 
         onDraggerEnd: function(e) {
@@ -6140,19 +6421,14 @@
 
             e.master = true;
             this.fire(e);
+            
+            var collector = this.collector();
 
-            if (this.lasso) {
-                this.lasso.syncDragEnd(this, e);
+            if (collector) {
+                collector.syncAfterDrag(this, e);
             }
 
-            Graph.topic.publish('vector/dragend', e);
-
-            if (this.plugins.resizer) {
-                this.plugins.resizer.resume();
-                if ( ! this.props.selected) {
-                    this.plugins.resizer.suspend();
-                }
-            }
+            Graph.topic.publish('vector:afterdrag', e);
         },
 
         onDropperEnter: function(e) {
@@ -6966,7 +7242,7 @@
             text: '',
             type: 'text',
             rotate: 0,
-            lineHeight: 1,
+            lineHeight: 1.1,
             fontSize: 12,
             traversable: true,
             focusable: false,
@@ -7059,16 +7335,8 @@
                         rows[i].attr('dy', size * line);
                     }
                 }
-
                 rows[0].attr('dy', 0);
-
-                // var box = this.bbox().toJson(),
-                //     off = this.attrs.y - (box.y + box.height / 2);
-
-                // if (off) {
-                //     rows[0].setAttribute('dy', off);    
-                // }
-                
+                this.dirty(true);
             }
         },
 
@@ -7387,9 +7655,9 @@
             viewport: null
         },
 
-        drawing: {
-            pallets: null,
-            diagram: null
+        diagram: {
+            enabled: true,
+            manager: null
         },
 
         constructor: function (width, height, options) {
@@ -7420,22 +7688,20 @@
             me.plugins.toolmgr.register('linker', 'plugin');
 
             me.plugins.pencil = new Graph.plugin.Pencil(me);
+            me.plugins.toolmgr.register('pencil', 'plugin');
+
             me.plugins.definer = new Graph.plugin.Definer(me);
 
             me.plugins.snapper = new Graph.plugin.Snapper(me);
             me.plugins.toolpad = new Graph.plugin.Toolpad(me);
 
-            me.on('pointerdown', _.bind(me.onPointerDown, me));
-            me.on('keynavdown', _.bind(me.onKeynavDown, me));
-            me.on('keynavup', _.bind(me.onKeynavUp, me));
+            // diagram feature
+            me.diagram.enabled = true;
+            me.diagram.manager = new Graph.diagram.Manager(me);
 
             // subscribe topics
-            Graph.topic.subscribe('link/update', _.bind(me.listenLinkUpdate, me));
-            Graph.topic.subscribe('link/remove', _.bind(me.listenLinkRemove, me));
-            Graph.topic.subscribe('shape/draw',  _.bind(me.listenShapeDraw, me));
-
-            // drawings
-            me.drawing.pallets = [];
+            Graph.topic.subscribe('link:reload', _.bind(me.listenLinkChange, me));
+            Graph.topic.subscribe('link:afterdestroy', _.bind(me.listenLinkAfterDestroy, me));
 
             if ( ! Paper.defaultInstance) {
                 Paper.defaultInstance = me.guid();
@@ -7454,7 +7720,7 @@
 
             if (this.props.showOrigin) {
                 var origin = Graph.$(
-                    '<g class="graph-origin">' +
+                    '<g class="graph-elem graph-origin">' +
                         '<rect class="x" rx="1" ry="1" x="-16" y="-1" height="1" width="30"></rect>' +
                         '<rect class="y" rx="1" ry="1" x="-1" y="-16" height="30" width="1"></rect>' +
                         '<text class="t" x="-40" y="-10">(0, 0)</text>' +
@@ -7548,22 +7814,16 @@
             return this.tree.container;
         },
 
-        selections: function() {
-            return this.plugins.collector.selections;
-        },
-
-        removeSelection: function() {
-            var selections = this.plugins.collector.collection;
-
-            for (var v, i = selections.length - 1; i >= 0; i--) {
-                v = selections[i];
-                selections.splice(i, 1);
-                v.remove();
-            }
+        collector: function() {
+            return this.plugins.collector;
         },
 
         viewport: function() {
             return Graph.registry.vector.get(this.components.viewport);
+        },
+
+        diagram: function() {
+            return this.diagram.manager;
         },
 
         // @Override
@@ -7581,90 +7841,19 @@
         height: function() {
             return this.elem.height();
         },
-
-        connect: function(source, target, start, end, options) {
-            var layout, router, link;
-
-            if (start) {
-                if ( ! Graph.isPoint(start)) {
-                    options = start;
-                    start = null;
-                    end = null;
-                }
-            }
-
-            source = Graph.isShape(source) ? source.connectable().component() : source;
-            target = Graph.isShape(target) ? target.connectable().component() : target;
-
-            layout = this.layout();
-            router = layout.createRouter(source, target, options);
-
-            link = layout.createLink(router);
-
-            link.connect(start, end);
-            link.render(this);
-
-            return link;
-        },
-
-        addPallet: function(pallet) {
-            var guid = pallet.guid();
-            this.drawing.pallets.push(guid);
-
-            // bind pallet events
-            pallet.on({
-                drawstart: function(e) {
-                    console.log(e.shape);
-                    var shape = e.shape,
-                        clazz = Graph.ns(shape);
-
-                    shape = Graph.factory(clazz);
-                    console.log(shape);
-                },
-                drawend: function() {
-                    console.log('y');
-                }
-            });
-        },
-
-        removePallet: function(pallet) {
-            var guid = pallet.guid();
-            var index = _.indexOf(this.drawing.pallets, guid);
-            if (index > -1) {
-                this.drawing.pallets.splice(index, 1);
+        
+        locateLink: function(guid) {
+            var link = Graph.registry.link.get(guid);
+            if (link) {
+                link.select(false);
             }
         },
 
-        parse: function(json) {
-            var paper  = this;
-            var shapes = {};
-
-            _.forEach(json.shapes, function(o){
-                (function(o){
-                    var s = Graph.shape(o.type, o.data);
-                    s.render(paper);
-                    shapes[o.data.id] = s;
-                }(o));
-            });
-
-            _.forEach(json.links, function(o){
-                (function(o){
-                    paper.connect(shapes[o.source], shapes[o.target]);
-                }(o))
-            });
-
-        },
-
-        save: function() {
-            alert('save');
-        },
-
-        diagram: function(type, options) {
-            var clazz = Graph.diagram[_.capitalize(type)];
-            var diagram = Graph.factory(clazz, options || {});
-
-            this.drawing.diagram = diagram;
-            return diagram;
+        locateShape: function(guid) {
+            var shape = Graph.registry.shape.get(guid);
+            if (shape) {
+                shape.select(false);
+            }
         },
 
         toString: function() {
@@ -7672,72 +7861,16 @@
         },
 
         ///////// OBSERVERS /////////
-
-        onPointerDown: function(e) {
-
-        },
-
-        onKeynavDown: function(e) {
-            var me = this, key = e.keyCode;
-
-            switch(key) {
-                case Graph.event.DELETE:
-                    me.removeSelection();
-                    e.preventDefault();
-                    break;
-
-                case Graph.event.SHIFT:
-
-                    break;
-
-                case Graph.event.ESC:
-
-                    break;
-            }
-
-        },
-
-        onKeynavUp: function(e) {
-            var me = this, key = e.keyCode;
-
-            switch(key) {
-                case Graph.event.SHIFT:
-
-                    break;
-            }
-        },
-
-        saveAsImage: function(filename) {
-            var exporter = new Graph.data.Exporter(this);
-            exporter.exportPNG(filename);
-            exporter = null;
-        },
-
-        saveAsBlob: function(callback) {
-            var exporter = new Graph.data.Exporter(this);
-            return exporter.exportBlob(callback);
-        },
-
-        /**
-         * save workspace
-         */
-        save: function() {
-
-        },
-
+        
         ///////// TOPIC LISTENERS /////////
 
-        listenLinkUpdate: _.debounce(function() {
+        listenLinkChange: _.debounce(function() {
             this.layout().arrangeLinks();
         }, 300),
 
-        listenLinkRemove: _.debounce(function(){
+        listenLinkAfterDestroy: _.debounce(function(){
             this.layout().arrangeLinks();
-        }, 10),
-
-        listenShapeDraw: _.debounce(function() {
-            this.layout().arrangeShapes();
-        }, 1)
+        }, 10)
 
     });
 
@@ -7797,7 +7930,7 @@
         var id = vector.guid(), found = this.get(id);
         
         if (found !== vector) {
-            // vector.on('resize', function(){
+            // vector.on('afterresize', function(){
             //     if (vector.isConnectable()) {
             //         var delay = _.delay(function(){
             //             clearTimeout(delay);
@@ -7836,7 +7969,7 @@
         }
     };
 
-    Registry.prototype.count = function() {
+    Registry.prototype.size = function() {
         return _.keys(storage).length;
     };
 
@@ -7933,7 +8066,7 @@
         }
     };
 
-    Registry.prototype.count = function() {
+    Registry.prototype.size = function() {
         return _.keys(storage).length;
     };
 
@@ -7945,11 +8078,13 @@
         if (key === undefined) {
             return this.toArray();
         }
-
+        
         if (key instanceof SVGElement) {
             key = Graph.$(key).data(Graph.string.ID_LINK);
         } else if (key instanceof Graph.dom.Element) {
             key = key.data(Graph.string.ID_LINK);
+        } else if (key instanceof Graph.svg.Vector) {
+            key = key.elem.data(Graph.string.ID_LINK);
         }
 
         return storage[key];
@@ -7982,7 +8117,8 @@
 
 (function(){
 
-    var storage = {};
+    var storage = {},
+        context = {};
 
     var Registry = function() {
         
@@ -7995,15 +8131,36 @@
         storage[id] = shape;
     };
 
+    Registry.prototype.setContext = function(id, scope) {
+        if (storage[id]) {
+            context[id] = scope;
+        }
+    };
+
+    Registry.prototype.collect = function(scope) {
+        var shapes = [];
+        for (var id in context) {
+            if (context[id] == scope && storage[id]) {
+                shapes.push(storage[id]);
+            }
+        }
+        return shapes;
+    };
+
     Registry.prototype.unregister = function(shape) {
         var id = shape.guid();
+        
         if (storage[id]) {
             storage[id] = null;
             delete storage[id];
         }
+
+        if (context[id]) {
+            delete context[id];
+        }
     };
 
-    Registry.prototype.count = function() {
+    Registry.prototype.size = function() {
         return _.keys(storage).length;
     };
 
@@ -8104,14 +8261,15 @@
 
             link: {
                 smooth: true,
-                smootness: 6
+                smoothness: 6
             }
         },
         
         view: null,
 
         cached: {
-            offset: null
+            offset: null,
+            position: null
         },
 
         constructor: function(view, options) {
@@ -8127,34 +8285,43 @@
             return this.view().paper();
         },
 
-        offset: function() {
-            var offset = this.cached.offset;
-            var view, node;
+        invalidate: function() {
+            
+        },
 
-            if ( ! offset) {
+        offset: function() {
+            // TODO: please fix...
+            return this.position();
+        },
+
+        position: function() {
+            var position = this.cached.position;
+            var view, node;
+            
+            if ( ! position) {
                 view = this.view();
                 node = view.isViewport() ? view.parent().node() : view.node();
-                offset = node.getBoundingClientRect();
-                this.cached.offset = offset;
+                position = node.getBoundingClientRect();
+                this.cached.position = position;
             }
 
-            return offset;
+            return position;
         },
 
         center: function() {
             var center = this.cached.center;
 
             if ( ! center) {
-                var offset = this.offset();
+                var position = this.position();
 
                 center = {
-                    x: offset.width / 2,
-                    y: offset.height / 2
+                    x: position.width / 2,
+                    y: position.height / 2
                 };
 
                 this.cached.center = _.extend({}, center);
             }
-
+            
             return center;
         },
 
@@ -8207,10 +8374,10 @@
             return Graph.registry.link.get(event.target);
         },
 
-        grabLocation: function(event) {
-            var x = event.clientX,
-                y = event.clientY,
-                offset = this.offset(),
+        pointerLocation: function(pointer) {
+            var x = pointer.clientX,
+                y = pointer.clientY,
+                position = this.position(),
                 matrix = this.view().matrix(),
                 invert = matrix.clone().invert(),
                 scale  = matrix.scale(),
@@ -8219,12 +8386,32 @@
                     y: invert.y(x, y)
                 };
 
-            location.x -= offset.left / scale.x;
-            location.y -= offset.top / scale.y;
+            location.x -= position.left / scale.x;
+            location.y -= position.top / scale.y;
 
             matrix = invert = null;
 
             return location;
+        },
+
+        screenLocation: function(coord) {
+            var screen = this.view().node().getScreenCTM();
+                matrix = Graph.matrix(
+                    screen.a,
+                    screen.b,
+                    screen.c,
+                    screen.d,
+                    screen.e,
+                    screen.f
+                );
+
+            var x = matrix.x(coord.x, coord.y),
+                y = matrix.y(coord.x, coord.y);
+
+            coord.x = x;
+            coord.y = y;
+            
+            return coord;
         },
 
         dragSnapping: function() {
@@ -8233,6 +8420,10 @@
                 x: 1,
                 y: 1
             };
+        },
+
+        routerType: function() {
+            return this.props.router.type;
         },
         
         createRouter: function(source, target, options) {
@@ -8244,7 +8435,7 @@
 
             return router;
         },
-
+        
         createLink: function(router, options) {
             var clazz, link;
 
@@ -8283,8 +8474,8 @@
                 for (key in convex) {
                     link = Graph.registry.link.get(key);
                     
-                    link.updateConvex(convex[key]);
-                    link.refresh(true);
+                    link.reloadConvex(convex[key]);
+                    link.reset(true);
                     
                     idx = _.indexOf(inspect, key);
                     
@@ -8298,7 +8489,7 @@
                         var link = Graph.registry.link.get(key);
                         
                         link.removeConvex();
-                        link.refresh(true);
+                        link.reset(true);
                     });
                 }
                 
@@ -8324,6 +8515,7 @@
     var Router = Graph.router.Router = Graph.extend({
 
         props: {
+            type: 'directed',
             domain: null,
             source: null,
             target: null
@@ -8352,6 +8544,10 @@
             this.props.target = target.guid();
 
             this.values.waypoints = [];
+        },
+
+        type: function() {
+            return this.props.type;
         },
 
         invalidate: function() {
@@ -8394,14 +8590,18 @@
             var head = _.last(this.values.waypoints);
             return head ? _.extend({}, head) : null;
         },
-        
+
         center: function() {
             var path = this.path(),
                 center = path.pointAt(path.length() / 2, true);
             path = null;
             return center;
         },
-        
+
+        execute: function(command) {
+            this.command(command);
+            this.fire('route', { command: this.command() });
+        },
 
         /**
          * Get compiled waypoints, or
@@ -8424,7 +8624,7 @@
 
             points = _.map(segments, function(s){
                 return {
-                    x: s[1], 
+                    x: s[1],
                     y: s[2]
                 };
             });
@@ -8433,7 +8633,6 @@
             this.invalidate();
 
             segments = points = null;
-
             return this;
         },
 
@@ -8441,7 +8640,7 @@
             var segments = this.cached.segments;
             if ( ! segments) {
                 segments = [];
-                
+
                 _.forEach(this.values.waypoints, function(p, i){
                     var cmd = i === 0 ? 'M' : 'L';
                     segments.push([cmd, p.x, p.y]);
@@ -8466,7 +8665,7 @@
 
             return points;
         },
-        
+
         path: function() {
             var path = this.cached.path;
             if ( ! path) {
@@ -8494,14 +8693,14 @@
         },
 
         repair: function(component, port) {
-            
+
         },
 
         reset: function() {
             this.invalidate();
             this.values.waypoints = null;
         },
-        
+
         relocate: function(dx, dy) {
             _.forEach(this.values.waypoints, function(p){
                 p.x += dx;
@@ -8539,20 +8738,20 @@
         destroy: function() {
             this.reset();
         }
-        
+
     });
-    
+
     ///////// STATICS /////////
-    
+
     Router.portCentering = function(port, center, axis) {
         if (axis == 'x') {
             port.y = center.y;
         }
-        
+
         if (axis == 'y') {
             port.x = center.x;
         }
-        
+
         return port;
     }
 
@@ -8560,7 +8759,7 @@
         var index = source ? 0 : routes.length - 1,
             cable = Graph.path(Graph.util.points2path(routes)),
             inter = shape.intersection(cable, true);
-        
+
         var point, port;
 
         point = routes[index];
@@ -8579,15 +8778,15 @@
 
     Router.isRepairable = function(routes) {
         var count = routes.length;
-        
+
         if (count < 3) {
             return false;
         }
-        
+
         if (count > 4) {
             return true;
         }
-        
+
         return !_.find(routes, function(p, i){
             var q = routes[i - 1];
             return q && Graph.util.pointDistance(p, q) <= 5;
@@ -8603,7 +8802,7 @@
                 return false;
             }
         });
-        
+
         return segment;
     };
 
@@ -8639,7 +8838,7 @@
 
     Router.repairBendpoint = function(bend, oldport, newport) {
         var align = Graph.util.pointAlign(oldport, bend);
-        
+
         switch(align) {
             case 'v':
                 return {
@@ -8652,7 +8851,7 @@
                     y: bend.y
                 };
         }
-        
+
         return {
             x: bend.x,
             y: bend.y
@@ -8662,12 +8861,12 @@
     Router.repairRoutes = function(bound1, bound2, newport, routes) {
         var oldport = routes[0],
             clonedRoutes = routes.slice();
-        
+
         var slicedRoutes;
-        
+
         clonedRoutes[0] = newport;
         clonedRoutes[1] = Router.repairBendpoint(clonedRoutes[1], oldport, newport);
-        
+
         return clonedRoutes;
     };
 
@@ -8681,6 +8880,7 @@
     };
 
 }());
+
 
 (function(){
     
@@ -8921,7 +9121,7 @@
                 ];
             }
 
-            var offset  = this.layout().offset();
+            var offset  = this.layout().position();
             
             context.snap.hor = [];
             context.snap.ver = [];
@@ -9218,7 +9418,7 @@
         },
 
         route: function(start, end) {
-
+            
             var source = this.source(),
                 target = this.target(),
                 sourceNetwork = source.connectable(),
@@ -9229,7 +9429,7 @@
                 targetBox = targetBBox.toJson(),
                 orient = sourceNetwork.orientation(targetNetwork),
                 direct = sourceNetwork.direction(targetNetwork),
-                tuneup  = false;
+                croping  = false;
 
             if ( ! start) {
                 start = sourceBBox.center(true);
@@ -9239,6 +9439,12 @@
                 end = targetBBox.center(true);
             }
 
+            // record initial values
+            if ( ! this.values.start && ! this.values.end) {
+                this.values.start = start;
+                this.values.end = end;    
+            }
+            
             var sdot, edot;
 
             if (direct) {
@@ -9256,7 +9462,7 @@
                                 x: targetBox.x + targetBox.width - 1,
                                 y: end.y
                             };
-
+                            croping = true;
                             break;
                         case 'top-left':
                         case 'left':
@@ -9270,13 +9476,13 @@
                                 x: targetBox.x + 1,
                                 y: end.y
                             };
-
+                            croping = true;
                             break;
                     }
-                    tuneup = true;
                 }
 
                 if (direct == 'v:v') {
+                    
                     switch (orient) {
                         case 'top-left':
                         case 'top':
@@ -9290,6 +9496,9 @@
                                 x: end.x,
                                 y: targetBox.y + 1
                             };
+
+                            croping = true;
+
                             break;
                         case 'bottom-left':
                         case 'bottom':
@@ -9303,16 +9512,31 @@
                                 x: end.x,
                                 y: targetBox.y + targetBox.height - 1
                             };
+
+                            croping = true;
+                            break;
+                        case 'left':
+                        case 'right':
+                            sdot = {
+                                x: start.x,
+                                y: sourceBox.y + 1
+                            };
+
+                            edot = {
+                                x: end.x,
+                                y: targetBox.y + 1
+                            };
+                            break;
+                        case 'right':
+
                             break;
                     }
-                    tuneup = true;
                 }
-
             }
 
-            var routes, bends, shape, cable, inter;
+            var groupBox, routes, bends, shape, cable, inter;
 
-            if (tuneup) {
+            if (croping) {
 
                 shape = source.shapeView();
                 cable = Graph.path(Graph.util.points2path([sdot, edot]));
@@ -9336,6 +9560,24 @@
                 }
 
                 bends  = Graph.util.lineBendpoints(sdot, edot, direct);
+                routes = [sdot].concat(bends).concat([edot]);
+
+                this.values.waypoints = Router.tidyRoutes(routes);
+            } else if (sdot && edot) {
+                switch(orient) {
+                    case 'left':
+                    case 'right':
+                        groupBox = Graph.util.expandBox(Graph.util.groupBox([sourceBox, targetBox]), 0, 20);
+
+                        bends = [
+                            {x: sdot.x, y: groupBox.y},
+                            {x: edot.x, y: groupBox.y}
+                        ];
+
+                        break;
+                }
+
+                cable = Graph.path(Graph.util.points2path([sdot].concat(bends).concat([edot])));
                 routes = [sdot].concat(bends).concat([edot]);
 
                 this.values.waypoints = Router.tidyRoutes(routes);
@@ -9377,6 +9619,7 @@
         repair: function(component, port) {
             var routes = this.values.waypoints.slice();
 
+            // TEST: force
             if ( ! Router.isRepairable(routes)) {
                 return this.route();
             }
@@ -9494,7 +9737,7 @@
                 }
             }
 
-            var offset = this.layout().offset(),
+            var offset = this.layout().position(),
                 snapH = [],
                 snapV = [];
 
@@ -9894,15 +10137,15 @@
         props: {
             id: null,
             guid: null,
+            type: 'normal',
             rendered: false,
             selected: false,
             label: '',
-            labelDistance: null,
-            labelX: null,
-            labelY: null,
+            labelDistance: .5,
             source: null,
             target: null,
-            connected: false
+            connected: false,
+            removed: false
         },
 
         components: {
@@ -9931,13 +10174,12 @@
         },
 
         constructor: function(router, options) {
-            options = _.extend({
-                id: 'graph-link-' + (++Link.guid)
-            }, options || {});
+            var guid;
+            this.data(options || {});
 
-            _.assign(this.props, options);
+            guid = 'graph-link-' + (++Link.guid);
 
-            this.props.guid = this.props.id; // Graph.uuid();
+            this.props.guid = guid;
             this.router = router;
 
             this.initComponent();
@@ -9952,6 +10194,52 @@
             Graph.registry.link.register(this);
         },
 
+        data: function(name, value) {
+            if (name === undefined && value === undefined) {
+                return this.props;
+            }
+
+            var excludes = {
+                type: true,
+                client_id: true,
+                client_source: true,
+                client_target: true,
+                router_type: true,
+                diagram_id: true,
+                source_id: true,
+                target_id: true,
+                command: true,
+                params: true
+            };
+
+            var maps = {
+                label_distance: 'labelDistance'
+            };
+
+            var key, map;
+
+            if (_.isPlainObject(name)) {
+                for (var key in name) {
+                    if ( ! excludes[key]) { 
+                        map = maps[key] || key;
+                        this.props[map] = name[key];    
+                    }
+                }
+                return this;
+            }
+
+            if (value === undefined) {
+                return this.props[name];
+            }
+
+            if ( ! excludes[name]) {
+                map = maps[name] || name;
+                this.props[map] = value;    
+            }
+
+            return this;
+        },
+
         initComponent: function() {
             var comp = this.components;
             var block, coat, path, editor, label;
@@ -9961,6 +10249,7 @@
                 .selectable(false);
 
             block.elem.data(Graph.string.ID_LINK, this.props.guid);
+            block.addClass('link-' + this.props.type);
 
             coat = (new Graph.svg.Path())
                 .addClass('graph-link-coat')
@@ -9984,18 +10273,22 @@
             coat.on('pointerdown.link', _.bind(this.onCoatClick, this));
             coat.on('select.link', _.bind(this.onCoatSelect, this));
             coat.on('deselect.link', _.bind(this.onCoatDeselect, this));
-            coat.on('dragstart.link', _.bind(this.onCoatDragStart, this));
-            coat.on('dragend.link', _.bind(this.onCoatDragEnd, this));
+            coat.on('beforedrag.link', _.bind(this.onCoatBeforeDrag, this));
+            coat.on('afterdrag.link', _.bind(this.onCoatAfterDrag, this));
             coat.on('edit.link', _.bind(this.onCoatEdit, this));
             coat.on('beforeedit.link', _.bind(this.onCoatBeforeEdit, this));
-            coat.on('remove.link', _.bind(this.onCoatRemove, this));
+            coat.on('afterdestroy.link', _.bind(this.onCoatAfterDestroy, this));
 
             path = (new Graph.svg.Path())
                 .addClass('graph-link-path')
                 .selectable(false)
                 .clickable(false)
-                .attr('marker-end', 'url(#marker-arrow)')
+                .attr('marker-end', 'url(#marker-link-end)')
                 .render(block);
+
+            if (this.props.type == 'message') {
+                path.attr('marker-start', 'url(#marker-link-start-circle)');
+            }
 
             path.elem.data(Graph.string.ID_LINK, this.props.guid);
 
@@ -10007,7 +10300,7 @@
             label.draggable({ghost: true});
 
             label.on('render.link', _.bind(this.onLabelRender, this));
-            label.on('dragend.link', _.bind(this.onLabelDragend, this));
+            label.on('afterdrag.link', _.bind(this.onLabelAfterDrag, this));
 
             // enable label doubletap
             var labelVendor = label.interactable().vendor();
@@ -10026,6 +10319,13 @@
 
         initMetadata: function() {
             this.metadata.tools = [
+                {
+                    name: 'config',
+                    icon: Graph.icons.CONFIG,
+                    title: Graph._('Click to config link'),
+                    enabled: true,
+                    handler: _.bind(this.onConfigToolClick, this)
+                },
                 {
                     name: 'sendtofront',
                     icon: Graph.icons.SEND_TO_FRONT,
@@ -10054,14 +10354,16 @@
             var existing = this.props[type],
                 handlers = this.handlers[type];
 
-            if (existing && handlers) {
-                existing = Graph.registry.vector.get(existing);
-                if (existing) {
-                    var name, ns;
-                    for (name in handlers) {
-                        ns = name + '.link';
-                        existing.off(ns, handlers[name]);
-                        ns = null;
+            if (existing) {
+                var vector = Graph.registry.vector.get(existing);
+                if (vector) {
+                    if (handlers) {
+                        var name, ns;
+                        for (name in handlers) {
+                            ns = name + '.link';
+                            vector.off(ns, handlers[name]);
+                            ns = null;
+                        }
                     }
                 }
             }
@@ -10079,25 +10381,29 @@
 
             handlers = {};
 
-            handlers.resize    = _.bind(getHandler(this, type, 'resize'), this);
-            handlers.rotate    = _.bind(getHandler(this, type, 'rotate'), this);
-            handlers.dragstart = _.bind(getHandler(this, type, 'dragstart'), this, _, resource);
-            handlers.dragmove  = _.bind(getHandler(this, type, 'dragmove'), this);
-            handlers.dragend   = _.bind(getHandler(this, type, 'dragend'), this);
-
+            handlers.afterresize = _.bind(getHandler(this, type, 'AfterResize'), this);
+            handlers.select = _.bind(getHandler(this, type, 'Select'), this);
+            handlers.rotate = _.bind(getHandler(this, type, 'Rotate'), this);
+            handlers.beforedrag = _.bind(getHandler(this, type, 'BeforeDrag'), this, _, resource);
+            handlers.drag = _.bind(getHandler(this, type, 'Drag'), this);
+            handlers.afterdrag = _.bind(getHandler(this, type, 'AfterDrag'), this);
+            handlers.beforedestroy = _.bind(getHandler(this, type, 'BeforeDestroy'), this);
+            
             this.handlers[type] = handlers;
             this.props[type] = resource.guid();
 
-            resource.on('resize.link', handlers.resize);
+            resource.on('afterresize.link', handlers.afterresize);
             resource.on('rotate.link', handlers.rotate);
+            resource.on('select.link', handlers.select);
+            resource.on('beforedestroy', handlers.beforedestroy);
 
             // VERY EXPENSIVE!!!
             if (resource.isDraggable()) {
-                resource.on('dragstart.link', handlers.dragstart);
+                resource.on('beforedrag.link', handlers.beforedrag);
                 if ( ! resource.draggable().ghost()) {
-                    resource.on('dragmove.link', handlers.dragmove);
+                    resource.on('drag.link', handlers.drag);
                 } else {
-                    resource.on('dragend.link', handlers.dragend);
+                    resource.on('afterdrag.link', handlers.afterdrag);
                 }
             }
 
@@ -10127,8 +10433,12 @@
             return Graph.registry.vector.get(this.components[name]);
         },
 
-        invalidate: function() {
-            this.cached.bendpoints = null;
+        invalidate: function(cache) {
+            if (cache !== undefined) {
+                this.cached[cache] = null;
+            } else {
+                this.cached.bendpoints = null;
+            }
         },
 
         render: function(container) {
@@ -10150,59 +10460,81 @@
             return this.props.guid;
         },
 
-        connect: function(/*start, end*/) {
+        type: function(type) {
+            if (type === undefined) {
+                return this.props.type;
+            }
+
+            this.props.type = type;
+
+            var component = this.component();
+
+            if (type == 'message') {
+                this.component('path').attr('marker-start', 'url(#marker-link-start-circle)');
+            } else {
+                this.component('path').attr('marker-start', '');
+            }
+
+            component.removeClass('link-normal link-message');
+            component.addClass('link-' + type);
+        },
+
+        connect: function(start, end) {
             // already connected ?
             if (this.props.connected) {
                 return;
             }
 
-            this.router.route();
-
-            var source = this.router.source(),
-                target = this.router.target();
-
-            source.connectable().addLink(this, 'outgoing', target);
-            target.connectable().addLink(this, 'incoming', source);
-
+            this.router.route(start, end);
             this.props.connected = true;
         },
 
-        disconnect: function() {
+        connectByCommand: function(command) {
+            if (this.props.connected) {
+                return;
+            }
+
+            this.router.execute(command);
+            this.props.connected = true;
+        },
+
+        disconnect: function(reload) {
             // already disconnected ?
             if ( ! this.props.connected) {
                 return;
             }
 
-            // unbind resource
-            // this.unbindResource('source');
-            // sthis.unbindResource('target');
+            reload = _.defaultTo(reload, true);
 
             this.props.connected = false;
-            this.router.reset();
-            this.update(this.router.command());
+
+            if (reload) {
+                this.router.reset();
+                this.reload(this.router.command());    
+            }
         },
 
-        update: function(command, silent) {
+        redraw: function(props) {
 
+        },
+
+        reload: function(command, silent) {
             silent = _.defaultTo(silent, false);
+
+            command = command || '';
 
             this.component('coat').attr('d', command).dirty(true);
             this.component('path').attr('d', command);
             this.invalidate();
 
             if ( ! silent) {
-                this.redraw();
-                this.fire('update');
-                Graph.topic.publish('link/update');
+                this.refresh();
+                this.fire('change');
+                Graph.topic.publish('link:change');
             }
         },
 
-        refresh: function(silent) {
-            var command = this.router.command();
-            this.update(command, silent);
-        },
-
-        updateConvex: function(convex) {
+        reloadConvex: function(convex) {
             this.cached.convex = convex;
         },
 
@@ -10210,38 +10542,54 @@
             this.cached.convex = null;
         },
 
-        redraw: function() {
+        reset: function(silent) {
+            var command = this.router.command();
+            this.reload(command, silent);
+        },
+
+        refresh: function() {
+
             // TODO: update label position
-
             if (this.props.label) {
-                var label = this.component('label'),
-                    bound = label.bbox().toJson(),
-                    distance = this.props.labelDistance || .5,
-                    scale = this.router.layout().scale(),
-                    path = this.router.path(),
-                    dots = path.pointAt(distance * path.length(), true),
-                    align = Graph.util.pointAlign(dots.start, dots.end, 10);
+                var label = this.component('label');
 
-                if (align == 'h') {
-                    dots.x += ((10 + bound.width / 2) / scale.x);
-                } else {
-                    dots.y -= ((10 + bound.height / 2) / scale.y);
+                if (label.props.rendered) {
+                    var path = this.router.path();
+
+                    if (path.segments.length) {
+                        var bound = label.bbox().toJson(),
+                            distance = this.props.labelDistance || .5,
+                            scale = this.router.layout().scale(),
+                            path = this.router.path(),
+                            dots = path.pointAt(distance * path.length(), true),
+                            align = Graph.util.pointAlign(dots.start, dots.end, 10);
+
+                        if (align == 'h') {
+                            dots.x += (bound.width / 2 + (10 / scale.x));
+                        } else {
+                            dots.y -= (bound.height - (5 / scale.y));
+                        }
+
+                        label.attr({
+                            x: dots.x,
+                            y: dots.y
+                        });
+
+                        label.arrange();
+
+                        path = null;
+                        dots = null;
+
+                        label.dirty(true);
+                    } else {
+                        label.hide();
+                    }
                 }
-
-                label.attr({
-                    x: dots.x,
-                    y: dots.y
-                });
-
-                path = null;
-                dots = null;
-
-                label.dirty(true);
             }
 
         },
 
-        label: function(text, x, y) {
+        label: function(text) {
             var path, distance, point, align;
 
             if (text === undefined) {
@@ -10249,49 +10597,34 @@
             }
 
             this.props.label = text;
+            
+            var componentLabel = this.component('label'),
+                componentCoat = this.component('coat');
 
-            if (x !== undefined && y !== undefined) {
-                path = this.router.path();
-                point = path.nearest({x: x, y: y});
-                distance = point.distance / path.length();
-            } else if (_.isNull(this.props.labelDistance)) {
-                path = this.router.path();
-                distance = 0.5;
-                point = path.pointAt(path.length() / 2, true);
+            componentLabel.write(text);
+            componentLabel.arrange();
+
+            componentCoat.data('text', text);
+            
+            if (componentLabel.props.rendered) {
+                this.refresh();
             }
 
-            if (point) {
-                this.props.labelDistance = distance;
-                path = point = null;
-            }
-
-            this.component('label').write(text);
-            this.component('coat').data('text', text);
-
-            this.redraw();
             return this;
         },
 
-        select: function(batch) {
-            this.props.selected = true;
-            this.component('block').addClass('selected');
-
-            if ( ! batch) {
-                //this.sendToFront();
-                this.resumeControl();
-
-                Graph.topic.publish('link/select', {link: this});
+        select: function(single) {
+            var paper = this.router.source().paper();
+            single = _.defaultTo(single, false);
+            if (single && paper) {
+                paper.collector().clearCollection();
             }
+
+            this.component('coat').select();
         },
 
-        deselect: function(batch) {
-            this.props.selected = false;
-            this.component('block').removeClass('selected');
-
-            if ( ! batch) {
-                this.suspendControl();
-                Graph.topic.publish('link/deselect', {link: this});
-            }
+        deselect: function() {
+            this.component('coat').deselect();
         },
 
         renderControl: function() {
@@ -10318,19 +10651,48 @@
             this.component().elem.appendTo(container.elem);
         },
 
+        relocate: function(dx, dy) {
+            this.router.relocate(dx, dy);
+            this.reload(this.router.command());
+        },
+
+        relocateHead: function(dx, dy) {
+            var port = this.router.head();
+            if (port) {
+                port.x += dx;
+                port.y += dy;
+                this.router.repair(this.router.target(), port);
+            }
+        },
+
+        relocateTail: function(dx, dy) {
+            var port = this.router.tail();
+            if (port) {
+                port.x += dx;
+                port.y += dy;
+                this.router.repair(this.router.source(), port);
+            }
+        },
+
         remove: function() {
             var me = this;
             var prop;
 
+            if (this.props.removed) {
+                return;
+            }
+
+            // flag
+            this.props.removed = true;
+
             // disconnect first
-            this.disconnect();
+            this.disconnect(false);
+            
+            // unbind resource
+            this.unbindSource();
+            this.unbindTarget();
 
-            // remove from source & target
-            var source = this.router.source(),
-                target = this.router.target();
-
-            source.connectable().removeLink(this);
-            target.connectable().removeLink(this);
+            this.fire('beforedestroy', {link: this});
 
             // remove label
             me.component('label').remove();
@@ -10357,10 +10719,6 @@
                 me.components[prop] = null;
             }
 
-            // unbind resource
-            this.unbindSource();
-            this.unbindTarget();
-
             // clear cache
             for (prop in me.cached) {
                 me.cached[prop] = null;
@@ -10369,22 +10727,66 @@
             me.router.destroy();
             me.router = null;
 
+            me.fire('afterdestroy');
+
             // unregister
             Graph.registry.link.unregister(me);
 
             // publish
-            Graph.topic.publish('link/remove');
+            Graph.topic.publish('link:afterdestroy');
+        },
+        isSelected: function() {
+            return this.props.selected;
+        },
+        isConnected: function() {
+            return this.props.connected;
         },
 
         toString: function() {
             return 'Graph.link.Link';
         },
 
+        toJson: function() {
+            var source = this.router.source(),
+                target = this.router.target();
+
+            var sourceShape = Graph.registry.shape.get(source),
+                targetShape = Graph.registry.shape.get(target);
+
+            var link = {
+                metadata: {
+
+                },
+                props: {
+                    id: this.props.id,
+                    guid: this.guid(),
+                    type: this.toString(),
+                    routerType: this.router.type(),
+                    command: this.router.command(),
+                    label: this.props.label,
+                    labelDistance: this.props.labelDistance,
+                    source: sourceShape ? sourceShape.guid() : source.guid(),
+                    sourceType: sourceShape ? 'shape' : 'vector',
+                    target: targetShape ? targetShape.guid() : target.guid(),
+                    targetType: targetShape ? 'shape' : 'vector',
+                    convex: true,
+                    smooth: true,
+                    smoothness: this.props.smoothness
+                },
+
+                params: [
+                    {key: 'Data source', value: 'db.example'}
+                ]
+            };
+
+            return link;
+        },
+
         ///////// OBSERVERS /////////
 
         onRouterRoute: function(e) {
             var command = e.command;
-            this.update(command);
+            this.reload(command);
         },
 
         onRouterReroute: function(e) {
@@ -10393,6 +10795,7 @@
 
             this.bindResource('source', source);
             this.bindResource('target', target);
+
             this.sendToFront();
         },
 
@@ -10402,7 +10805,7 @@
             }
         },
 
-        onLabelDragend: function(e) {
+        onLabelAfterDrag: function(e) {
             var label = this.component('label'),
                 matrix = label.matrix(),
                 x = label.attrs.x,
@@ -10417,6 +10820,8 @@
                 y: p.y
             });
 
+            label.arrange();
+
             // update label distance
             var path = this.router.path(),
                 near = path.nearest(p);
@@ -10424,7 +10829,6 @@
             this.props.labelDistance = near.distance / path.length();
 
             label.reset();
-
             matrix = path = null;
         },
 
@@ -10452,25 +10856,43 @@
         },
 
         onCoatSelect: function(e) {
-            this.select(e.batch);
+            var coat = this.component('coat'),
+                showControl = false;
+
+            if (e.initial) {
+                showControl = true;
+            }
+
+            this.props.selected = true;
+            this.component().addClass('selected');
+
+            if (showControl) {
+                this.resumeControl();
+                Graph.topic.publish('link:select', {link: this});
+            }
         },
 
         onCoatDeselect: function(e) {
-            this.deselect(e.batch);
+            if (this.props.removed) return;
+
+            this.props.selected = false;
+            this.component().removeClass('selected');
+            this.suspendControl();
+
+            if (e.initial) {
+                Graph.topic.publish('link:deselect', {link: this});    
+            }
         },
 
-        onCoatDragStart: function(e) {
+        onCoatBeforeDrag: function(e) {
             this.suspendControl();
         },
 
-        onCoatDragEnd: function(e) {
-            var dx = e.dx,
-                dy = e.dy;
-            this.router.relocate(dx, dy);
-            this.update(this.router.command());
+        onCoatAfterDrag: function(e) {
+            this.relocate(e.dx, e.dy);
         },
 
-        onCoatRemove: function(e) {
+        onCoatAfterDestroy: function(e) {
             this.remove();
         },
 
@@ -10480,91 +10902,108 @@
 
         },
 
-        onSourceDragstart: function(e, source) {
-            var lasso = this.component('coat').lasso;
-
-            if ( ! source.lasso) {
-                if (lasso) {
-                    lasso.decollect(this.component('coat'));
+        onSourceSelect: function(e) {
+            var target = this.router.target();
+            if (this.isSelected()) {
+                if ( ! target.isSelected()) {
+                    this.deselect();
+                }
+            } else {
+                if (target.isSelected()) {
+                    this.select();
                 }
             }
+        },
 
-            // remove convex
+        onSourceBeforeDrag: function(e, source) {
+            var target = this.router.target();
+            if ( ! source.isSelected() || ! target.isSelected()) {
+                this.deselect();
+            }
             this.cached.convex = null;
         },
 
-        onSourceDragmove: function() {
-            this.router.repair('source');
+        onSourceDrag: function(e) {
+            console.warn('Not yet implemented');
         },
 
-        onSourceDragend: function(e) {
-            var lasso = this.component('coat').lasso;
-            if ( ! lasso) {
-                var port = this.router.tail();
-                if (port) {
-                    port.x += e.dx;
-                    port.y += e.dy;
-                    this.router.repair(this.router.source(), port);
+        onSourceAfterDrag: function(e) {
+            var source = this.router.source(),
+                target = this.router.target();
+
+            if (source.isSelected()) {
+                if ( ! target.isSelected()) {
+                    this.relocateTail(e.dx, e.dy);
                 }
+            } else {
+                this.relocateTail(e.dx, e.dy);
             }
         },
 
-        onSourceResize: function(e) {
-            var port = this.router.tail();
-            if (port) {
-                port.x += e.translate.dx;
-                port.y += e.translate.dy;
+        onSourceAfterResize: function(e) {
+            this.relocateTail(e.translate.dx, e.translate.dy);
+        },
 
-                this.router.repair(this.router.source(), port);
-            }
+        onSourceBeforeDestroy: function() {
+            this.remove();
         },
 
         onTargetRotate: function() {
 
         },
 
-        onTargetDragstart: function(e, target) {
-            var lasso = this.component('coat').lasso;
-
-            if ( ! target.lasso) {
-                if (lasso) {
-                    lasso.decollect(this.component('coat'));
+        onTargetSelect: function(e) {
+            var source = this.router.source();
+            if (this.isSelected()) {
+                if ( ! source.isSelected()) {
+                    this.deselect();
+                }
+            } else {
+                if (source.isSelected()) {
+                    this.select();
                 }
             }
+        },
 
-            // remove convex
+        onTargetBeforeDrag: function(e, target) {
+            var source = this.router.source();
+            if ( ! source.isSelected() || ! target.isSelected()) {
+                this.deselect();
+            }
             this.cached.convex = null;
         },
 
-        onTargetDragmove: function() {
-            this.router.repair('target');
+        onTargetDrag: function(e) {
+            console.warn('Not yet implemented');
         },
 
-        onTargetDragend: function(e) {
-            var lasso = this.component('coat').lasso;
-            if ( ! lasso) {
-                var port = this.router.head();
-                if (port) {
-                    port.x += e.dx;
-                    port.y += e.dy;
+        onTargetAfterDrag: function(e) {
+            var target = this.router.target(),
+                source = this.router.source();
 
-                    this.router.repair(this.router.target(), port);
+            if (target.isSelected()) {
+                if ( ! source.isSelected()) {
+                    this.relocateHead(e.dx, e.dy);
                 }
+            } else {
+                this.relocateHead(e.dx, e.dy);
             }
         },
 
-        onTargetResize: function(e) {
-            var port = this.router.head();
-            if (port) {
-                port.x += e.translate.dx;
-                port.y += e.translate.dy;
-
-                this.router.repair(this.router.target(), port);
-            }
+        onTargetAfterResize: function(e) {
+            this.relocateHead(e.translate.dx, e.translate.dy);
         },
+
+        onTargetBeforeDestroy: function() {
+            this.remove();    
+        },  
 
         onTrashToolClick: function(e) {
             this.component('coat').remove();
+        },
+
+        onConfigToolClick: function(e) {
+
         },
 
         onFrontToolClick: function(e) {
@@ -10588,8 +11027,9 @@
     ///////// HELPERS /////////
 
     function getHandler(scope, resource, handler) {
-        var name = 'on' + _.capitalize(resource) + _.capitalize(handler),
+        var name = 'on' + _.capitalize(resource) + handler,
             func = scope[name];
+
         name = null;
         return func;
     }
@@ -10617,16 +11057,18 @@
             var points = this.cached.bendpoints,
                 maxlen = points.length - 1,
                 linkid = me.guid(),
-                controls = [];
+                controls = [],
+                controlImage = Graph.config.base + 'img/' + Graph.config.resizer.image,
+                controlSize = Graph.config.resizer.size;
 
             _.forEach(points, function(dot, i){
                 
                 var control = (new Graph.svg.Image(
-                    Graph.config.base + 'img/resize-control.png',
-                    dot.x - 17 / 2,
-                    dot.y - 17 / 2,
-                    17,
-                    17
+                    controlImage,
+                    dot.x - controlSize / 2,
+                    dot.y - controlSize / 2,
+                    controlSize,
+                    controlSize
                 ));
                 
                 control.selectable(false);
@@ -10669,12 +11111,12 @@
                     }
                 };
                 
-                control.draggable();
+                control.draggable({ghost: false});
                 control.cursor('default');
                 
-                control.on('dragstart', _.bind(me.onControlStart, me, _, context, control));
-                control.on('dragmove',  _.bind(me.onControlMove,  me, _, context, control));
-                control.on('dragend',   _.bind(me.onControlEnd,   me, _, context, control));
+                control.on('beforedrag', _.bind(me.onControlStart, me, _, context, control));
+                control.on('drag',  _.bind(me.onControlMove,  me, _, context, control));
+                control.on('afterdrag',   _.bind(me.onControlEnd,   me, _, context, control));
                 
                 control.render(editor);
                 controls.push(control.guid());
@@ -10733,11 +11175,11 @@
             
             if (context.trans == 'BENDING') {
                 me.router.bending(context, function(result){
-                    me.update(result.command, true);
+                    me.reload(result.command, true);
                 });
             } else {
                 me.router.connecting(context, function(result){
-                    me.update(result.command, true);
+                    me.reload(result.command, true);
                 });
             }
             
@@ -10759,7 +11201,7 @@
                 }
             }
 
-            this.update(this.router.command());
+            this.reload(this.router.command());
             this.invalidate();
             this.resumeControl();
         }
@@ -10773,15 +11215,14 @@
 (function(){
 
     Graph.link.Orthogonal = Graph.extend(Graph.link.Link, {
-        
-        update: function(command, silent) {
+
+        reload: function(command, silent) {
             var convex, smooth, radius, routes, maxlen, segments;
             
             silent = _.defaultTo(silent, false);
-            
             convex = this.cached.convex;
             smooth = this.props.smooth;
-            
+
             if (convex) {
                 var points = this.router.waypoints();
 
@@ -10793,19 +11234,19 @@
                 maxlen = routes.length - 1;
 
                 segments = [];
-                
+
                 _.forEach(routes, function(curr, i){
                     var prev = curr,
                         next = routes[i + 1];
-                        
+
                     var item;
-                    
+
                     if (i === 0) {
                         item = ['M', curr.x, curr.y];
                     } else {
                         item = ['L', curr.x, curr.y];
                     }
-                    
+
                     segments.push(item);
 
                     if (convex[i]) {
@@ -10820,36 +11261,36 @@
 
                 command = Graph.util.segments2path(segments);
             }
-            
+
             if (smooth) {
-                radius = this.props.smootness || 6;
+                radius = this.props.smoothness || 6;
                 segments = segments || Graph.util.path2segments(command).slice();
-                
+
                 var item, prev, next, curr, i;
                 var bend;
-                
+
                 for (i = 0; i < segments.length; i++) {
                     item = segments[i];
                     next = segments[i + 1];
-                    
+
                     bend = !!(item[0] == 'L' && next && next[0] != 'Q');
-                    
+
                     if (bend) {
                         curr = {
                             x: item[item.length - 2],
                             y: item[item.length - 1]
                         };
-                        
+
                         prev = segments[i - 1];
-                        
+
                         if (prev && next) {
                             var ss = Graph.util.smoothSegment(
-                                curr, 
+                                curr,
                                 { x: prev[prev.length - 2], y: prev[prev.length - 1] },
                                 { x: next[next.length - 2], y: next[next.length - 1] },
                                 radius
                             );
-                            
+
                             if (ss) {
                                 segments.splice(i, 1, ss[0], ss[1]);
                                 i++;
@@ -10857,28 +11298,24 @@
                         }
                     }
                 }
+
                 command = Graph.util.segments2path(segments);
-                // var p = Graph.path(command);
-                // this.router.source().paper().path(p).style('stroke', 'red');
-                
+
             }
 
-            if (command) {
-                this.component('coat').attr('d', command).dirty(true);
-                this.component('path').attr('d', command);
-                
-                this.invalidate();
-                
-                if ( ! silent) {
-                    
-                    this.redraw();
-                    
-                    this.fire('update');
-                    Graph.topic.publish('link/update');
-                }
+            command = command || '';
+
+            this.component('coat').attr('d', command).dirty(true);
+            this.component('path').attr('d', command);
+            this.invalidate();
+
+            if ( ! silent) {
+                this.refresh();
+                this.fire('change');
+                Graph.topic.publish('link:change');
             }
         },
-        
+
         renderControl: function() {
             var me = this, editor = me.component('editor');
 
@@ -10893,28 +11330,30 @@
             var points = this.cached.bendpoints,
                 linkid = me.guid(),
                 maxlen = points.length - 1,
-                controls = [];
+                controls = [],
+                controlImage = Graph.config.base + 'img/' + Graph.config.resizer.image,
+                controlSize = Graph.config.resizer.size;
 
             _.forEach(points, function(dot, i){
                 var control, cursor, align, axis, drag;
-                
+
                 control = (new Graph.svg.Image(
-                    Graph.config.base + 'img/resize-control.png',
-                    dot.x - 17 / 2,
-                    dot.y - 17 / 2,
-                    17,
-                    17
+                    controlImage,
+                    dot.x - controlSize / 2,
+                    dot.y - controlSize / 2,
+                    controlSize,
+                    controlSize
                 ));
-                
+
                 control.selectable(false);
                 control.removeClass(Graph.styles.VECTOR);
                 control.elem.group('graph-link');
                 control.elem.data(Graph.string.ID_LINK, linkid);
-                
-                drag = {};
+
+                drag = {ghost: false};
                 axis = null;
                 cursor = 'default';
-                
+
                 if (i === 0) {
                     control.addClass(Graph.styles.LINK_TAIL);
                     control.elem.data('pole', 'tail');
@@ -10925,12 +11364,12 @@
                     align  = Graph.util.pointAlign(dot.start, dot.end);
                     axis   = align == 'v' ? 'y' : 'x';
                     cursor = axis  == 'x' ? 'ew-resize' : 'ns-resize';
-                    
-                    drag = {axis: axis};
+
+                    drag = {ghost:false, axis: axis};
                 }
-                
+
                 var context = {
-                    
+
                     trans: (i === 0 || i === maxlen) ? 'CONNECT' : 'BENDING',
                     index: dot.index,
                     axis: axis,
@@ -10939,40 +11378,40 @@
                         x: dot.x,
                         y: dot.y
                     },
-                    
+
                     ranges: {
                         start: dot.range[0],
                         end:   dot.range[1]
                     },
-                    
+
                     event: {
                         x: dot.x,
                         y: dot.y
                     },
-                    
+
                     snap: {
                         hor: [],
                         ver: []
                     },
-                    
+
                     delta: {
                         x: 0,
                         y: 0
                     }
                 };
-                
-                
+
+
                 control.draggable(drag);
                 control.cursor(cursor);
-                
-                control.on('dragstart', _.bind(me.onControlStart, me, _, context, control));
-                control.on('dragmove',  _.bind(me.onControlMove,  me, _, context));
-                control.on('dragend',   _.bind(me.onControlEnd,   me, _, context, control));
- 
+
+                control.on('beforedrag', _.bind(me.onControlStart, me, _, context, control));
+                control.on('drag',  _.bind(me.onControlMove,  me, _, context));
+                control.on('afterdrag',   _.bind(me.onControlEnd,   me, _, context, control));
+
                 control.render(editor);
                 controls.push(control.guid());
             });
-            
+
             me.cached.controls = controls;
             controls = null;
         },
@@ -10980,7 +11419,7 @@
         onControlStart: function(e, context, control) {
             this.component('coat').cursor(context.cursor);
             this.router.initTrans(context);
-            
+
             if (context.trans == 'CONNECT') {
                 var paper = this.component().paper();
                 if (paper) {
@@ -10991,12 +11430,12 @@
             // snapping
             var snaphor = context.snap.hor,
                 snapver = context.snap.ver;
-                
+
             control.draggable().snap([
                 function(x, y) {
                     var sx = Graph.util.snapValue(x, snapver),
                         sy = Graph.util.snapValue(y, snaphor);
-                    
+
                     return {
                         x: sx,
                         y: sy,
@@ -11004,45 +11443,45 @@
                     };
                 }
             ]);
-            
+
             _.forEach(this.cached.controls, function(id){
                 var c = Graph.registry.vector.get(id);
                 if (c && c !== control) {
                     c.hide();
                 }
             });
-            
+
             control.show();
             this.removeConvex();
         },
 
         onControlMove: function(e, context) {
             var me = this;
-            
+
             context.delta.x += e.dx;
             context.delta.y += e.dy;
-            
+
             var x1, y1, x2, y2, dx, dy;
-            
+
             x1 = context.event.x;
             y1 = context.event.y;
-            
+
             if (context.trans == 'BENDING') {
                 me.router.bending(context, function(result){
-                    me.update(result.command, true);
+                    me.reload(result.command, true);
                 });
             } else {
                 me.router.connecting(context, function(result){
-                    me.update(result.command, true);
+                    me.reload(result.command, true);
                 });
             }
 
             x2 = context.event.x;
             y2 = context.event.y;
-            
+
             dx = x2 - x1;
             dy = y2 - y1;
-            
+
             // update dragger
             e.originalData.dx = dx;
             e.originalData.dy = dy;
@@ -11059,7 +11498,7 @@
                 }
             }
 
-            this.update(this.router.command());
+            this.reload(this.router.command());
             this.invalidate();
             this.resumeControl();
         },
@@ -11071,8 +11510,9 @@
     });
 
     ///////// STATICS /////////
-    
+
 }());
+
 
 (function(){
 
@@ -11483,7 +11923,8 @@
             this.components.holder.prependTo(vector.elem);
 
             if (vector.isPaper()) {
-                this.defineArrowMarker('marker-arrow');
+                this.defineArrowMarker('marker-link-end');
+                this.defineCircleMarker('marker-link-start-circle');
             }
 
         },
@@ -11508,6 +11949,24 @@
             return marker;
         },
 
+        defineCircleMarker: function(id) {
+            if (this.definitions[id]) {
+                return this.definitions[id];
+            }
+
+            var marker = Graph.$(_.format(
+                '<marker id="{0}" refX="{1}" refY="{2}" viewBox="{3}" markerWidth="{4}" markerHeight="{5}" orient="{6}">' + 
+                    '<circle cx="6" cy="6" r="4" fill="none" stroke="#000000" stroke-width="1" />' + 
+                '</marker>',
+                id, '6', '6', '0 0 20 20', '10', '10', 'auto'
+            ));
+
+            this.definitions[id] = marker;
+            this.components.holder.append(marker);
+
+            return marker;
+        },
+
         toString: function() {
             return 'Graph.plugin.Definer';
         }
@@ -11520,7 +11979,126 @@
     // storages
     var vendors = {};
 
-    var Reactor = Graph.plugin.Reactor = Graph.extend(Graph.plugin.Plugin, {
+    var Reactor = Graph.plugin.Reactor = function(vector, listeners) {
+
+        var me = this,
+            node = vector.node(),
+            guid = vector.guid();
+
+        me.props = {
+            vector: guid
+        };
+
+        me.navigationKeys = [
+            Graph.event.ENTER,
+            Graph.event.DELETE,
+            Graph.event.SHIFT,
+            Graph.event.CTRL,
+            Graph.event.ESC
+        ];
+
+        me.listeners = listeners || {};
+
+        var vendor = vendors[guid] = interact(node);
+
+        vendor.on('down', function reactorDown(e){
+            if (e.target === node) {
+                e.originalType = 'pointerdown';
+                Graph.topic.publish('vector:pointerdown', {vector: vector});
+                vector.fire(e);
+            }
+        }, true);
+
+        vector.elem.on({
+            contextmenu: function(e) {
+                if (e.currentTarget === node) {
+                    vector.fire(e);
+                    // e.preventDefault();
+                }
+            }
+        });
+
+        if (vector.isPaper()) {
+            var doc = Graph.$(document);
+
+            doc.on('keydown', function(e){
+                if (me.isNavigation(e) && Graph.cached.paper == guid) {
+                    e.originalType = 'keynavdown';
+                    vector.fire(e); 
+                }
+            });
+
+            doc.on('keyup', function(e){
+                if (me.isNavigation(e) && Graph.cached.paper == guid) {
+                    e.originalType = 'keynavup';
+                    vector.fire(e);
+                }
+            });
+
+            doc = null;
+        }
+
+        vendor = null;
+
+    };
+
+    Reactor.prototype.constructor = Reactor;
+
+    Reactor.prototype.fire = function(eventType) {
+        var eventObject;
+
+        switch(eventType) {
+            case 'down':
+
+                eventObject = {
+                    type: 'mousedown'
+                };
+
+                break;
+        }
+
+        if (eventObject) {
+            // this.vendor().fire(eventObject);
+        }
+    };
+
+    Reactor.prototype.isNavigation = function(e) {
+        var key = e.keyCode;
+        return _.indexOf(this.navigationKeys, key) > -1;
+    };
+    
+    Reactor.prototype.vendor = function() {
+        return vendors[this.props.vector];
+    };
+
+    Reactor.prototype.draggable = function(options) {
+        return this.vendor().draggable(options);
+    };
+
+    Reactor.prototype.dropzone = function(options) {
+        return this.vendor().dropzone(options);
+    };
+
+    Reactor.prototype.gesturable = function(options) {
+        return this.vendor().gesturable(options);
+    };
+
+    Reactor.prototype.destroy = function() {
+        var guid = this.props.vector,
+            vendor = vendors[guid];
+
+        if (vendor) {
+            vendor.unset();
+        }
+
+        delete vendors[guid];
+    };
+
+    Reactor.prototype.toString = function() {
+        return 'Graph.plugin.Reactor';
+    };
+
+    /*var Reactor = Graph.plugin.Reactor = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
             vector: null
@@ -11544,12 +12122,14 @@
             me.props.vector = guid;
             me.listeners = listeners || {};
 
+
             vendor = vendors[guid] = interact(node);
 
             vendor.on('down', function reactorDown(e){
                 if (e.target === node) {
                     e.originalType = 'pointerdown';
-                    vector.fire(e);    
+                    Graph.topic.publish('vector:pointerdown', {vector: vector});
+                    vector.fire(e);
                 }
             }, true);
 
@@ -11625,21 +12205,15 @@
     var on  = Reactor.prototype.on,
         off = Reactor.prototype.off;
 
-    /**
-     * Override
-     */
     Reactor.prototype.on = function(event, handler) {
         var vector = this.vector();
         return on.apply(vector, [event, handler]);
     };
 
-    /**
-     * Override
-     */
     Reactor.prototype.off = function(event, handler) {
         var vector = this.vector();
         return off.apply(vector, [event, handler]);
-    };
+    };*/
 
 }());
 
@@ -12594,11 +13168,10 @@
             vector: null,
             enabled: true,
             suspended: true,
-            handleImage: Graph.config.base + 'img/resize-control.png',
-            handleSize: 17,
-            rendered: false,
-            minWidth: null,
-            minHeight: null
+            restriction: null,
+            handleImage: null,
+            handleSize: null,
+            rendered: false
         },
 
         components: {
@@ -12634,7 +13207,9 @@
 
             vector.addClass('graph-resizable');
 
-            me.props.handleImage = Graph.config.base + 'img/resize-control.png';
+            me.props.handleImage = Graph.config.base + 'img/' + Graph.config.resizer.image;
+            me.props.handleSize = Graph.config.resizer.size;
+
             me.props.vector = guid;
 
             me.cached.snapping = null;
@@ -12681,14 +13256,14 @@
             comp.handle = {};
 
             var handle = {
-                ne: {cursor: 'nesw-resize'},
-                se: {cursor: 'nwse-resize'},
-                sw: {cursor: 'nesw-resize'},
-                nw: {cursor: 'nwse-resize'},
-                 n: {cursor: 'ns-resize', axis: 'y'},
-                 e: {cursor: 'ew-resize', axis: 'x'},
-                 s: {cursor: 'ns-resize', axis: 'y'},
-                 w: {cursor: 'ew-resize', axis: 'x'}
+                ne: {ghost: false, cursor: 'nesw-resize'},
+                se: {ghost: false, cursor: 'nwse-resize'},
+                sw: {ghost: false, cursor: 'nesw-resize'},
+                nw: {ghost: false, cursor: 'nwse-resize'},
+                 n: {ghost: false, cursor: 'ns-resize', axis: 'y'},
+                 e: {ghost: false, cursor: 'ew-resize', axis: 'x'},
+                 s: {ghost: false, cursor: 'ns-resize', axis: 'y'},
+                 w: {ghost: false, cursor: 'ew-resize', axis: 'x'}
             };
 
             _.forOwn(handle, function(c, dir){
@@ -12708,9 +13283,9 @@
                     h.props.dir = dir;
                     h.draggable(c);
                     
-                    h.on('dragstart', _.bind(me.onHandleMoveStart, me));
-                    h.on('dragmove', _.bind(me.onHandleMove, me));
-                    h.on('dragend', _.bind(me.onHandleMoveEnd, me));
+                    h.on('beforedrag', _.bind(me.onHandleBeforeDrag, me));
+                    h.on('drag', _.bind(me.onHandleDrag, me));
+                    h.on('afterdrag', _.bind(me.onHandleAfterDrag, me));
 
                     h.render(holder);
 
@@ -12873,7 +13448,7 @@
                 width: vx.box.width,
                 height: vx.box.height
             });
-            
+
             helper.rotate(vx.rotate.deg, vx.rotate.cx, vx.rotate.cy).commit();
 
             _.forOwn(me.components.handle, function(id, dir){
@@ -12916,16 +13491,85 @@
             }
         },
 
-        setupRestriction: function(handle) {
-            
+        restrict: function(options) {
+            _.assign(this.props, {
+                restriction: options
+            });
         },
 
+        setupRestriction: function(handle) {
+            var me = this,
+                restriction = this.props.restriction || {},
+                vector = me.vector(),
+                paper = vector.paper(),
+                layout = paper.layout(),
+                dir = handle.props.dir,
+                width = +restriction.width || 0,
+                height = +restriction.height || 0,
+                MAX_VALUE = Number.MAX_SAFE_INTEGER;
+
+            var bounds = {
+                top: -MAX_VALUE,
+                left: -MAX_VALUE,
+                right: MAX_VALUE,
+                bottom: MAX_VALUE
+            };
+
+            var origin;
+            
+            if (restriction.origin === undefined) {
+                var box = vector.bboxView().toJson();
+                origin = getRestrictOrigin(handle, box);
+            } else {
+                origin = _.extend({x: 0, y: 0}, restriction.origin);
+            }
+
+            switch(dir) {
+                case 'n':
+                    bounds.bottom = origin.y - height;
+                    break;
+                case 'e':
+                    bounds.left = origin.x + width;
+                    break;
+                case 's':
+                    bounds.top = origin.y + height;
+                    break;
+                case 'w':
+                    bounds.right = origin.x - width;
+                    break;
+                case 'ne':
+                    bounds.left = origin.x + width;
+                    bounds.bottom = origin.y - height;
+                    break;
+                case 'se':
+                    bounds.top = origin.y + height;
+                    bounds.left = origin.x + width;
+                    break;
+                case 'sw':
+                    bounds.right = origin.x - width;
+                    bounds.top = origin.y + height;
+                    break;
+                case 'nw':
+                    bounds.right = origin.x - width;
+                    bounds.bottom = origin.y - height;
+                    break;
+            }
+
+            handle.draggable().restrict(bounds);
+
+        },
+        
         onHolderRender: function(e) {
             
         },
 
-        onHandleMoveStart: function(e) {
+        onHandleBeforeDrag: function(e) {
             var me = this, handle = e.publisher;
+
+            me.fire('beforeresize', {
+                resizer: this,
+                direction: handle.props.dir
+            });
 
             _.forOwn(me.components.handle, function(id, dir){
                 var h = me.handle(dir);
@@ -12940,44 +13584,15 @@
                 handle.draggable().snap(snapping);    
             }
             
-            // set restriction
-            var minWidth = +me.props.minWidth || 0,
-                minHeight = +me.props.minHeight || 0;
-
-            if (minWidth || minHeight) {
-                var dir = handle.props.dir,
-                    box = me.vector().bboxView().toJson(),
-                    xAxis = null,
-                    yAxis = null;
-
-                switch(dir) {
-                    case 'e':
-
-                        break;
-                }
-
-                // handle.draggable().restrict(function(x, y){
-
-                // });
-            }
-
-            if ( ! _.isNull(me.props.minWidth) || ! _.isNull(me.props.minHeight)) {
-                
-                // handle.draggable().restrict(function(x, y){
-                //     return {
-                //         x: 800, 
-                //         y: 0,
-                //         width: Infinity,
-                //         height: Infinity
-                //     }
-                // });
+            if (this.props.restriction) {
+                this.setupRestriction(handle);    
             }
 
             handle.show();
             handle.removeClass('dragging');
         },
 
-        onHandleMove: function(e) {
+        onHandleDrag: function(e) {
             var me = this, 
                 helper = me.helper(), 
                 handle = e.publisher;
@@ -13053,7 +13668,7 @@
 
         },
 
-        onHandleMoveEnd: function(e) {
+        onHandleAfterDrag: function(e) {
             var me = this,
                 tr = this.trans,
                 handle = e.publisher;
@@ -13113,7 +13728,7 @@
             resize.translate.dy = vdy;
             
             me.redraw();
-            me.fire('resize', resize);
+            me.fire('afterresize', resize);
         },
 
         toString: function() {
@@ -13145,6 +13760,52 @@
         
     });
 
+    ///////// HELPERS /////////
+    
+    function getRestrictOrigin(handle, box) {
+        var origin = {
+            x: box.x,
+            y: box.y
+        };
+
+        switch(handle.props.dir) {
+            case 'n':
+                origin.x = (box.x + box.x2) / 2;
+                origin.y = box.y2;
+                break;
+            case 'e':
+                origin.x = box.x;
+                origin.y = (box.y + box.y2) / 2;
+                break;
+            case 's':
+                origin.x = (box.x + box.x2) / 2;
+                origin.y = box.y;
+                break;
+            case 'w':
+                origin.x = box.x2;
+                origin.y = (box.y + box.y2) / 2;
+                break;
+            case 'ne':
+                origin.x = box.x;
+                origin.y = box.y2;
+                break;
+            case 'se':
+                origin.x = box.x;
+                origin.y = box.y;
+                break;
+            case 'sw':
+                origin.x = box.x2;
+                origin.y = box.y;
+                break;
+            case 'nw':
+                origin.x = box.x2;
+                origin.y = box.y2;
+                break;
+        }
+
+        return origin;
+    }
+
 }());
 
 (function(){
@@ -13168,18 +13829,19 @@
         },
 
         collecting: {
-
+            enabled: false
         },
 
         constructor: function(paper) {
             var me = this;
 
             if ( ! paper.isPaper()) {
-                throw Graph.error('Lasso tool only available for paper !');
+                throw Graph.error('Collector tool only available for paper !');
             }
 
             me.paper = paper;
             me.components.rubber = Graph.$('<div class="graph-rubberband">');
+            me.collection = new Graph.collection.Vector();
 
             paper.on('keynavdown', _.bind(me.onKeynavDown, me));
             paper.on('keynavup', _.bind(me.onKeynavUp, me));
@@ -13218,7 +13880,7 @@
             var collecting = me.collecting,
                 paper = me.paper,
                 layout = paper.layout(),
-                offset = layout.offset(),
+                position = layout.position(),
                 rubber = me.components.rubber,
                 vendor = paper.interactable().vendor();
 
@@ -13229,8 +13891,8 @@
                 manualStart: true,
 
                 onstart: function(e) {
-
                     _.assign(collecting, {
+                        enabled: true,
                         start: {
                             x: e.clientX,
                             y: e.clientY,
@@ -13245,7 +13907,7 @@
                     rubber.query.css({
                         width: 0,
                         height: 0,
-                        transform: 'translate(' + (collecting.start.x - offset.left) + 'px, ' + (collecting.start.y - offset.top) + 'px)'
+                        transform: 'translate(' + (collecting.start.x - position.left) + 'px, ' + (collecting.start.y - position.top) + 'px)'
                     });
                 },
 
@@ -13300,22 +13962,26 @@
                     rubber.query.css({
                         width:  bounds.width,
                         height: bounds.height,
-                        transform: 'translate(' + (bounds.x - offset.left) + 'px,' + (bounds.y - offset.top) + 'px)'
+                        transform: 'translate(' + (bounds.x - position.left) + 'px,' + (bounds.y - position.top) + 'px)'
                     });
                 },
 
                 onend: function() {
+                    
+                    if ( ! collecting.enabled) return;
+                    collecting.enabled = false;
+
                     var context = paper.guid(),
                         vectors = Graph.registry.vector.collect(context),
                         bounds = collecting.bounds,
                         scale = layout.scale();
 
-                    var start = layout.grabLocation({
+                    var start = layout.pointerLocation({
                         clientX: bounds.x,
                         clientY: bounds.y
                     });
 
-                    var end = layout.grabLocation({
+                    var end = layout.pointerLocation({
                         clientX: bounds.x + bounds.width,
                         clientY: bounds.y + bounds.height
                     });
@@ -13375,7 +14041,7 @@
                         me.clearCollection();
                     }
 
-                    me.collect(vector, ! single);
+                    me.collect(vector);
                 }
 
             }, true)
@@ -13384,7 +14050,6 @@
 
                 if (me.props.enabled) {
                     if (i.pointerIsDown && ! i.interacting()) {
-
                         var action = {name: 'drag'};
 
                         // -- workaround for a bug in v1.2.6 of interact.js
@@ -13413,47 +14078,42 @@
             me.props.rendered = true;
         },
 
-        collect: function(vector, batch) {
-            var me = this, offset;
+        size: function() {
+            return this.collection.size();
+        },
 
-            vector.lasso = this;
-            vector.batch = batch;
+        index: function(vector) {
+            return this.collection.index(vector);
+        },
 
-            vector.select(batch);
-
-            offset = _.indexOf(this.collection, vector);
-
+        add: function(vector) {
+            var offset = this.index(vector);
+            vector._collector = this;
             if (offset === -1) {
                 this.collection.push(vector);
             }
+        },
 
-            Graph.cached.paper = me.paper.guid();
+        remove: function(vector) {
+            delete vector._collector;
+            this.collection.pull(vector);
+        },
+
+        collect: function(vector) {
+            vector.select();
+            Graph.cached.paper = this.paper.guid();
         },
 
         decollect: function(vector) {
-            var batch, offset;
-
-            batch = vector.batch;
-
-            delete vector.lasso;
-            delete vector.batch;
-
-            vector.deselect(batch);
-            offset = _.indexOf(this.collection, vector);
-
-            if (offset > -1) {
-                this.collection.splice(offset, 1);
-            }
+            vector.deselect();
         },
 
-        clearCollection: function(except) {
+        clearCollection: function() {
             var me = this,
-                collection = me.collection.slice();
+                collection = me.collection.toArray().slice();
 
-            _.forEach(collection, function(v){
-                if (v !== except) {
-                    me.decollect(v);
-                }
+            _.forEach(collection, function(vector){
+                me.decollect(vector);
             });
 
             collection = null;
@@ -13475,10 +14135,10 @@
             }
         },
 
-        syncDragStart: function(master, e) {
+        syncBeforeDrag: function(master, e) {
             var me = this;
 
-            _.forEach(me.collection, function(v){
+            me.collection.each(function(v){
                 if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(){
                         var mat = v.graph.matrix.data(),
@@ -13502,7 +14162,7 @@
 
                         v.addClass('dragging');
 
-                        v.fire('dragstart', {
+                        v.fire('beforedrag', {
                             dx: e.dx *  cos + e.dy * sin,
                             dy: e.dx * -sin + e.dy * cos,
                             master: false
@@ -13515,12 +14175,13 @@
             me.fire('beforedrag');
         },
 
-        syncDragMove: function(master, e) {
+        syncDrag: function(master, e) {
             var me = this, dx, dy;
 
-            _.forEach(me.collection, function(v){
+            me.collection.each(function(v){
                 if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(v, e){
+
                         var dx = e.ox *  v.syncdrag.cos + e.oy * v.syncdrag.sin,
                             dy = e.ox * -v.syncdrag.sin + e.oy * v.syncdrag.cos;
 
@@ -13533,7 +14194,7 @@
                         v.syncdrag.tdx += dx;
                         v.syncdrag.tdy += dy;
 
-                        v.fire('dragmove', {
+                        v.fire('drag', {
                             dx: dx,
                             dy: dy,
                             master: false
@@ -13545,10 +14206,10 @@
 
         },
 
-        syncDragEnd: function(master, e) {
+        syncAfterDrag: function(master, e) {
             var me = this;
 
-            _.forEach(me.collection, function(v, i){
+            me.collection.each(function(v){
                 if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(v, e){
                         var batchSync = v.plugins.dragger.props.batchSync,
@@ -13565,9 +14226,10 @@
                             v.dirty(true);
                         }
 
-                        v.fire('dragend', {
+                        v.fire('afterdrag', {
                             dx: v.syncdrag.tdx,
                             dy: v.syncdrag.tdy,
+                            batch: true,
                             master: false
                         });
 
@@ -13623,7 +14285,7 @@
             ready: false,
             manual: false,
 
-            ghost: false,
+            ghost: true,
             vector: null,
             enabled: true,
             rendered: false,
@@ -13637,7 +14299,8 @@
             dragClass: '',
 
             // batching operation
-            batchSync: true
+            batchSync: true,
+            restriction: false
         },
 
         rotation: {
@@ -13652,12 +14315,14 @@
             y: 1
         },
 
-        trans: {
+        dragging: {
+            enabled: false,
             vector: null,
             paper: null,
             helper: null,
             dx: 0,
-            dy: 0
+            dy: 0,
+            coord: null
         },
 
         components: {
@@ -13762,14 +14427,11 @@
             me.cached.origin = vendor.origin();
             me.cached.snapping = [];
 
-            vendor.on('down', function draggerDown(e){
-                e.preventDefault();
-                // e.stopPropagation();
-            });
+            vendor.on('down', _.bind(me.onPointerDown, me));
 
-            if ( ! me.props.manual) {
-                vendor.on('move', _.bind(me.onPointerMove, me, _, vector));
-            }
+            // if ( ! me.props.manual) {
+            //     vendor.on('move', _.bind(me.onPointerMove, me, _, vector));
+            // }
 
             var matrix = vector.matrixCurrent(),
                 rotate = matrix.rotate(),
@@ -13950,20 +14612,35 @@
         },
 
         restrict: function(options) {
-            var vendor = this.vector().interactable().vendor();
+            this.props.restriction = options;
+        },
 
-            if (vendor) {
-                options = options || {};
-                vendor.setPerAction('drag', {
-                    restrict: {
-                        restriction: options
-                    }
-                });
+        start: function() {
+            var me = this, 
+                vector = me.vector(),
+                vendor = vector.interactable().vendor();
+
+            if (me.props.manual) {
+                return;
             }
+
+            if (me.dragging.enabled) {
+                return;
+            }
+
+            me.dragging.enabled = true;
+            me.dragging.moveHandler = _.bind(me.onPointerMove, me, _, vector);
+            
+            vendor.on('move', me.dragging.moveHandler);
         },
 
         onVectorRender: function() {
             this.setup();
+        },
+
+        onPointerDown: function draggerDown(e) {
+            e.preventDefault();
+            this.start();
         },
 
         onPointerMove: function draggerMove(e, vector) {
@@ -13973,7 +14650,7 @@
                 if (i.pointerIsDown && ! i.interacting()) {
                     var paper = vector.paper(),
                         node = vector.node(),
-                        action = {name: 'drag'};
+                        action = { name: 'drag' };
 
                     // -- workaround for a bug in v1.2.6 of interact.js
                     i.prepared.name = action.name;
@@ -14014,19 +14691,20 @@
         onDragStart: function(e) {
             var vector = this.vector(),
                 paper = vector.paper(),
+                layout = paper.layout(),
                 helper = this.helper();
 
-            vector.addClass('dragging');
+            vector.addClass('dragging' + (this.props.ghost ? ' ghost-mode' : ' normal-mode'));
             paper.cursor(this.props.cursor);
 
-            this.trans.vector = vector;
-            this.trans.paper = paper;
-            this.trans.helper = helper;
+            this.dragging.vector = vector;
+            this.dragging.paper = paper;
+            this.dragging.helper = helper;
 
-            this.trans.dx = 0;
-            this.trans.dy = 0;
-            this.trans.hx = 0;
-            this.trans.hy = 0;
+            this.dragging.dx = 0;
+            this.dragging.dy = 0;
+            this.dragging.hx = 0;
+            this.dragging.hy = 0;
 
             var edata = {
                 x: e.clientX,
@@ -14036,15 +14714,19 @@
                 ghost: this.props.ghost
             };
 
-            this.fire('dragstart', edata);
+            this.fire('beforedrag', edata);
+
+            var coord = layout.pointerLocation(e);
+            this.dragging.coord = coord;
         },
 
         onDragMove: function(e) {
 
-            var trans = this.trans,
-                paper = trans.paper,
-                vector = trans.vector,
-                helper = trans.helper,
+            var dragging = this.dragging,
+                paper = dragging.paper,
+                vector = dragging.vector,
+                helper = dragging.helper,
+                ghost = this.props.ghost,
                 axs = this.props.axis,
                 deg = this.rotation.deg,
                 sin = this.rotation.sin,
@@ -14070,7 +14752,7 @@
 
             edx /= scaleX;
             edy /= scaleY;
-
+            
             if (axs == 'x') {
                 dx = hx = edx;
                 dy = hy = 0;
@@ -14091,11 +14773,34 @@
                 dy = ty = edx * -sin + edy * cos;
             }
 
-            this.trans.dx += tx;
-            this.trans.dy += ty;
+            // check restriction
+            var restriction = this.props.restriction;
 
-            this.trans.hx += hx;
-            this.trans.hy += hy;
+            if (restriction) {
+                var coord = this.dragging.coord;
+
+                if (helper) {
+                    coord.x += hx;
+                    coord.y += hy;
+                } else {
+                    coord.x += dx;
+                    coord.y += dy;
+                }
+
+                if (coord.x < restriction.left || coord.x > restriction.right) {
+                    hx = dx = tx = edx = 0;
+                }
+                
+                if (coord.y < restriction.top || coord.y > restriction.bottom) {
+                    hy = dy = ty = edy = 0;
+                }
+            }
+
+            this.dragging.dx += tx;
+            this.dragging.dy += ty;
+
+            this.dragging.hx += hx;
+            this.dragging.hy += hy;
 
             var pageX = _.defaultTo(e.pageX, e.x0),
                 pageX = _.defaultTo(e.pageY, e.y0);
@@ -14122,9 +14827,9 @@
                 ghost: this.props.ghost
             };
 
-            this.fire('dragmove', event);
+            this.fire('drag', event);
 
-            if (helper) {
+            if (ghost) {
                 helper.translate(event.hx, event.hy).commit();
             } else {
                 vector.translate(event.dx, event.dy).commit();
@@ -14132,16 +14837,17 @@
         },
 
         onDragEnd: function(e) {
-            var trans = this.trans,
-                paper = trans.paper,
-                vector = trans.vector,
-                helper = trans.helper,
-                dx = trans.dx,
-                dy = trans.dy,
-                hx = trans.hx,
-                hy = trans.hy;
+            var dragging = this.dragging,
+                paper = dragging.paper,
+                vector = dragging.vector,
+                helper = dragging.helper,
+                ghost = this.props.ghost,
+                dx = dragging.dx,
+                dy = dragging.dy,
+                hx = dragging.hx,
+                hy = dragging.hy;
 
-            if (helper) {
+            if (ghost) {
                 vector.translate(dx, dy).commit();
                 this.redraw();
                 this.suspend();
@@ -14156,17 +14862,25 @@
                 ghost: this.props.ghost
             };
 
-            this.fire('dragend', edata);
+            var vendor = vector.interactable().vendor();
+            vendor.off('move', this.dragging.moveHandler);
+            
+            this.dragging.moveHandler = null;
+            this.dragging.enabled = false;
 
-            this.trans.vector = null;
-            this.trans.paper = null;
-            this.trans.helper = null;
+            this.fire('afterdrag', edata);
 
-            this.trans.dx = 0;
-            this.trans.dy = 0;
-            this.trans.hx = 0;
-            this.trans.hy = 0;
+            this.dragging.vector = null;
+            this.dragging.paper = null;
+            this.dragging.helper = null;
 
+            this.dragging.dx = 0;
+            this.dragging.dy = 0;
+            this.dragging.hx = 0;
+            this.dragging.hy = 0;
+            this.dragging.coord = null;
+
+            
         },
 
         destroy: function() {
@@ -14284,18 +14998,24 @@
 }());
 
 (function(){
-    
+
     var CLS_CONNECT_VALID = 'connect-valid',
         CLS_CONNECT_INVALID = 'connect-invalid',
         CLS_CONNECT_RESET = 'connect-valid connect-invalid',
         CLS_CONNECT_CLEAR = 'connect-valid connect-invalid connect-hover',
-        CLS_CONNECT_HOVER = 'connect-hover';
-    
+        CLS_CONNECT_HOVER = 'connect-hover',
+
+        CONNECT_OUTGOING = 'outgoing',
+        CONNECT_INCOMING = 'incoming';
+
     Graph.plugin.Network = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
             vector: null,
-            wiring: 'h:h'
+            wiring: 'h:h',
+            tuning: true,
+            limitIncoming: 0,
+            limitOutgoing: 0
         },
 
         linking: {
@@ -14306,10 +15026,10 @@
             link: null,
             pole: null
         },
-        
+
         constructor: function(vector, options) {
             var me = this, guid = vector.guid();
-            
+
             options = options || {};
 
             _.assign(me.props, options);
@@ -14320,11 +15040,11 @@
             me.cached.pairs = {};
 
             vector.addClass('graph-connectable');
-            
+
             // setup link droppable
-            
+
             var vendor = vector.interactable().vendor();
-            
+
             vendor.dropzone({
                 accept: _.format('.{0}, .{1}', Graph.styles.LINK_HEAD, Graph.styles.LINK_TAIL),
                 overlap: .2
@@ -14338,11 +15058,11 @@
             })
             .on('dropactivate', function(e){
                 var v = Graph.registry.vector.get(e.target);
-                
+
                 if (v) {
                     v.addClass(CLS_CONNECT_HOVER);
                 }
-                
+
                 me.invalidateTrans();
             })
             .on('dragenter', function(e){
@@ -14359,9 +15079,9 @@
                         source = vector;
                         target = link.router.target();
                     }
-                    
+
                     valid  = source.connectable().canConnect(target.connectable(), link);
-                    
+
                     if (valid) {
                         vector.removeClass(CLS_CONNECT_INVALID);
                         vector.addClass(CLS_CONNECT_VALID);
@@ -14369,7 +15089,7 @@
                         vector.removeClass(CLS_CONNECT_VALID);
                         vector.addClass(CLS_CONNECT_INVALID);
                     }
-                    
+
                     _.assign(me.linking, {
                         valid: valid,
                         router: link.router,
@@ -14390,43 +15110,62 @@
                 if (v) {
                     v.removeClass(CLS_CONNECT_RESET);
                 }
-                
+
                 me.linking.valid = false;
-                
+
                 if (me.linking.pole == 'head') {
                     me.linking.router.updateTrans('CONNECT', {
                         valid: false,
                         target: null
-                    });    
+                    });
                 } else {
                     me.linking.router.updateTrans('CONNECT', {
                         valid: false,
                         source: null
                     });
                 }
-                
+
             })
             .on('drop', function(e){
+                var link = Graph.registry.link.get(e.relatedTarget);
+
                 if (me.linking.valid) {
                     if (me.linking.pole == 'head') {
+
+                        var oldTarget = me.linking.router.target();
+                        
+                        if (oldTarget && oldTarget.guid() != vector.guid()) {
+                            oldTarget.connectable().removeLink(link);
+                        }
+
                         me.linking.router.updateTrans('CONNECT', {
                             target: vector
                         });
+
                     } else {
+
+                        var oldSource = me.linking.router.source();
+
+                        if (oldSource && oldSource.guid() != vector.guid()) {
+                            oldSource.connectable().removeLink(link);
+                        }
+
                         me.linking.router.updateTrans('CONNECT', {
                             source: vector
                         });
+
+
                     }
                 }
             });
         },
-        
+
         invalidateTrans: function() {
             for (var name in this.linking) {
                 this.linking[name] = null;
             }
-        },  
-        
+        },
+
         wiring: function() {
             return this.props.wiring;
         },
@@ -14445,24 +15184,28 @@
 
             return 0;
         },
-        
+
         direction: function (network) {
-            var orient = this.orientation(network);
-            
-            switch(orient) {
-                case 'intersect':
-                    return null;
-                case 'top':
-                case 'bottom':
-                    return 'v:v';
-                case 'left':
-                case 'right':
-                    return 'h:h';
-                default:
-                    return this.props.wiring;
+            if (this.props.tuning) {
+                var orient = this.orientation(network);
+
+                switch(orient) {
+                    case 'intersect':
+                        return null;
+                    case 'top':
+                    case 'bottom':
+                        return 'v:v';
+                    case 'left':
+                    case 'right':
+                        return 'h:h';
+                    default:
+                        return this.props.wiring;
+                }    
+            } else {
+                return this.props.wiring;
             }
         },
-        
+
         orientation: function(network) {
             var sourceBox = this.vector().bboxView().toJson(),
                 targetBox = network.vector().bboxView().toJson(),
@@ -14471,15 +15214,109 @@
             sourceBox = targetBox = null;
             return orientation;
         },
-        
+
         isSource: function(link) {
             return link.source().guid() == this.vector().guid();
         },
-        
+
         isTarget: function(link) {
             return link.target().guid() == this.vector().guid();
         },
-        
+
+        connect: function(target, start, end, options) {
+            if (this.canConnect(target)) {
+
+                if (start && ! end) {
+                    options = start;
+                    start = null;
+                    end = null;
+                } else {
+                    if (start instanceof Graph.lang.Point) {
+                        start = start.toJson();
+                    }
+
+                    if (end instanceof Graph.lang.Point) {
+                        end = end.toJson();
+                    }    
+                }
+
+                options = options || {};
+
+                var source = this,
+                    sourceVector = source.vector(),
+                    targetVector = target.vector(),
+                    paper = sourceVector.paper(),
+                    paperLayout = paper.layout(),
+                    router = paperLayout.createRouter(sourceVector, targetVector),
+                    link = paperLayout.createLink(router, options);
+
+                if (options.command !== undefined) {
+                    link.connectByCommand(options.command);
+                } else {
+                    link.connect(start, end);    
+                }
+
+                link.render(paper);
+
+                link.cached.beforeDestroyHandler = _.bind(this.onLinkBeforeDestroy, this);
+                link.on('beforedestroy', link.cached.beforeDestroyHandler);
+
+                source.addLink(link, CONNECT_OUTGOING, targetVector);
+                target.addLink(link, CONNECT_INCOMING, sourceVector);
+
+                sourceVector.fire('connect', {link: link});
+
+                return link;
+            }
+
+            return false;
+        },
+
+        connectByLinker: function(target, start, end, options) {
+            var routerType = this.vector().paper().layout().routerType();
+
+            if (routerType == 'orthogonal') {
+                this.connect(target, null, null, options);
+            } else {
+                this.connect(target, start, end, options);
+            }
+        },
+
+        disconnect: function(target, link) {
+            var connections = this.connections(target),
+                connectionsLength = connections.length,
+                disconnected = 0,
+                linkIds = [];
+
+            if (link !== undefined) {
+                if ( ! _.isArray(link)) {
+                    linkIds = link ? [link.guid()] : [];
+                } else {
+                    linkIds = _.map(link, function(l){ return l && l.guid() });
+                }
+            }
+            
+            _.forEach(connections, function(conn){
+                if (linkIds.length) {
+                    if (_.indexOf(linkIds, conn.guid) > -1) {
+                        conn.link.disconnect();
+                        disconnected++;
+                        connectionsLength--;
+                    }
+                } else {
+                    conn.link.disconnect();
+                    connectionsLength--;
+                }
+            });
+
+            if (linkIds.length) {
+                return disconnected === linkIds.length;
+            } else {
+                return connectionsLength === 0;
+            }
+
+        },
+
         addLink: function(link, type, pair) {
             var guid = link.guid(),
                 cables = this.cached.cables,
@@ -14487,13 +15324,13 @@
 
             pair  = pair.guid();
             pairs = pairs || {};
-            
+
             pairs[pair] = pairs[pair] || [];
 
             if (_.indexOf(pairs[pair], guid) === -1) {
                 pairs[pair].push(guid);
             }
-            
+
             cables[guid] = {
                 type: type,
                 pair: pair
@@ -14508,13 +15345,13 @@
             } else {
                 guid = link.guid();
             }
-            
+
             var conn = this.cached.cables[guid];
 
             if (conn) {
                 if (this.cached.pairs[conn.pair]) {
                     var index = _.indexOf(this.cached.pairs[conn.pair], guid);
-                
+
                     if (index > -1) {
                         this.cached.pairs[conn.pair].splice(index, 1);
                     }
@@ -14532,28 +15369,29 @@
         repairLinks: function() {
             console.log('called');
         },
-        
+
         hasConnection: function(network) {
-            var conn = this.getConnection();
+            var conn = this.connections(network);
             return conn.length ? conn : false;
         },
-        
+
         connections: function(network) {
-            var me = this, 
+            var me = this,
                 registry = Graph.registry.link,
                 current = this.props.vector,
                 conns = [];
-            
+
             if (network !== undefined) {
-                
+
                 var pair = network.vector().guid();
-                
+
                 if (this.cached.pairs[pair]) {
                     _.forEach(me.cached.pairs[pair], function(guid){
                         var link = registry.get(guid),
                             opts = me.cached.cables[guid];
                         if (link && opts) {
                             conns.push({
+                                guid: guid,
                                 link: link,
                                 type: opts.type,
                                 source: opts.type == 'outgoing' ? current : pair,
@@ -14562,16 +15400,17 @@
                         }
                     });
                 }
-                
+
                 return conns;
             }
-            
+
             var cables = me.cached.cables;
-            
+
             _.forOwn(cables, function(opts, guid){
                 var link = registry.get(guid);
                 if (link) {
                     conns.push({
+                        guid: guid,
                         link: link,
                         type: opts.type,
                         source: opts.type == 'outgoing' ? current : opts.pair,
@@ -14579,33 +15418,57 @@
                     });
                 }
             });
-            
+
             return conns;
         },
 
         ///////// RULES /////////
-        
+
         /**
-         * Can connect to target network
+         * Can connect to target
          */
-        canConnect: function(network, link) {
-            var a = this.vector().guid(),
-                b = network.vector().guid();
-            
-            if (a != b) {
-                return true;
+        canConnect: function(target) {
+            if (target instanceof Graph.plugin.Network) {
+                var sourceVector = this.vector().guid(),
+                    targetVector = target.vector().guid();
+
+                var connections, outgoing, incoming;
+
+                // check limit outgoing
+                if (this.props.limitOutgoing > 0) {
+                    connections = this.connections();
+                    outgoing = _.filter(connections, function(conn){
+                        return conn.type == 'outgoing';
+                    });
+
+                    if (outgoing.length + 1 > this.props.limitOutgoing) {
+                        return false;
+                    }
+                }
+
+                if (target.props.limitIncoming > 0) {
+                    connections = target.connections();
+                    
+                    incoming = _.filter(connections, function(conn){
+                        return conn.type == 'incoming';
+                    });
+
+                    if (incoming.length + 1 > target.props.limitIncoming) {
+                        return false;
+                    }
+                }
+
+                if (sourceVector != targetVector) {
+                    return true;
+                }
             }
 
             return false;
         },
 
         destroy: function() {
-            var me = this, conns = this.connections();
+            var me = this;
 
-            _.forEach(conns, function(conn){
-                conn.link.remove(); 
-            });
-            
             // collect garbage
             this.cached.cables = null;
             this.cached.pairs  = null;
@@ -14613,11 +15476,28 @@
 
         toString: function() {
             return 'Graph.plugin.Network';
+        },
+
+        onLinkBeforeDestroy: function(e) {
+            var link = e.link;
+            var vector, network;
+
+            if ((vector = link.router.source())) {
+                vector.connectable().removeLink(link);
+            }
+
+            if ((vector = link.router.target())) {
+                vector.connectable().removeLink(link);
+            }
+
+            link.off('beforedestroy', link.cached.beforeDestroyHandler);
+            link.cached.beforeDestroyHandler = null;
         }
 
     });
 
 }());
+
 
 (function(){
 
@@ -14978,7 +15858,7 @@
                 this.panning.stopHandler = null;
             }
 
-            if (tool == 'collector') {
+            if (' collector pencil '.indexOf(tool) > -1) {
                 return;
             }
 
@@ -15057,7 +15937,7 @@
 
         onBeforeZoom: _.debounce(function(paper){
 
-            Graph.topic.publish('paper/beforezoom', null, paper);
+            Graph.topic.publish('paper:beforezoom', null, paper);
 
         }, 300, {leading: true, trailing: false}),
 
@@ -15072,7 +15952,7 @@
 
         onBeforeScroll: _.debounce(function(paper){
 
-            Graph.topic.publish('paper/beforescroll', null, paper);
+            Graph.topic.publish('paper:beforescroll', null, paper);
 
         }, 300, {leading: true, trailing: false}),
 
@@ -15105,7 +15985,7 @@
         return Math.max(range.min, Math.min(range.max, scale));
     }
 
-    function pointerLocation(event, paper) {
+    function onDestroy(event, paper) {
         var offset = paper.node().getBoundingClientRect(),
             x = event.clientX - offset.left,
             y = event.clientY - offset.top;
@@ -15194,7 +16074,7 @@
                 .removeClass(Graph.styles.VECTOR)
                 .selectable(false)
                 .render(block)
-                .attr('marker-end', 'url(#marker-arrow)');
+                .attr('marker-end', 'url(#marker-link-end)');
 
             comp.block = block.guid();
             comp.pointer = pointer.guid();
@@ -15308,7 +16188,7 @@
         start: function(source, anchor) {
             var paper = this.vector(),
                 layout = paper.layout(),
-                offset = layout.offset();
+                offset = layout.position();
                 
             if (paper.tool().current() != 'linker') {
                 return;
@@ -15398,13 +16278,10 @@
                 head = path.head();
 
             if (tail && head) {
-                var paper = this.vector();
-                paper.connect(
-                    this.linking.source, 
-                    this.linking.target,
-                    tail,
-                    head
-                );
+                var sourceNetwork = this.linking.source.connectable(),
+                    targetNetwork = this.linking.target.connectable();
+
+                sourceNetwork.connectByLinker(targetNetwork, tail, head);
             }
 
             this.invalidate();
@@ -15423,7 +16300,6 @@
         },
 
         onPointerMove: function(e, paper, path) {
-
             if (this.linking.enabled) {
 
                 var layout = paper.layout(),
@@ -15444,7 +16320,7 @@
                     }
                     
                     var start = this.linking.start,
-                        coord = layout.grabLocation(e),
+                        coord = layout.pointerLocation(e),
                         x = coord.x,
                         y = coord.y,
                         rad = Graph.util.rad(Graph.util.theta(start, {x: x, y: y})),
@@ -15671,96 +16547,76 @@
 
     Graph.plugin.Pencil = Graph.extend(Graph.plugin.Plugin, {
 
-        paper: null,
-
-        drawing: {
-            offset: {
-                x: 0, 
-                y: 0
-            },
-            moveHandler: null,
-            stopHandler: null
+        writing: {
+            startHandler: null
         },
 
-        constructor: function(paper) {
-            this.paper = paper;
-        },
-        
-        draw: function() {
-            var paper, shape, vendor;
-            
-            // activate panzoom
-            this.paper.tool().activate('panzoom');
-
-            shape = Graph.shape.apply(null, arguments);
-
-            if (shape) {
-
-                shape.render(this.paper);
-                shape.move(-500, -500);
-                
-                this.refresh(shape);
-                this.paper.state('drawing');
-
-                vendor = this.paper.interactable().vendor();
-
-                this.drawing.offset = this.paper.layout().offset();
-                this.drawing.moveHandler = _.bind(this.onPointerMove, this, _, shape);
-                this.drawing.stopHandler = _.bind(this.onPointerStop, this, _, shape);
-
-                vendor.on('move', this.drawing.moveHandler);
-                vendor.on('up', this.drawing.stopHandler);    
-            }
-
-            return shape;
+        constructor: function(vector) {
+            this.props.vector = vector.guid();
         },
 
-        refresh: function(shape) {
-            var snapping = this.paper.layout().dragSnapping();
+        enable: function(activator) {
+            this.props.enabled = true;
+            this.props.activator = activator;
 
-            shape.component().cascade(function(comp){
-                if (comp.isDraggable()) {
-                    comp.draggable().snap(snapping);
-                }
+            var vector = this.vector(),
+                vendor = vector.interactable().vendor();
 
-                if (comp.isResizable()) {
-                    comp.resizable().snap(snapping);
-                }
-            });
+            vector.cursor('text');
+            vector.state('writing');
+
+            this.writing.startHandler = _.bind(this.onPointerDown, this);
+            vendor.on('down', this.writing.startHandler);
 
         },
 
-        onPointerMove: function(e, shape) {
-            var offset = this.drawing.offset,   
-                viewport = this.paper.viewport(),
-                coords = Graph.event.relative(e, viewport),
-                scale = viewport.scale();
-
-            var x = coords.x - (offset.left / scale.x),
-                y = coords.y - (offset.top / scale.y);
-
-            shape.move(x, y);
+        disable: function() {
+            this.props.enabled = false;
+            var vendor = this.vector().interactable().vendor();
+            vendor.off('down', this.writing.startHandler);
+            this.writing.startHandler = null;
         },
 
-        onPointerStop: function(e, shape) {
-            var vendor = this.paper.interactable().vendor();
-            var delay;
-
-            delay = _.delay(_.bind(function(){
-                if (this.drawing.moveHandler) {
-                    vendor.off('move', this.drawing.moveHandler);    
-                    this.drawing.moveHandler = null;
-                }
-
-                if (this.drawing.stopHandler) {
-                    vendor.off('up', this.drawing.stopHandler);    
-                    this.drawing.stopHandler = null;
-                }
-            }, this), 0);
-            
-        },
         toString: function() {
             return 'Graph.plugin.Pencil';
+        },
+
+        onPointerDown: function(e) {
+            var vector = this.vector();
+
+            if (vector.isPaper()) {
+                var offset, options, result;
+
+                offset = vector.layout().pointerLocation(e);
+                options = {
+                    left: offset.x,
+                    top: offset.y
+                };
+
+                if ( ! vector.diagram().current()) {
+                    vector.diagram().create();
+                }
+
+                result = vector.diagram().current().drawShape(
+                    vector, 
+                    'Graph.shape.common.Label', 
+                    options
+                );
+
+                if (result.shape) {
+                    var t = _.delay(function(e){
+                        clearTimeout(t);
+                        t = null;
+
+                        vector.tool().activate('panzoom');
+                        result.shape.editable().plugin().startEdit();
+
+                    }, 10);    
+                } else {
+                    //vector.tool().activate('panzoom');
+                }
+                
+            }
         }
 
     });
@@ -15773,7 +16629,7 @@
         MIN_BOX_HEIGHT = 50,
         OFFSET_TRESHOLD = 10;
 
-    Graph.plugin.Editor = Graph.extend(Graph.plugin.Plugin, {
+    var Editor = Graph.plugin.Editor = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
             vector: null,
@@ -15781,7 +16637,8 @@
             suspended: true,
             width: 'auto',
             height: 'auto',
-            offset: 'auto'
+            offset: 'auto',
+            align: 'center'
         },
 
         editing: {
@@ -15814,16 +16671,28 @@
 
         initComponent: function() {
             var me = this, comp = this.components;
+            
             comp.editor = Graph.$('<div class="graph-editor" contenteditable="true"></div>');
-            comp.editor.on('keypress', function(e){
-                if (e.keyCode === Graph.event.ENTER) {
-                    me.commit();
+            comp.editor.css('text-align', this.props.align);
+            
+            comp.editor.on('keydown', function(e){
+                switch(e.keyCode) {
+                    case Graph.event.ENTER:
+                        me.commit();
+                        break;
+                    case Graph.event.DELETE:
+                    case Graph.event.SHIFT:
+                        e.stopPropagation();
+                        break;
+
                 }
             });
         },
         
         commit: function() {
+
             var text = this.components.editor.text();
+
             this.suspend();
             this.vector().props.text = text;
 
@@ -15846,13 +16715,15 @@
         },
 
         suspend: function() {
+
             this.props.suspended = true;
             this.components.editor.detach();
 
             if (this.editing.commitHandler) {
-                Graph.topic.unsubscribe('paper/beforezoom', this.editing.commitHandler);
-                Graph.topic.unsubscribe('paper/beforescroll', this.editing.commitHandler);
-                this.vector().paper().off('pointerdown', this.editing.commitHandler);
+                Graph.topic.unsubscribe('paper:beforezoom', this.editing.commitHandler);
+                Graph.topic.unsubscribe('paper:beforescroll', this.editing.commitHandler);
+                Graph.topic.unsubscribe('vector:pointerdown', this.editing.commitHandler);
+
                 this.editing.commitHandler = null;
             }
         },
@@ -15888,19 +16759,22 @@
             top  = vbox.y;
 
             if (this.props.width != 'auto') {
-                width = Math.max(Math.min(this.props.width, width), MIN_BOX_WIDTH);
-                left = vbox.x + (vbox.width - width) / 2;
-            }
+                width = Math.max(this.props.width, MIN_BOX_WIDTH);
+                width = Math.max(width * scale.x, width);
+                left = vbox.x;
+            } else {
+                width = width - 8 * scale.x;
+                left = left + 4 * scale.x;
+            }   
 
             if (this.props.height != 'auto') {
-                height = Math.max((Math.min(this.props.height, height)), MIN_BOX_HEIGHT);
-                top = vbox.y + (vbox.height - height) / 2;
+                height = Math.max(this.props.height, MIN_BOX_HEIGHT);
+                height = Math.max(height * scale.y, height);
+                top = vbox.y;
+            } else {
+                height = height - 8 * scale.y;
+                top = top + 4 * scale.y;
             }
-
-            left = left + 4 * scale.x;
-            top = top + 4 * scale.y;
-            width = width - 8 * scale.x;
-            height = height - 8 * scale.y;
 
             editor.css({
                 left: left,
@@ -15925,9 +16799,7 @@
         startEdit: function(e) {
             var me = this, vector = me.vector();
 
-            if (vector.lasso) {
-                vector.lasso.decollect(vector);
-            }
+            vector.deselect();
 
             if (vector.paper().tool().current() == 'linker') {
                 vector.paper().tool().activate('panzoom');
@@ -15939,36 +16811,51 @@
             if (e && this.props.offset == 'pointer') {
                 var editor = me.components.editor,
                     paper = vector.paper(),
-                    scale = paper.layout().scale();
+                    layout = paper.layout(),
+                    scale = layout.scale();
 
-                var offset, coords, left, top;
+                var offset, coords, screen;
 
                 if (paper) {
-                    offset = paper.offset();
-                    coords = paper.layout().grabLocation(e);
+                    offset = paper.position();
+                    coords = layout.pointerLocation(e);
+                    
+                    if (this.props.align == 'center') {
+                        screen = {
+                            x: e.clientX - offset.left,
+                            y: e.clientY - offset.top
+                        };
 
-                    left = e.clientX - offset.left + (OFFSET_TRESHOLD * scale.x);
-                    top = e.clientY - offset.top + (OFFSET_TRESHOLD * scale.y);
+                        editor.css({
+                            left: screen.x - editor.width() / 2,
+                            top: screen.y - editor.height() / 2
+                        });
+                    } else {
+                        screen = vector.bboxView().toJson();
+                        screen = layout.screenLocation({x: screen.x, y: screen.y});
 
-                    editor.css({
-                        left: left,
-                        top: top
-                    });
+                        editor.css({
+                            left: screen.x - offset.left,
+                            top: screen.y - offset.top
+                        });
+                    }
+
+                    editor.focus(true);
 
                     me.cached.left = coords.x;
-                    me.cached.top = coords.y;
+                    me.cached.top  = coords.y;
                 }
             }
 
-            me.editing.commitHandler = function() {
-                me.commit();
-            };
+            if ( ! me.editing.commitHandler) {
+                me.editing.commitHandler = function() {
+                    me.commit();
+                };
 
-            Graph.topic.subscribe('paper/beforezoom', me.editing.commitHandler);
-            Graph.topic.subscribe('paper/beforescroll', me.editing.commitHandler);
-
-            vector.paper().on('pointerdown', me.editing.commitHandler);
-            vector = null;
+                Graph.topic.subscribe('paper:beforezoom', me.editing.commitHandler);
+                Graph.topic.subscribe('paper:beforescroll', me.editing.commitHandler);
+                Graph.topic.subscribe('vector:pointerdown', me.editing.commitHandler);
+            }
         },
 
         onDoubleTap: function(e) {
@@ -15977,6 +16864,13 @@
         },
 
         destroy: function() {
+            if (this.editing.commitHandler) {
+                Graph.topic.unsubscribe('paper:beforezoom', this.editing.commitHandler);
+                Graph.topic.unsubscribe('paper:beforescroll', this.editing.commitHandler);
+                Graph.topic.unsubscribe('vector:pointerdown', this.editing.commitHandler);
+
+                this.editing.commitHandler = null;
+            }
 
         },
 
@@ -15985,6 +16879,10 @@
         }
 
     });
+
+    ///////// STATICS /////////
+    
+    
 
 }());
 
@@ -16104,9 +17002,9 @@
             var key;
 
             if (me.clients[clientId]) {
-                client.off('dragstart', me.clients[clientId].dragStartHandler);
-                client.off('dragend',  me.clients[clientId].dragEndHandler);
-                client.off('remove',  me.clients[clientId].removeHandler);
+                client.off('beforedrag', me.clients[clientId].beforeDragHandler);
+                client.off('afterdrag',  me.clients[clientId].afterDragHandler);
+                client.off('afterdestroy',  me.clients[clientId].afterDestroyHandler);
 
                 if (me.clients[clientId].coords) {
                     delete me.snapping.coords[me.clients[clientId].coords];
@@ -16122,17 +17020,19 @@
                 me.clients[clientId] = {
                     coords: null,
                     osnaps: dragger.snap(),
-                    dragStartHandler: _.bind(me.onClientDragStart, me, _, client),
-                    dragEndHandler: _.bind(me.onClientDragEnd, me, _, client),
-                    removeHandler: _.bind(me.onClientRemove, me, _, client)
+                    beforeDragHandler: _.bind(me.onClientBeforeDrag, me, _, client),
+                    afterDragHandler: _.bind(me.onClientAfterDrag, me, _, client),
+                    afterDestroyHandler: _.bind(me.onClientAfterDestroy, me, _, client)
                 };
 
-                client.on('dragstart', me.clients[clientId].dragStartHandler);
-                client.on('dragend', me.clients[clientId].dragEndHandler);
-                client.on('remove',  me.clients[clientId].removeHandler);
+                client.on('beforedrag', me.clients[clientId].beforeDragHandler);
+                client.on('afterdrag', me.clients[clientId].afterDragHandler);
+                client.on('afterdestroy',  me.clients[clientId].afterDestroyHandler);
 
                 var center = me.getClientCenter(client),
                     coords = this.snapping.coords;
+
+                // this.vector().circle(center.x, center.y, 5);
 
                 key = center.x + '_' + center.y;
 
@@ -16182,12 +17082,12 @@
             this.snapping[stub].removeClass('visible');
         },
 
-        onClientDragStart: function(e, client) {
+        onClientBeforeDrag: function(e, client) {
             var me = this,
                 paper = me.vector(),
                 viewport = paper.viewport(),
                 layout = paper.layout(),
-                offset = layout.offset(),
+                offset = layout.position(),
                 center = me.getClientCenter(client);
 
             var snapping = this.snapping,
@@ -16201,7 +17101,7 @@
                 ma = viewport.matrix(),
                 dx = ma.props.e,
                 dy = ma.props.f,
-                point = layout.grabLocation({clientX: e.x, clientY: e.y}),
+                point = layout.pointerLocation({clientX: e.x, clientY: e.y}),
                 diffx = center.x - point.x,
                 diffy = center.y - point.y,
                 snapx = [],
@@ -16237,7 +17137,7 @@
                     x1 = rx.value;
                     y1 = ry.value;
 
-                    pt = layout.grabLocation({
+                    pt = layout.pointerLocation({
                         clientX: x1,
                         clientY: y1
                     });
@@ -16264,7 +17164,7 @@
             me.resume();
         },
 
-        onClientDragEnd: function(e, client) {
+        onClientAfterDrag: function(e, client) {
             var snapping = this.snapping,
                 options = this.clients[client.guid()];
 
@@ -16301,7 +17201,7 @@
             });
         },
 
-        onClientRemove: function(e, client) {
+        onClientAfterDestroy: function(e, client) {
             var guid = client.guid(),
                 options = this.clients[guid],
                 snapping = this.snapping;
@@ -16368,12 +17268,14 @@
             this.initComponent(paper);
 
             this.cached.tools = null;
+            this.cached.shape = null;
+            this.cached.link  = null;
             
-            Graph.topic.subscribe('shape/select', _.bind(this.onShapeSelect, this));
-            Graph.topic.subscribe('shape/deselect', _.bind(this.onShapeDeselect, this));
+            Graph.topic.subscribe('shape:select', _.bind(this.onShapeSelect, this));
+            Graph.topic.subscribe('shape:deselect', _.bind(this.onShapeDeselect, this));
             
-            Graph.topic.subscribe('link/select', _.bind(this.onLinkSelect, this));
-            Graph.topic.subscribe('link/deselect', _.bind(this.onLinkDeselect, this));
+            Graph.topic.subscribe('link:select', _.bind(this.onLinkSelect, this));
+            Graph.topic.subscribe('link:deselect', _.bind(this.onLinkDeselect, this));
         },
         
         initComponent: function(paper) {
@@ -16386,7 +17288,8 @@
 
             pad = Graph.$(pad);
 
-            pad.on('click', '[data-shape-tool]', _.bind(this.onToolClick, this));
+            pad.on('click', '[data-shape-tool]', _.bind(this.onShapeToolClick, this));
+            pad.on('click', '[data-link-tool]', _.bind(this.onLinkToolClick, this));
             
             this.components.pad = pad;
         },
@@ -16426,7 +17329,7 @@
             pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
             
             var body = '';
-            
+
             _.forEach(meta.tools, function(tool){
                 if (tool.enabled) {
                     body += '<div class="splitter"></div>';
@@ -16435,8 +17338,10 @@
             });
             
             pad.find('.pad-body').html(body);
-            
+
             this.cached.tools = meta.tools;
+            this.cached.shape = shape;
+
             this.resume();
         },
         
@@ -16457,13 +17362,14 @@
             _.forEach(meta.tools, function(tool){
                 if (tool.enabled) {
                     body += '<div class="splitter"></div>';
-                    body += '<a data-shape-tool="' + tool.name + '" href="#" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
+                    body += '<a data-link-tool="' + tool.name + '" href="#" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
                 }
             });
             
             pad.find('.pad-body').html(body);
             
             this.cached.tools = meta.tools;
+            this.cached.link = link;
             this.resume();
         },
 
@@ -16471,19 +17377,48 @@
             this.suspend();
         },
         
-        onToolClick: function(e) {
+        onShapeToolClick: function(e) {
             var target = Graph.$(e.currentTarget),
                 name = target.data('shapeTool');
             
             var tool = _.find(this.cached.tools, function(t){
                 return t.name == name;
             });
-            
-            if (tool && tool.handler) {
-                tool.handler(e);
+
+            if (tool) {
+                if (tool.name == 'config') {
+                    var paper = this.vector();
+                    paper.fire('shapetoolclick', {
+                        shape: this.cached.shape
+                    });
+                } else if (tool.handler) {
+                    tool.handler(e);
+                }
             }
             
             e.preventDefault();
+        },
+
+        onLinkToolClick: function(e) {
+            var target = Graph.$(e.currentTarget),
+                name = target.data('linkTool');
+            
+            var tool = _.find(this.cached.tools, function(t){
+                return t.name == name;
+            });
+
+            if (tool) {
+                if (tool.name == 'config') {
+                    var paper = this.vector();
+                    paper.fire('linktoolclick', {
+                        link: this.cached.link
+                    });
+                } else if (tool.handler) {
+                    tool.handler(e);
+                }
+            }
+            
+            e.preventDefault();  
         },
 
         toString: function() {
@@ -16503,7 +17438,11 @@
             guid: null,
             width: 0,
             height: 0,
-            label: ''
+            label: '',
+            alias: '',
+            fill: 'rgb(255, 255, 255)',
+            stroke: 'rgb(0, 0, 0)',
+            strokeWidth: 2
         },
 
         components: {
@@ -16513,6 +17452,10 @@
             child: null
         },
 
+        layout: {
+            suspended: false
+        },
+
         tree: {
             paper: null,
             parent: null,
@@ -16520,7 +17463,7 @@
         },
 
         metadata: {
-            name: null,
+            type: null,
             icon: Graph.icons.SHAPE,
             style: 'graph-shape',
             tools: null
@@ -16537,7 +17480,7 @@
         constructor: function(options) {
             var guid;
 
-            _.assign(this.props, options || {});
+            this.data(options || {});
 
             guid = 'graph-shape-' + (++Shape.guid);
 
@@ -16549,19 +17492,94 @@
             this.initMetadata();
 
             if (this.components.shape) {
-                var style = Graph.styles.SHAPE;
+                var style = Graph.styles.SHAPE,
+                    shape = this.component();
 
                 if (this.metadata.style) {
                     style += ' ' + this.metadata.style;
                 }
 
-                this.component().addClass(style);
+                shape.addClass(style);
+                shape.attr('data-shape', guid);
+
                 style = null;
             }
 
             Graph.registry.shape.register(this);
 
             guid = null;
+        },
+
+        data: function(name, value) {
+            if (name === undefined && value === undefined) {
+                return this.props;
+            }
+
+            var excludes = {
+                type: true,
+                client_id: true,
+                client_parent: true,
+                client_pool: true,
+                diagram_id: true,
+                parent_id: true,
+                params: true
+            };
+
+            var maps = {
+                stroke_width: 'strokeWidth'
+            };
+
+            var map, key;
+
+            if (_.isPlainObject(name)) {
+                for (key in name) {
+                    if ( ! excludes[key]) {
+                        map = maps[key] || key;
+                        this.props[map] = name[key];    
+                    }
+                }
+                return this;
+            }
+
+            if (value === undefined) {
+                return this.props[name];
+            }
+
+            if ( ! excludes[name]) {
+                map = maps[name] || name;
+                this.props[map] = value;    
+            }
+
+            return this;
+        },
+
+        update: function(data) {
+            data = data || {};
+
+            if (data.props) {
+                this.data(data.props);
+            }
+        },
+
+        redraw: function(props) {
+            var key;
+            
+            props = props || {};
+
+            this.suspendLayout();
+
+            for (key in props) {
+                if (this[key] !== undefined && _.isFunction(this[key])) {
+                    this[key](props[key]);
+                }
+            }
+
+            this.resumeLayout();
+            this.refresh();
+        },
+
+        is: function(type) {
+            return this.metadata.type == type;
         },
 
         initMetadata: function() {
@@ -16619,9 +17637,11 @@
         },
 
         invalidate: function() {
-
+            for (var key in this.cached) {
+                this.cached[key] = null;
+            }
         },
-        
+
         connectable: function() {
             return this.plugins.manager.get('network');
         },
@@ -16638,6 +17658,10 @@
             return this.plugins.manager.get('snapper');
         },
 
+        editable: function() {
+            return this.plugins.manager.get('editor');  
+        },
+
         paper: function() {
             return Graph.registry.vector.get(this.tree.paper);
         },
@@ -16650,17 +17674,63 @@
             return this.tree.children;
         },
 
-        addChild: function(child) {
-            var children = this.children(),
-                parent = child.parent();
+        hasChild: function(child) {
+            return this.children().has(child);
+        },
 
-            if (parent && parent.guid() != this.guid()) {
-                parent.removeChild(child);
+        addChild: function(child, relocate) {
+            var children = this.children(),
+                placeTarget = this.component('child'),
+                guid = this.guid(),
+                me = this;
+
+            relocate = _.defaultTo(relocate, true);
+
+            if ( ! _.isArray(child)) {
+                child = [child];
             }
 
-            if ( ! children.has(child)) {
-                children.push(child);
-                child.tree.parent = this.guid();
+            var beforeDestroyHandler = _.bind(this.onChildBeforeDestroy, this);
+
+            _.forEach(child, function(shape){
+                var parent = shape.parent();
+
+                if (parent && parent.guid() != guid) {
+                    parent.removeChild(shape);
+                }
+
+                if ( ! children.has(shape)) {
+                    var shapeComponent = shape.component();
+
+                    if (relocate) {
+                        shapeComponent.relocate(placeTarget);    
+                    } else {
+                        placeTarget.append(shapeComponent);
+                    }
+                    
+                    shape.cached.beforeDestroyHandler = _.bind(me.onChildBeforeDestroy, me);
+                    shape.cached.afterDragHandler = _.bind(me.onChildAfterDrag, me);
+                    shape.cached.connectHandler = _.bind(me.onChildConnect, me);
+
+                    shape.on('beforedestroy', shape.cached.beforeDestroyHandler);
+                    shape.on('afterdrag', shape.cached.afterDragHandler);
+                    shape.on('connect', shape.cached.connectHandler);
+
+                    children.push(shape);
+                    shape.tree.parent = guid;
+
+                    // update shape props
+                    var matrix = shapeComponent.matrix();
+
+                    shape.data({
+                        left: matrix.props.e,
+                        top: matrix.props.f
+                    });
+                }
+            });
+
+            if (relocate) {
+                this.autoResize();    
             }
         },
 
@@ -16675,24 +17745,6 @@
 
         guid: function() {
             return this.props.guid;
-        },
-
-        data: function(name, value) {
-            var me = this;
-
-            if (_.isPlainObject(name)) {
-                _.forOwn(name, function(v, k){
-                    me.data(k, v);
-                });
-                return me;
-            }
-
-            if (value === undefined) {
-                return me.props[name];
-            }
-
-            me.props[name] = value;
-            return me;
         },
 
         matrix: function() {
@@ -16711,11 +17763,37 @@
         },
 
         render: function(paper) {
+            var guid = this.guid(),
+                paperGuid = paper.guid();
+
             var component = this.component();
             component && component.render(paper);
 
             // save
-            this.tree.paper = paper.guid();
+            this.tree.paper = paperGuid;
+            Graph.registry.shape.setContext(guid, paperGuid);
+        },
+
+        select: function(single) {
+            var blockComponent = this.component('block'),
+                paper = this.paper();
+
+            single = _.defaultTo(single, false);
+
+            if (single && paper) {
+                paper.collector().clearCollection();
+            }
+
+            if (blockComponent) {
+                blockComponent.select();
+            }
+        },
+
+        deselect: function() {
+            var blockComponent = this.component('block');
+            if (blockComponent) {
+                blockComponent.deselect();
+            }
         },
 
         remove: function() {
@@ -16723,7 +17801,11 @@
             this.component('block').remove();
         },
 
-        redraw: _.debounce(function() {
+        refresh: _.debounce(function() {
+            if (this.layout.suspended) {
+                return;
+            }
+
             var label = this.component('label'),
                 block = this.component('block'),
                 bound = block.bbox().toJson();
@@ -16736,6 +17818,18 @@
             label.wrap(bound.width - 10);
 
         }, 1),
+
+        autoResize: function() {
+
+        },
+
+        center: function() {
+            var bbox = this.bbox().toJson();
+            return {
+                x: (bbox.x + bbox.x2) / 2,
+                y: (bbox.y + bbox.y2) / 2
+            };
+        },
 
         translate: function(dx, dy) {
             var component = this.component();
@@ -16751,6 +17845,12 @@
                 top: top
             });
 
+            var childComponent = this.component('child');
+
+            if (childComponent) {
+                childComponent.dirty(true);
+            }
+
         },
 
         cascade: function(handler) {
@@ -16764,6 +17864,14 @@
         sendToFront: function() {
             var paper = this.paper();
             paper.viewport().elem.append(this.component().elem);
+        },
+
+        suspendLayout: function() {
+            this.layout.suspended = true;
+        },
+
+        resumeLayout: function() {
+            this.layout.suspended = false;
         },
 
         /**
@@ -16793,14 +17901,43 @@
                 return this.props.height;
             }
 
-            return this.attr('height', value);
+            var block = this.component('block'),
+                box = block.bbox().toJson(),
+                sx = 1,
+                sy = value / this.props.height,
+                cx = (box.x + box.x2) / 2,
+                cy = box.y,
+                dx = 0,
+                dy = 0;
+
+            var resize = block.resize(sx, sy, cx, cy, dx, dy);
+            block.fire('afterresize', resize);
+            
+            this.props.height = value;
+
+            return this;
         },
 
         width: function(value) {
             if (value === undefined) {
                 return this.props.width;
             }
-            return this.attr('width', value);
+
+            var block = this.component('block'),
+                box = block.bbox().toJson(),
+                sx = value / this.props.width,
+                sy = 1,
+                cx = box.x,
+                cy = (box.y + box.y2) / 2,
+                dx = 0,
+                dy = 0;
+
+            var resize = block.resize(sx, sy, cx, cy, dx, dy);
+            block.fire('afterresize', resize);
+
+            this.props.width = value;
+
+            return this;
         },
 
         left: function(value) {
@@ -16808,7 +17945,15 @@
                 return this.props.left;
             }
 
-            return this.attr('left', value);
+            var shape = this.component(),
+                matrix = shape.matrix(),
+                dx = value - matrix.props.e,
+                dy = 0;
+
+            shape.translate(dx, dy).commit();
+            this.props.left = value;
+
+            return this;
         },
 
         top: function(value) {
@@ -16816,22 +17961,143 @@
                 return this.props.top;
             }
 
-            return this.attr('top', value);
+            var shape = this.component(),
+                matrix = shape.matrix(),
+                dx = 0,
+                dy = value - matrix.props.f;
+
+            shape.translate(dx, dy).commit();
+            this.props.top = value;
+
+            return this;
+        },
+
+        label: function(label) {
+            if (label === undefined) {
+                return this.props.label;
+            }
+
+            var blockComponent = this.component('block'),
+                labelComponent = this.component('label');
+
+            labelComponent.props.text = label;
+            blockComponent.data('text', label);
+
+            this.props.label = label;
+            this.refresh();
+        },
+
+        fill: function(value) {
+            if (value === undefined) {
+                return this.props.fill;
+            }
+            
+            this.props.fill = value;
+            this.component('block').elem.css('fill', value);
+        },
+
+        stroke: function(value) {
+            if (value === undefined) {
+                return this.props.stroke;
+            }
+            
+            this.props.stroke = value;
+            this.component('block').elem.css('stroke', value);
+        },
+
+        strokeWidth: function(value) {
+            if (value === undefined) {
+                return this.props.strokeWidth;
+            }
+
+            this.props.strokeWidth = value;
+            this.component('block').elem.css('stroke-width', value);
+        },
+
+        connect: function(target, start, end, options){
+            var sourceNetwork = this.connectable().plugin(),
+                targetNetwork = target.connectable().plugin();
+
+            if (sourceNetwork && targetNetwork) {
+                return sourceNetwork.connect(targetNetwork, start, end, options);
+            }
+
+            return false;
+        },
+
+        disconnect: function(target, link) {
+            var sourceNetwork = this.connectable().plugin(),
+                targetNetwork = target.connectable().plugin();
+
+            if (sourceNetwork && targetNetwork) {
+                return sourceNetwork.disconnect(targetNetwork, link);
+            }
+
+            return false;
+        },
+
+        toJson: function() {
+            var blockComponent = this.component('block'),
+                paper = this.paper();
+
+            var shape = {
+                metadata: {
+
+                },
+                props: {
+                    id: this.props.id,
+                    type: this.toString(),
+                    guid: this.props.guid,
+                    parent: this.tree.parent,
+                    label: this.props.label,
+                    left: this.props.left,
+                    top: this.props.top,
+                    width: this.props.width,
+                    height: this.props.height,
+                    fill: this.props.fill,
+                    strokeWidth: this.props.strokeWidth,
+                    stroke: this.props.stroke
+                },
+                params: [
+                    {key: 'Source', value: 'db.employee'}
+                ],
+                links: [
+
+                ]
+            };
+
+            var network = this.connectable().plugin();
+
+            if (network) {
+                var connections = network.connections();
+
+                _.forEach(connections, function(conn){
+                    var linkData = conn.link.toJson();
+
+                    shape.links.push({
+                        guid: conn.guid,
+                        mode: conn.type,
+                        pair: conn.type == 'outgoing' ? linkData.props.target : linkData.props.source
+                    });
+                });
+            }
+
+            return shape;
         },
 
         onLabelEdit: function(e) {
-            var text = e.text;
-            this.component('label').props.text = text;
-            this.redraw();
+            this.label(e.text);
         },
 
-        onDragStart: function(e) {
+        onBeforeDrag: function(e) {
+            this.paper().diagram().capture();
             this.component().addClass('shape-dragging');
         },
 
-        onDragEnd: function(e) {
+        onAfterDrag: function(e) {
             var blockComponent = this.component('block'),
                 shapeComponent = this.component('shape'),
+                childComponent = this.component('child'),
                 blockMatrix = blockComponent.matrix();
 
             var shapeMatrix;
@@ -16841,6 +18107,10 @@
             shapeComponent.matrix().multiply(blockMatrix);
             shapeComponent.attr('transform', shapeComponent.matrix().toValue());
             shapeComponent.dirty(true);
+
+            if (childComponent) {
+                childComponent.dirty(true);
+            }
 
             // update props
             shapeMatrix = shapeComponent.matrix();
@@ -16855,21 +18125,48 @@
             shapeComponent.removeClass('shape-dragging');
         },
 
-        onSelect: function() {
+        onSelect: function(e) {
             this.component('shape').addClass('shape-selected');
-            Graph.topic.publish('shape/select', {shape: this});
+            if (e.initial) {
+                Graph.topic.publish('shape:select', {shape: this});    
+            }
         },
 
-        onDeselect: function() {
+        onDeselect: function(e) {
             this.component('shape').removeClass('shape-selected');
-            Graph.topic.publish('shape/deselect', {shape: this});
+            if (e.initial) {
+                Graph.topic.publish('shape:deselect', {shape: this});
+            }
         },
 
-        onResize: function() {
-            this.redraw();
+        onConnect: function(e) {
+            var link = e.link,
+                sourceVector = link.router.source(),
+                targetVector = link.router.target();
+
+            if (sourceVector && targetVector) {
+                var sourceShape = Graph.registry.shape.get(sourceVector),
+                    targetShape = Graph.registry.shape.get(targetVector);
+
+                if (sourceShape && targetShape) {
+                    this.fire('connect', {
+                        link: link,
+                        source: sourceShape,
+                        target: targetShape
+                    });
+                }
+            }
         },
 
-        onRemove: function() {
+        onAfterResize: function() {
+            this.refresh();
+        },
+
+        onBeforeDestroy: function() {
+            this.fire('beforedestroy', {shape: this});
+        },
+
+        onAfterDestroy: function() {
             // remove label
             this.component('label').remove();
 
@@ -16880,7 +18177,50 @@
                 this.components[name] = null;
             }
 
+            this.fire('afterdestroy', {shape: this});
             Graph.registry.shape.unregister(this);
+        },
+
+        onChildConnect: function(e) {
+
+        },
+
+        onChildAfterDrag: function(e) {
+            var childComponent;
+
+            if (e.batch) {
+                if (e.master) {
+                    childComponent = this.component('child');
+                    if (childComponent) {
+                        childComponent.dirty(true);
+                    }
+                }
+            } else {
+                childComponent = this.component('child');
+                if (childComponent) {
+                    childComponent.dirty(true);
+                }
+            }
+        },
+
+        onChildBeforeDestroy: function(e) {
+            var shape = e.shape;
+
+            this.children().pull(shape);
+
+            shape.off('beforedestroy', shape.cached.beforeDestroyHandler);
+            shape.off('afterdrag', shape.cached.afterDragHandler);
+            shape.off('connect', shape.cached.connectHandler);
+
+            shape.cached.beforeDestroyHandler = null;
+            shape.cached.afterDragHandler = null;
+            shape.cached.connectHandler = null;
+
+            var childComponent = shape.component('child');
+
+            if (childComponent) {
+                childComponent.dirty(true);
+            }
         },
 
         onConfigToolClick: function(e) {
@@ -16888,6 +18228,7 @@
         },
 
         onTrashToolClick: function(e) {
+            this.paper().diagram().capture();
             this.remove();
         },
 
@@ -16897,7 +18238,7 @@
             if (paper) {
                 var layout = paper.layout(),
                     linker = paper.plugins.linker,
-                    coord  = layout.grabLocation(e);
+                    coord  = layout.pointerLocation(e);
 
                 paper.tool().activate('linker');
                 linker.start(this.connectable().component(), coord);
@@ -16949,7 +18290,7 @@
     Graph.shape.activity.Start = Graph.extend(Graph.shape.Shape, {
 
         props: {
-            label: 'START',
+            label: 'Start',
             width: 60,
             height: 60,
             left: 0,
@@ -16957,7 +18298,7 @@
         },
 
         metadata: {
-            name: 'activity.start',
+            type: 'activity.start',
             style: 'graph-shape-activity-start'
         },
 
@@ -16987,12 +18328,14 @@
             pmgr.install('snapper', block);
 
             block.on('edit.shape',      _.bind(this.onLabelEdit, this));
-            block.on('dragstart.shape', _.bind(this.onDragStart, this));
-            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
-            block.on('resize.shape',    _.bind(this.onResize, this));
-            block.on('remove.shape',    _.bind(this.onRemove, this));
+            block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
+            block.on('afterdrag.shape',   _.bind(this.onAfterDrag, this));
+            block.on('afterresize.shape',    _.bind(this.onAfterResize, this));
+            block.on('beforedestroy.shape',    _.bind(this.onBeforeDestroy, this));
+            block.on('afterdestroy.shape',    _.bind(this.onAfterDestroy, this));
             block.on('select.shape',    _.bind(this.onSelect, this));
             block.on('deselect.shape',  _.bind(this.onDeselect, this));
+            block.on('connect.shape', _.bind(this.onConnect, this));
 
             label = (new Graph.svg.Text(cx, cy, this.props.label))
                 .addClass(Graph.styles.SHAPE_LABEL)
@@ -17007,7 +18350,11 @@
             shape = block = label = null;
         },
 
-        redraw: function() {
+        refresh: function() {
+            if (this.layout.suspended) {
+                return;
+            }
+            
             var block = this.component('block'),
                 shape = this.component('shape'),
                 label = this.component('label');
@@ -17069,7 +18416,7 @@
     Graph.shape.activity.Final = Graph.extend(Graph.shape.Shape, {
 
         props: {
-            label: 'STOP',
+            label: 'End',
             width: 60,
             height: 60,
             left: 0,
@@ -17077,7 +18424,7 @@
         },
 
         metadata: {
-            name: 'activity.final',
+            type: 'activity.final',
             style: 'graph-shape-activity-final'
         },
 
@@ -17107,12 +18454,14 @@
             pmgr.install('snapper', block);
 
             block.on('edit.shape',      _.bind(this.onLabelEdit, this));
-            block.on('dragstart.shape', _.bind(this.onDragStart, this));
-            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
-            block.on('resize.shape',    _.bind(this.onResize, this));
-            block.on('remove.shape',    _.bind(this.onRemove, this));
+            block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
+            block.on('afterdrag.shape',   _.bind(this.onAfterDrag, this));
+            block.on('afterresize.shape',    _.bind(this.onAfterResize, this));
+            block.on('beforedestroy.shape',    _.bind(this.onBeforeDestroy, this));
+            block.on('afterdestroy.shape',    _.bind(this.onAfterDestroy, this));
             block.on('select.shape',    _.bind(this.onSelect, this));
             block.on('deselect.shape',  _.bind(this.onDeselect, this));
+            block.on('connect.shape', _.bind(this.onConnect, this));
 
             inner = (new Graph.svg.Ellipse(cx, cy, cx - 6, cy - 6))
                 .addClass('comp-inner')
@@ -17135,7 +18484,22 @@
             shape = block = label = inner = null;
         },
 
-        redraw: function() {
+        fill: function(value) {
+            if (value === undefined) {
+                return this.props.value;
+            }
+
+            this.component('inner').elem.css('fill', value);
+            this.props.fill = value;
+
+            return this;
+        },
+
+        refresh: function() {
+            if (this.layout.suspended) {
+                return;
+            }
+
             var block = this.component('block'),
                 shape = this.component('shape'),
                 inner = this.component('inner'),
@@ -17192,7 +18556,7 @@
             return 'Graph.shape.activity.Final';
         },
 
-        onRemove: function() {
+        onAfterDestroy: function() {
             // remove label
             this.component('label').remove();
 
@@ -17207,6 +18571,8 @@
             }
 
             Graph.registry.shape.unregister(this);
+            
+            this.fire('afterdestroy');
         }
 
     });
@@ -17230,7 +18596,7 @@
         },
 
         metadata: {
-            name: 'activity.action',
+            type: 'activity.action',
             icon: Graph.icons.SHAPE_ACTION,
             style: 'graph-shape-activity-action'
         },
@@ -17260,13 +18626,15 @@
             pmgr.install('network', block, {wiring: 'h:v'});
             pmgr.install('snapper', block);
 
-            block.on('edit.shape',      _.bind(this.onLabelEdit, this));
-            block.on('dragstart.shape', _.bind(this.onDragStart, this));
-            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
-            block.on('resize.shape',    _.bind(this.onResize, this));
-            block.on('remove.shape',    _.bind(this.onRemove, this));
-            block.on('select.shape',    _.bind(this.onSelect, this));
-            block.on('deselect.shape',  _.bind(this.onDeselect, this));
+            block.on('edit.shape', _.bind(this.onLabelEdit, this));
+            block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
+            block.on('afterdrag.shape', _.bind(this.onAfterDrag, this));
+            block.on('afterresize.shape', _.bind(this.onAfterResize, this));
+            block.on('beforedestroy.shape', _.bind(this.onBeforeDestroy, this));
+            block.on('afterdestroy.shape', _.bind(this.onAfterDestroy, this));
+            block.on('select.shape', _.bind(this.onSelect, this));
+            block.on('deselect.shape', _.bind(this.onDeselect, this));
+            block.on('connect.shape', _.bind(this.onConnect, this));
 
             label = (new Graph.svg.Text(cx, cy, this.props.label))
                 .addClass(Graph.styles.SHAPE_LABEL)
@@ -17280,8 +18648,12 @@
 
             shape = block = label = null;
         },
-
-        redraw: function() {
+        
+        refresh: function() {
+            if (this.layout.suspended) {
+                return;
+            }
+            
             var block = this.component('block'),
                 shape = this.component('shape'),
                 label = this.component('label');
@@ -17311,11 +18683,13 @@
 
             // update props
 
-            matrix = shape.matrix();
 
+            matrix = shape.matrix();
+            
             this.data({
                 left: matrix.props.e,
                 top: matrix.props.f,
+
                 width: bound.width,
                 height: bound.height
             });
@@ -17324,8 +18698,8 @@
             matrix = null;
         },
 
-        onResize: function() {
-            this.redraw();
+        onAfterResize: function() {
+            this.refresh();
         },
 
         toString: function() {
@@ -17352,7 +18726,7 @@
         },
 
         metadata: {
-            name: 'activity.router',
+            type: 'activity.router',
             icon: Graph.icons.SHAPE_ROUTER,
             style: 'graph-shape-activity-router'
         },
@@ -17390,12 +18764,14 @@
             pmgr.install('snapper', block);
 
             block.on('edit.shape',      _.bind(this.onLabelEdit, this));
-            block.on('dragstart.shape', _.bind(this.onDragStart, this));
-            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
-            block.on('resize.shape',    _.bind(this.onResize, this));
-            block.on('remove.shape',    _.bind(this.onRemove, this));
+            block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
+            block.on('afterdrag.shape',   _.bind(this.onAfterDrag, this));
+            block.on('afterresize.shape',    _.bind(this.onAfterResize, this));
+            block.on('beforedestroy.shape',    _.bind(this.onBeforeDestroy, this));
+            block.on('afterdestroy.shape',    _.bind(this.onAfterDestroy, this));
             block.on('select.shape',    _.bind(this.onSelect, this));
             block.on('deselect.shape',  _.bind(this.onDeselect, this));
+            block.on('connect.shape', _.bind(this.onConnect, this));
 
             label = (new Graph.svg.Text(cx, cy, this.props.label))
                 .addClass(Graph.styles.SHAPE_LABEL)
@@ -17410,7 +18786,52 @@
             shape = block = label = null;
         },
 
-        redraw: function() {
+        width: function(value) {
+            if (value === undefined) {
+                return this.props.width;
+            }
+
+            var box = this.component('block').bbox().toJson(),
+                sx = value / this.props.width,
+                sy = 1,
+                cx = box.x,
+                cy = (box.y + box.y2) / 2,
+                dx = 0,
+                dy = 0;
+
+            this.component('block').resize(sx, sy, cx, cy, dx, dy);
+            this.component().dirty(true);
+
+            this.props.width = value;
+            return this;
+        },
+
+        height: function(value) {
+            if (value === undefined) {
+                return this.props.height;
+            }
+
+            var block = this.component('block'),
+                box = block.bbox().toJson(),
+                sx = 1,
+                sy = value / this.props.height,
+                cx = (box.x + box.x2) / 2,
+                cy = box.y,
+                dx = 0,
+                dy = 0;
+
+            var resize = block.resize(sx, sy, cx, cy, dx, dy);
+            block.fire('afterresize', resize);
+
+            this.props.height = value;
+            return this;
+        },
+
+        refresh: function() {
+            if (this.layout.suspended) {
+                return;
+            }
+
             var block = this.component('block'),
                 shape = this.component('shape'),
                 label = this.component('label');
@@ -17473,51 +18894,123 @@
 (function(){
 
     Graph.shape.activity.Fork = Graph.extend(Graph.shape.Shape, {
-
         props: {
-            width: 100,
-            height: 50,
+            width: 300,
+            height: 15,
             left: 0,
             top: 0
         },
 
         metadata: {
-            name: 'activity.fork',
+            type: 'activity.fork',
             style: 'graph-shape-activity-fork'
         },
 
         initComponent: function() {
-            var me = this, comp = this.components;
+            var comp = this.components,
+                pmgr = this.plugins.manager;
+
             var shape, block, label;
 
-            shape = (new Graph.svg.Group(me.props.left, me.props.top))
+            shape = (new Graph.svg.Group(this.props.left, this.props.top))
                 .selectable(false);
 
+            block = (new Graph.svg.Rect(0, 0, this.props.width, this.props.height, 0))
+                .addClass(Graph.styles.SHAPE_BLOCK)
+                .render(shape);
+
+            block.elem.data(Graph.string.ID_SHAPE, this.guid());
+
+            pmgr.install('dragger', block, {ghost: true});
+            pmgr.install('resizer', block);
+            pmgr.install('snapper', block);
+            pmgr.install('network', block, {
+                wiring: 'v:v', 
+                tuning: false,
+                limitIncoming: 1,
+                limitOutgoing: 0
+            });
+
+            block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
+            block.on('afterdrag.shape',   _.bind(this.onAfterDrag, this));
+            block.on('afterresize.shape',    _.bind(this.onAfterResize, this));
+            block.on('beforedestroy.shape',    _.bind(this.onBeforeDestroy, this));
+            block.on('afterdestroy.shape',    _.bind(this.onAfterDestroy, this));
+            block.on('select.shape',    _.bind(this.onSelect, this));
+            block.on('deselect.shape',  _.bind(this.onDeselect, this));
+            block.on('connect.shape', _.bind(this.onConnect, this));
+            
+            label = (new Graph.svg.Text(0, 0, this.props.label))
+                .addClass(Graph.styles.SHAPE_LABEL)
+                .clickable(false)
+                .selectable(false)
+                .render(shape);
+
+
             comp.shape = shape.guid();
+            comp.block = block.guid();
+            comp.label = label.guid();
+        },
+
+        refresh: function() {
+            if (this.layout.suspended) {
+                return;
+            }
+            
+            var block = this.component('block'),
+                shape = this.component('shape');
+
+            var bound, matrix;
+
+            bound = block.bbox().toJson();
+            matrix = Graph.matrix().translate(bound.x, bound.y);
+
+            shape.matrix().multiply(matrix);
+            shape.attr('transform', shape.matrix().toValue());
+
+            block.attr({
+                x: 0,
+                y: 0
+            });
+
+            block.dirty(true);
+            block.resizable().redraw();
+
+            matrix = shape.matrix();
+
+            this.data({
+                left: matrix.props.e,
+                top: matrix.props.f,
+                width: bound.width,
+                height: bound.height
+            });
+
+            bound  = null;
+            matrix = null;
         },
 
         toString: function() {
-            return 'Graph.shape.activity.Fork';
+            return 'Graph.shape.activity.Join';
         }
-
     });
 
     ///////// STATIC /////////
 
 }());
 
+
 (function(){
 
     Graph.shape.activity.Join = Graph.extend(Graph.shape.Shape, {
         props: {
-            width: 140,
-            height: 12,
+            width: 300,
+            height: 15,
             left: 0,
             top: 0
         },
 
         metadata: {
-            name: 'activity.join',
+            type: 'activity.join',
             style: 'graph-shape-activity-join'
         },
 
@@ -17525,22 +19018,82 @@
             var comp = this.components,
                 pmgr = this.plugins.manager;
 
-            var shape, block, beam, label;
+            var shape, block, label;
 
             shape = (new Graph.svg.Group(this.props.left, this.props.top))
                 .selectable(false);
 
             block = (new Graph.svg.Rect(0, 0, this.props.width, this.props.height, 0))
-                .addClass('block')
+                .addClass(Graph.styles.SHAPE_BLOCK)
                 .render(shape);
 
-            pmgr.install('dragger', block, {ghost: true});
-            pmgr.install('network', block);
+            block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            block.on('dragend', _.bind(this.onDragEnd, this));
+            pmgr.install('dragger', block, {ghost: true});
+            pmgr.install('resizer', block);
+            pmgr.install('snapper', block);
+            pmgr.install('network', block, {
+                wiring: 'v:v', 
+                tuning: false,
+                limitIncoming: 0,
+                limitOutgoing: 1
+            });
+
+            block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
+            block.on('afterdrag.shape',   _.bind(this.onAfterDrag, this));
+            block.on('afterresize.shape',    _.bind(this.onAfterResize, this));
+            block.on('beforedestroy.shape',    _.bind(this.onBeforeDestroy, this));
+            block.on('afterdestroy.shape',    _.bind(this.onAfterDestroy, this));
+            block.on('select.shape',    _.bind(this.onSelect, this));
+            block.on('deselect.shape',  _.bind(this.onDeselect, this));
+            block.on('connect.shape', _.bind(this.onConnect, this));
             
+            label = (new Graph.svg.Text(0, 0, this.props.label))
+                .addClass(Graph.styles.SHAPE_LABEL)
+                .clickable(false)
+                .selectable(false)
+                .render(shape);
+
             comp.shape = shape.guid();
             comp.block = block.guid();
+            comp.label = label.guid();
+        },
+
+        refresh: function() {
+            if (this.layout.suspended) {
+                return;
+            }
+            
+            var block = this.component('block'),
+                shape = this.component('shape');
+
+            var bound, matrix;
+
+            bound = block.bbox().toJson();
+            matrix = Graph.matrix().translate(bound.x, bound.y);
+
+            shape.matrix().multiply(matrix);
+            shape.attr('transform', shape.matrix().toValue());
+
+            block.attr({
+                x: 0,
+                y: 0
+            });
+
+            block.dirty(true);
+            block.resizable().redraw();
+
+            matrix = shape.matrix();
+
+            this.data({
+                left: matrix.props.e,
+                top: matrix.props.f,
+                width: bound.width,
+                height: bound.height
+            });
+
+            bound  = null;
+            matrix = null;
         },
 
         toString: function() {
@@ -17578,8 +19131,10 @@
 
         transfer: null,
 
+        resizing: null,
+
         metadata: {
-            name: 'activity.lane',
+            type: 'activity.lane',
             icon: Graph.icons.SHAPE_LANE,
             style: 'graph-shape-activity-lane'
         },
@@ -17662,13 +19217,17 @@
                 .addClass(Graph.styles.SHAPE_BLOCK)
                 .render(shape);
 
-            pmgr.install('resizer', block, {minWidth: 200, minHeight: 100});
-            pmgr.install('dragger', block, {ghost: true, batchSync: false});
+            block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            block.on('dragstart.shape', _.bind(this.onDragStart, this));
-            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
-            block.on('resize.shape',    _.bind(this.onResize, this));
-            block.on('remove.shape',    _.bind(this.onRemove, this));
+            pmgr.install('resizer', block, {restriction: { width: 200, height: 100 }});
+            pmgr.install('dragger', block, {ghost: true, batchSync: false, dragClass: Graph.styles.SHAPE_DRAG});
+
+            block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
+            block.on('afterdrag.shape',   _.bind(this.onAfterDrag, this));
+            block.on('beforeresize.shape', _.bind(this.onBeforeResize, this));
+            block.on('afterresize.shape',    _.bind(this.onAfterResize, this));
+            block.on('beforedestroy.shape',    _.bind(this.onBeforeDestroy, this));
+            block.on('afterdestroy.shape',    _.bind(this.onAfterDestroy, this));
             block.on('select.shape',    _.bind(this.onSelect, this));
             block.on('deselect.shape',  _.bind(this.onDeselect, this));
 
@@ -17679,7 +19238,11 @@
 
             header.data('text', this.props.label);
 
-            pmgr.install('editor', header, {width: 200, height: 100});
+            pmgr.install('editor', header, {
+                width: 200, 
+                height: 100,
+                offset: 'pointer'
+            });
 
             header.on('edit.shape', _.bind(this.onLabelEdit, this));
 
@@ -17725,9 +19288,10 @@
                 overlap: .2
             })
             .on('dragenter', function laneDragEnter(e){
-                var vector, shape, batch;
+                var poolGuid = me.pool().guid,
+                    laneGuid = me.guid();
 
-                comp.addClass('receiving');
+                var vector, shape, batch;
 
                 if ( ! me.transfer) {
                     vector = Graph.registry.vector.get(e.relatedTarget);
@@ -17737,17 +19301,27 @@
                         shape = Graph.registry.shape.get(vector);
 
                         if (shape) {
+
+                            if (
+                                (shape.guid() == laneGuid) || 
+                                (shape.is('activity.lane') && shape.pool().guid == poolGuid)
+                            ) {
+                                return;
+                            }
+
                             me.transfer = {
                                 shape: shape,
                                 batch: []
                             };
 
-                            me.transfer.shape.on('dragend', onTransferEnd);
+                            me.transfer.shape.on('afterdrag', onTransferEnd);
                             me.transfer.batch = [shape];
 
-                            if (vector.lasso) {
-                                batch = vector.lasso.collection.slice();
+                            var collector = vector.collector();
 
+                            if (collector) {
+                                batch = collector.collection.toArray().slice();
+                                
                                 _.forEach(batch, function(v){
                                     var s = Graph.registry.shape.get(v);
                                     if (s && s.guid() != shape.guid()) {
@@ -17759,6 +19333,10 @@
                             }
                         }
                     }
+                }
+
+                if (me.transfer) {
+                    comp.addClass('receiving');
                 }
             })
             .on('dragleave', function laneDragLeave(e){
@@ -17772,16 +19350,30 @@
                         clearTimeout(delay);
                         delay = null;
 
-                        var placeTarget = me.component('child');
+                        // takeout lane from batch
+                        var appended = [],
+                            lanes = [],
+                            poolGuid = me.pool().guid,
+                            laneGuid = me.guid();
 
                         _.forEach(me.transfer.batch, function(shape){
-                            var shapeComponent = shape.component();
-
-                            shapeComponent.relocate(placeTarget);
-                            me.addChild(shape);
+                            if (shape.is('activity.lane')) {
+                                if (shape.guid() != laneGuid && shape.pool().guid != poolGuid) {
+                                    lanes.push(shape);
+                                }
+                            } else {
+                                appended.push(shape);
+                            }
                         });
 
-                        me.autoResize();
+                        if (appended.length) {
+                            me.addChild(appended);
+                        }
+
+                        if (lanes.length) {
+                            me.addSiblingBellow(lanes);
+                        }
+
                     }, 0);
 
                 }
@@ -17801,7 +19393,7 @@
                     clearTimeout(delay);
                     delay = null;
 
-                    me.transfer.shape.off('dragend', onTransferEnd);
+                    me.transfer.shape.off('afterdrag', onTransferEnd);
                     me.transfer = null;
 
                 }, 0);
@@ -17822,6 +19414,7 @@
 
             // save
             this.tree.paper = paper.guid();
+            Graph.registry.shape.setContext(this.guid(), paper.guid());
         },
 
         sendToBack: function() {
@@ -17832,9 +19425,14 @@
             this.pool().bringToFront(this);
         },
 
-        redraw: function() {
+        refresh: function() {
+            if (this.layout.suspended) {
+                return;
+            }
+
             var block = this.component('block'),
                 shape = this.component('shape'),
+                child = this.component('child'),
                 header = this.component('header'),
                 label = this.component('label');
 
@@ -17846,6 +19444,7 @@
             shape.matrix().multiply(matrix);
             shape.attr('transform', shape.matrix().toValue());
             shape.dirty(true);
+            child.dirty(true);
 
             block.attr({
                 x: 0,
@@ -17914,7 +19513,7 @@
                     }
                 }
 
-                this.redraw();
+                this.refresh();
 
             } else if (value !== undefined) {
                 block = this.component('block');
@@ -17923,14 +19522,108 @@
                     block.attr(maps[name], value);
                 }
 
-                this.redraw();
+                this.refresh();
             }
 
             return result;
         },
 
-        addSiblingAbove: function() {
-            var sibling = new Graph.shape.activity.Lane(),
+        height: function(value) {
+            if (value !== undefined) {
+                var childBox = this.component('child').bbox().toJson();
+                value = Math.max(value, (childBox.y + childBox.height + 20));    
+            }
+
+            return this.superclass.prototype.height.call(this, value);
+        },
+
+        width: function(value) {
+            if (value !== undefined) {
+                var childBox = this.component('child').bbox().toJson();
+                value = Math.max(value, (childBox.x + childBox.width + 20));
+            }
+
+            return this.superclass.prototype.width.call(this, value);
+        },
+
+        stroke: function(value) {
+            var result = this.superclass.prototype.stroke.call(this, value);
+            if (value !== undefined) {
+                this.component('header').elem.css('stroke', this.props.stroke);
+            }
+            return result;
+        },
+
+        addChild: function(child, redraw) {
+            this.superclass.prototype.addChild.call(this, child, redraw);
+            this.pool().invalidate();
+        },
+
+        removeChild: function(child) {
+            this.superclass.prototype.removeChild.call(this, child);
+            this.pool().invalidate();
+        },
+
+        addSiblingBellow: function(lanes) {
+            if ( ! _.isArray(lanes)) {
+                lanes = [lanes];
+            }
+
+            var pool = this.pool(),
+                height = _.reduce(
+                    _.map(lanes, function(lane){
+                        return lane.height();
+                    }),
+                    function(result, curr) {
+                        return result + curr;
+                    },
+                    0
+                ),
+                offsetWidth = this.width(),
+                offsetLeft = this.left(),
+                offsetTop = (this.top() + this.height());
+
+            pool.createSpaceBellow(this, height);
+
+            _.forEach(lanes, function(lane){
+
+                var boxBefore = lane.component().bboxView().clone().toJson();
+                var boxAfter, dx, dy;
+
+                lane.component().reset();
+
+                lane.attr({
+                    width: offsetWidth,
+                    left: offsetLeft,
+                    top: offsetTop
+                });
+
+                height = lane.height();
+                offsetTop += height;
+                
+                lane.tree.pool = pool;
+                pool.insert(lane);
+
+                lane.children().each(function(c){
+                    var netcom = c.connectable().component();
+                    netcom && (netcom.dirty(true));
+                });
+
+                boxAfter = lane.component().bboxView().toJson();
+
+                dx = boxAfter.x - boxBefore.x;
+                dy = boxAfter.y - boxBefore.y;
+
+                pool.relocateLinks(dx, dy, lane);
+                
+            });
+
+            pool.invalidate();
+            
+        },
+
+        createSiblingAbove: function(options) {
+            var sibling = new Graph.shape.activity.Lane(options),
                 paper = this.paper(),
                 pool = this.pool();
 
@@ -17953,13 +19646,14 @@
 
             if (result !== undefined) {
                 sibling.render(paper, 'before', this.component());
+                pool.invalidate();
             }
 
             return sibling;
         },
 
-        addSiblingBellow: function() {
-            var sibling = new Graph.shape.activity.Lane(),
+        createSiblingBellow: function(options) {
+            var sibling = new Graph.shape.activity.Lane(options),
                 paper = this.paper(),
                 pool = this.pool();
 
@@ -17982,6 +19676,7 @@
 
             if (result !== undefined) {
                 sibling.render(paper, 'after', this.component());
+                pool.invalidate();
             }
 
             return sibling;
@@ -17999,38 +19694,29 @@
             var bbox = this.bbox().toJson(),
                 actualBBox = shapeComponent.bbox().toJson(),
                 blockComponent = this.component('block'),
-                childComponent = this.component('child'),
-
-                offset = {
+                padding = {
                     top: 20,
                     bottom: 20,
                     left: 40,
                     right: 20
-                },
-
-                padding = {
-                    top: 0,
-                    bottom: 0,
-                    left: 0,
-                    right: 0
                 };
 
             var bounds = _.extend({}, bbox);
 
-            if (actualBBox.y - bbox.y < padding.top) {
-                bounds.y = actualBBox.y - offset.top;
+            if (actualBBox.y + padding.top - bbox.y < padding.top) {
+                bounds.y = actualBBox.y - padding.top;
             }
 
-            if (actualBBox.x - bbox.x < padding.left) {
-                bounds.x = actualBBox.x - offset.left;
+            if (actualBBox.x + padding.left - bbox.x < padding.left) {
+                bounds.x = actualBBox.x - padding.left;
             }
 
-            if ((bbox.x + bbox.width) - (actualBBox.x + actualBBox.width) < padding.right) {
-                bounds.x2 = (actualBBox.x + actualBBox.width) + offset.right;
+            if (bbox.x2 - actualBBox.x2 + padding.right < padding.right) {
+                bounds.x2 = actualBBox.x2 + padding.right;
             }
 
-            if ((bbox.y + bbox.height) - (actualBBox.y + actualBBox.height) < padding.bottom) {
-                bounds.y2 = (actualBBox.y + actualBBox.height) + offset.bottom;
+            if (bbox.y2 - actualBBox.y2 + padding.bottom < padding.bottom) {
+                bounds.y2 = actualBBox.y2 + padding.bottom;
             }
 
             var dx = bounds.x - bbox.x,
@@ -18039,49 +19725,62 @@
             var width = bounds.x2 - bounds.x,
                 height = bounds.y2 - bounds.y;
 
-            // preserver child component
-            childComponent.translate(Math.abs(dx), Math.abs(dy)).commit();
+            var pool = this.pool(),
+                curr = this.guid(),
+                lanes = pool.populateChildren(),
+                childOffsets = {};
+
+            lanes.each(function(lane){
+                var childBox = lane.component('child').bboxView().toJson();
+                childOffsets[lane.guid()] = {
+                    x: childBox.x,
+                    y: childBox.y
+                };
+            });
 
             this.translate(dx, dy);
-            // this.pool().translateBy(this, dx, dy);
 
             this.attr({
                 width: width,
                 height: height
             });
 
-            this.pool().resizeBy(this);
-        },
+            pool.resizeBy(this);
 
-        redrawChildren: function() {
-            var pool = this.pool(),
-                lanes = pool.children().toArray(),
-                children = [];
+            lanes.each(function(lane){
+                var child = lane.component('child'),
+                    childBox = child.bboxView().toJson(),
+                    offset = childOffsets[lane.guid()]
 
-            _.forEach(lanes, function(lane){
-                var laneChild = lane.children().toArray();
-                // repair links
-                _.forEach(laneChild, function(shape){
-                    var connectable = shape.connectable(),
-                        snappable = shape.snappable();
+                if (offset) {
+                    var dx = offset.x - childBox.x,
+                        dy = offset.y - childBox.y;
 
-                    connectable.plugin().repairLinks();
-                    snappable.plugin().repairClient(snappable.component());
-                });
-                // children = _.concat(children, laneChild);
+                    child.translate(dx, dy).commit();
+                }
+
             });
 
-            // TODO: redraw links if any
-
-
-            // TODO: redraw snapper if exists
         },
 
         toString: function() {
             return 'Graph.shape.activity.Lane';
         },
 
-        onRemove: function() {
+        onAfterDestroy: function() {
+            var me = this, guid = this.guid();
+
+            me.cascade(function(shape){
+                if (shape.guid() != guid) {
+                    shape.remove();
+                }
+            });
+
+            this.pool().remove(this);
+
+            // remove child
+            this.component('child').remove();
+
             // remove label
             this.component('label').remove();
 
@@ -18096,13 +19795,30 @@
             }
 
             Graph.registry.shape.unregister(this);
+            this.fire('afterdestroy');
         },
 
-        onSelect: function() {
-            this.superclass.prototype.onSelect.call(this, arguments);
+        onChildConnect: function(e) {
+            var sourceParent = e.source.parent(),
+                targetParent = e.target.parent();
 
-            var me = this,
-                guid = me.guid();
+            if (sourceParent && targetParent) {
+                var sourcePool = sourceParent.pool(),
+                    targetPool = targetParent.pool();
+
+                if (sourcePool.guid != targetPool.guid) {
+                    e.link.type('message');
+                }
+            }
+        },
+
+        onChildBeforeDestroy: function(e) {
+            this.superclass.prototype.onChildBeforeDestroy.call(this, e);
+            this.pool().invalidate();
+        },
+
+        onSelect: function(e) {
+            var me = this, guid = me.guid();
 
             var delay = _.delay(function(){
 
@@ -18111,21 +19827,62 @@
 
                 me.cascade(function(curr){
                     if (curr.guid() != guid) {
-                        var vector = curr.draggable().component();
-                        if (vector && vector.lasso) {
-                            vector.lasso.decollect(vector);
+                        var vector, network;
+
+                        // deselect shape
+                        vector = curr.draggable().component();
+
+                        if (vector) {
+                            vector.deselect();
                         }
+
+                        // deselect links
+                        network = curr.connectable().plugin();
+
+                        if (network) {
+                            var connections = network.connections();
+                            _.forEach(connections, function(conn){
+                                conn.link.deselect();
+                            });
+                        }
+                        
                     }
                 });
 
-            }, 0)
+                me.component('shape').addClass('shape-selected');
+                Graph.topic.publish('shape:select', {shape: me});
 
+            }, 0);
         },
 
-        onDragEnd: function(e) {
+        onBeforeDrag: function(e) {
+            this.component().addClass('shape-dragging');
+
+            if (e.master) {
+
+                this.paper().diagram().capture();
+
+                var links = this.pool().populateLinks();
+                var link, key;
+
+                for (key in links.isolated) {
+                    link = links.isolated[key].link;
+                    link.deselect();
+                }
+
+                for (key in links.separated) {
+                    link = links.separated[key].link;
+                    link.deselect();
+                }
+
+            }
+        },
+
+        onAfterDrag: function(e) {
             if (e.master) {
                 var blockComponent = this.component('block'),
                     shapeComponent = this.component('shape'),
+                    childComponent = this.component('child'),
                     blockMatrix = blockComponent.matrix(),
                     pool = this.pool();
 
@@ -18136,6 +19893,7 @@
                 shapeComponent.matrix().multiply(blockMatrix);
                 shapeComponent.attr('transform', shapeComponent.matrix().toValue());
                 shapeComponent.dirty(true);
+                childComponent.dirty(true);
 
                 // update props
                 shapeMatrix = shapeComponent.matrix();
@@ -18150,24 +19908,148 @@
                 shapeComponent.removeClass('shape-dragging');
 
                 // sync other
-                pool.translateBy(this, e.dx, e.dy);
+                pool.relocateSiblings(this, e.dx, e.dy);
+                pool.refreshContents();
 
-                this.redrawChildren();
+                // sync links
+                pool.relocateLinks(e.dx, e.dy);
+                pool.refreshChildren();
             }
 
         },
 
-        onResize: function(e) {
-            this.superclass.prototype.onResize.call(this, e);
-            this.pool().resizeBy(this);
+        onBeforeResize: function(e){
+            this.resizing = {
+                childOffsets: {}
+            };
+
+            // set resize restriction
+            // calculate max children bound for all lanes
+            var bounds = this.component('child').bboxView().toJson(),
+                lanes = this.pool().populateChildren(),
+                resizing = this.resizing;
+
+            lanes.each(function(lane){
+                var laneChildComponent = lane.component('child'),
+                    laneChildBox = laneChildComponent.bboxView().toJson();
+
+                resizing.childOffsets[lane.guid()] = {
+                    x: laneChildBox.x,
+                    y: laneChildBox.y
+                };
+
+                if (laneChildBox.x < bounds.x) {
+                    bounds.x = laneChildBox.x;
+                }
+
+                if (bounds.x2 < laneChildBox.x2) {
+                    bounds.x2 = laneChildBox.x2;
+                }
+
+            });
+
+            var resizer = e.resizer,
+                direction = e.direction,
+                origin = {
+                    x: bounds.x, 
+                    y: bounds.y
+                },
+                padding = {
+                    top: 10,
+                    left: 40,
+                    right: 10,
+                    bottom: 10
+                };
+
+            switch(direction) {
+                case 'n':
+                    origin.x = (bounds.x + bounds.x2) / 2;
+                    origin.y = bounds.y2 - padding.bottom;
+                    break;
+                case 'e':
+                    origin.x = bounds.x + padding.right;
+                    origin.y = (bounds.y + bounds.y2) / 2;
+                    break;
+                case 's':
+                    origin.x = (bounds.x + bounds.x2) / 2;
+                    origin.y = bounds.y + padding.top;
+                    break;
+                case 'w':
+                    origin.x = bounds.x2 - padding.left;
+                    origin.y = (bounds.y + bounds.y2) / 2;
+                    break;
+                case 'ne':
+                    origin.x = bounds.x + padding.right;
+                    origin.y = bounds.y2 - padding.bottom;
+                    break;
+                case 'se':
+                    origin.x = bounds.x + padding.right;
+                    origin.y = bounds.y + padding.top;
+                    break;
+                case 'sw':
+                    origin.x = bounds.x2 - padding.left;
+                    origin.y = bounds.y + padding.top;
+                    break;
+                case 'nw':
+                    origin.x = bounds.x2 - padding.left;
+                    origin.y = bounds.y2 - padding.bottom;
+                    break;
+            }
+
+            var width = bounds.x2 - bounds.x,
+                height = bounds.y2 - bounds.y;
+
+            if (width <= 0) {
+                width = 200;
+            }
+
+            if (height <= 0) {
+                height = 100;
+            }
+
+            resizer.restrict({
+                width: width,
+                height: height,
+                origin: origin
+            });
+
+        },
+
+        onAfterResize: function(e) {
+            this.superclass.prototype.onAfterResize.call(this, e);
+
+            var pool = this.pool();
+            pool.resizeBy(this);
+
+            if (this.resizing) {
+                var lanes = pool.populateChildren(),
+                    resizing = this.resizing;
+
+                lanes.each(function(lane){
+                    var child = lane.component('child'),
+                        childBox = child.bboxView().toJson(),
+                        offset = resizing.childOffsets[lane.guid()];
+
+                    if (offset) {
+                        var dx = offset.x - childBox.x,
+                            dy = offset.y - childBox.y;
+
+                        child.translate(dx, dy).commit();
+                    }
+
+                });
+
+                this.resizing = resizing = null;
+            }
+
         },
 
         onAboveToolClick: function(e) {
-            this.addSiblingAbove();
+            this.createSiblingAbove();
         },
 
         onBelowToolClick: function(e) {
-            this.addSiblingBellow();
+            this.createSiblingBellow();
         },
 
         onUpToolClick: function(e) {
@@ -18193,21 +20075,27 @@
 
     var Pool = Graph.shape.activity.Pool = function() {
         this.guid = 'pool-' + (++Pool.guid);
-        
+
         // tree nodes
         this.lanes = (new Graph.collection.Tree([]))
-            .keygen(function(lane){ 
+            .keygen(function(lane){
                 return lane.bbox.y;
                 // return (lane.bbox.y + (1e-9 * lane.bbox.x));
             });
-        
-        // raw nodes
-        this.cached = {};
+
+        this.cached = {
+            nodes: {},
+            contents: null
+        };
     };
 
-    Pool.prototype.children = function() {
+    Pool.prototype.invalidate = function() {
+        this.cached.contents = null;
+    };
+
+    Pool.prototype.populateChildren = function() {
         var children = [];
-        
+
         _.forEach(this.lanes.toArray(), function(node){
             var lane = Graph.registry.shape.get(node.lane);
             children.push(lane);
@@ -18218,9 +20106,9 @@
 
     Pool.prototype.bbox = function() {
         var nodes = this.lanes.toArray(),
-             x = [], 
-             y = [], 
-            x2 = [], 
+             x = [],
+             y = [],
+            x2 = [],
             y2 = [];
 
         var bbox;
@@ -18251,7 +20139,7 @@
             height: y2 - y
         });
     };
-    
+
     Pool.prototype.get = function(index) {
         var data = this.lanes.get(index);
         if (data) {
@@ -18263,35 +20151,32 @@
     Pool.prototype.prev = function(lane) {
         var index = this.index(lane),
             prev = this.lanes.get(index - 1);
-            
+
         if (prev) {
             return Graph.registry.shape.get(prev.lane);
         }
-        
-        return null;
-    };
-    
-    Pool.prototype.last = function() {
-        var index = this.count() - 1,
-            last = this.lanes.get(index);
-            
-        if (last) {
-            return Graph.registry.shape.get(last.lane);
-        }
-        
+
         return null;
     };
 
-    Pool.prototype.refresh = function(lane) {
-        console.log(lane);
+    Pool.prototype.last = function() {
+        var index = this.size() - 1,
+            last = this.lanes.get(index);
+
+        if (last) {
+            return Graph.registry.shape.get(last.lane);
+        }
+
+        return null;
     };
-    
+
     /**
      * Create new space
      */
     Pool.prototype.createSpaceAbove = function(lane, height) {
         var laneIndex = this.index(lane),
-            prev = this.lanes.get(laneIndex - 1);
+            prev = this.lanes.get(laneIndex - 1),
+            me = this;
 
         if (prev) {
             this.lanes.bubble(prev, function(curr){
@@ -18299,14 +20184,23 @@
                 if (shape) {
                     shape.translate(0, -height);
                     curr.bbox = shape.bbox().toJson();
+
+                    shape.children().each(function(c){
+                        var comnet = c.connectable().component();
+                        comnet && (comnet.dirty(true));
+                    });
+
+                    me.relocateLinks(0, -height, shape);
                 }
             });
+            this.lanes.order();
         }
     };
-    
+
     Pool.prototype.createSpaceBellow = function(lane, height) {
         var laneIndex = this.index(lane),
-            next = this.lanes.get(laneIndex + 1);
+            next = this.lanes.get(laneIndex + 1),
+            me = this;
 
         if (next) {
             this.lanes.cascade(next, function(curr){
@@ -18314,15 +20208,23 @@
                 if (shape) {
                     shape.translate(0, height);
                     curr.bbox = shape.bbox().toJson();
+
+                    shape.children().each(function(c){
+                        var comnet = c.connectable().component();
+                        comnet && (comnet.dirty(true));
+                    });
+
+                    me.relocateLinks(0, height, shape);
                 }
             });
+            this.lanes.order();
         }
     };
-    
-    Pool.prototype.translateBy = function(lane, dx, dy) {
+
+    Pool.prototype.relocateSiblings = function(lane, dx, dy) {
         var root = this.lanes.root(),
             guid = lane.guid();
-        
+
         if (root) {
             this.lanes.cascade(root, function(curr){
                 if (curr.lane == guid) {
@@ -18343,7 +20245,7 @@
             bbox = lane.bbox().toJson(),
             root = this.lanes.root(),
             index = this.index(lane);
-            
+
         if (root) {
 
             // sample
@@ -18374,14 +20276,14 @@
                 } else {
                     var shape = Graph.registry.shape.get(curr.lane);
                     if (shape) {
-                        
+
                         var group = shape.component(),
                             block = shape.component('block');
-                        
+
                         // up
                         if (index > i) {
                             shape.translate(dx1, dy1);
-                        } 
+                        }
                         // down
                         else if (index < i) {
                             shape.translate(dx2, dy2);
@@ -18392,8 +20294,7 @@
                         });
 
                         block.dirty(true);
-
-                        shape.redraw();
+                        shape.refresh();
 
                         curr.bbox = shape.bbox().toJson();
                     }
@@ -18407,7 +20308,7 @@
     Pool.prototype.bringToFront = function(lane) {
         var sets = Graph.$('[data-pool="' + this.guid + '"]'),
             last = sets.last();
-        
+
         if (last.length()) {
             if (last.node() != lane.component().node()) {
                 last.after(lane.component().elem);
@@ -18429,7 +20330,7 @@
                 dy1 = prevBox.y - laneBox.y,
                 dx2 = 0,
                 dy2 = laneBox.height;
-            
+
             laneNode.bbox.y  += dy1;
             laneNode.bbox.y2 += dy1;
 
@@ -18440,6 +20341,19 @@
             prev.translate(dx2, dy2);
 
             this.lanes.order();
+
+            lane.children().each(function(c){
+                var comnet = c.connectable().component();
+                comnet && (comnet.dirty(true));
+            });
+
+            prev.children().each(function(c){
+                var comnet = c.connectable().component();
+                comnet && (comnet.dirty(true));
+            });
+
+            this.relocateLinks(dx1, dy1, lane);
+            this.relocateLinks(dx2, dy2, prev);
         }
     };
 
@@ -18457,7 +20371,7 @@
                 dy1 = nextBox.height,
                 dx2 = 0,
                 dy2 = laneBox.y - nextBox.y;
-            
+
             laneNode.bbox.y  += dy1;
             laneNode.bbox.y2 += dy1;
 
@@ -18468,63 +20382,380 @@
             next.translate(dx2, dy2);
 
             this.lanes.order();
+
+            lane.children().each(function(c){
+                var comnet = c.connectable().component();
+                comnet && (comnet.dirty(true));
+            });
+
+            next.children().each(function(c){
+                var comnet = c.connectable().component();
+                comnet && (comnet.dirty(true));
+            });
+
+            this.relocateLinks(dx1, dy1, lane);
+            this.relocateLinks(dx2, dy2, next);
         }
     };
 
-    Pool.prototype.count = function() {
-        return this.lanes.count();
+    Pool.prototype.refreshChildren = function() {
+        var children = this.populateChildren();
+
+        children.each(function(lane){
+            lane.component('child').dirty(true);
+        });
     };
-    
+
+    /**
+     * Populate lanes children
+     */
+    Pool.prototype.populateContents = function(lane) {
+        var contents;
+        if (lane !== undefined) {
+            contents = new Graph.collection.Shape(lane.children().toArray());
+        } else {
+            contents = this.cached.contents;
+            if ( ! contents) {
+                contents = [];
+                _.forEach(this.lanes.toArray(), function(node){
+                    var lane = Graph.registry.shape.get(node.lane);
+                    if (lane) {
+                        contents = _.concat(contents, lane.children().toArray());
+                    }
+                });
+
+                contents = new Graph.collection.Shape(contents);
+                this.cached.contents = contents;
+            }    
+        }
+
+        return contents;
+    };
+
+    Pool.prototype.refreshContents = function() {
+        var contents = this.populateContents();
+
+        contents.each(function(shape){
+            var connectableBlock = shape.connectable().component();
+            if (connectableBlock) {
+                connectableBlock.dirty(true);
+            }
+        });
+    };
+
+    Pool.prototype.populateLinks = function(lane) {
+        var me = this, 
+            contents = me.populateContents(lane),
+            contentKeys = contents.keys(),
+            result = {
+                isolated: {},
+                separated: {}
+            };
+
+        contents.each(function(shape){
+            var network = shape.connectable().plugin(),
+                connections = (network && network.connections()) || [];
+
+            var pairVector, pairShape;
+
+            _.forEach(connections, function(conn){
+                pairVector = Graph.registry.vector.get((conn.type == 'incoming' ? conn.source : conn.target));
+                if (pairVector) {
+                    pairShape = Graph.registry.shape.get(pairVector);
+                    if (pairShape) {
+                        if (_.indexOf(contentKeys, pairShape.guid()) > -1) {
+                            if ( ! result.isolated[conn.guid]) {
+                                result.isolated[conn.guid] = conn;
+                            }
+                        } else {
+                            if ( ! result.separated[conn.guid]) {
+                                result.separated[conn.guid] = conn;
+                            }
+                        }
+                    }
+                }
+            });
+        });
+
+        return result;
+    };
+
+    Pool.prototype.relocateLinks = function(dx, dy, lane) {
+        var links = this.populateLinks(lane);
+        var key, conn, router;
+        
+        for (key in links.isolated) {
+            conn = links.isolated[key];
+            conn.link.invalidate('convex');
+            conn.link.relocate(dx, dy);
+        }
+        
+        for (key in links.separated) {
+            conn = links.separated[key];
+            conn.link.invalidate('convex');
+            
+            if (conn.type == 'incoming') {
+                conn.link.relocateHead(dx, dy);
+            } else {
+                conn.link.invalidate('convex');
+                conn.link.relocateTail(dx, dy);
+            }
+        }
+        
+        links = null;
+    };
+
+
+    Pool.prototype.size = function() {
+        return this.lanes.size();
+    };
+
     Pool.prototype.insert = function(lane) {
         var guid = lane.guid();
         var node, index;
-        
+
         node = {
             lane: guid,
             bbox: lane.bbox().toJson()
         };
-        
+
         index = this.lanes.insert(node);
-        
+
         if (index !== undefined) {
-            this.cached[guid] = node;
+            this.cached.nodes[guid] = node;
             lane.component().elem.attr('data-pool', this.guid);
         }
-        
+
         node = null;
         return index;
     };
 
     Pool.prototype.remove = function(lane) {
         var guid = lane.guid(),
-            node = this.cached[guid];
-        
+            node = this.cached.nodes[guid];
+
         var index = this.lanes.remove(node);
         
         if (index !== undefined) {
-            delete this.cached[guid];
+            // shrink pool (direction: up)
+            var prev = this.lanes.get(index - 1),
+                next = this.lanes.get(index),
+                me = this;
+            
+            if (next) {
+                var dx = 0,
+                    dy = -node.bbox.height;
+
+                this.lanes.cascade(next, function(node){
+                    var lane = Graph.registry.shape.get(node.lane);
+                    if (lane) {
+                        lane.translate(dx, dy);
+                        node.bbox = lane.bbox().toJson();
+
+                        lane.children().each(function(c){
+                            var comnet = c.connectable().component();
+                            comnet && (comnet.dirty(true));
+                        });
+
+                        me.relocateLinks(dx, dy, lane);
+                    }
+                });
+
+                this.lanes.order();
+            }
+
+            delete this.cached.nodes[guid];
         }
-        
+
         node = null;
-        
+
         return index;
     };
 
     Pool.prototype.index = function(lane) {
         var guid = lane.guid(),
-            node = this.cached[guid];
-        
+            node = this.cached.nodes[guid];
+
         var index = this.lanes.index(node);
-        
+
         node = null;
-        
+
         return index;
     };
-    
+
     ///////// STATIC /////////
-    
+
     Pool.guid = 0;
-    
+
+}());
+
+
+(function(){
+
+    Graph.shape.common.Label = Graph.extend(Graph.shape.Shape, {
+        props: {
+            label: 'untitled',
+            align: 'left',
+            fontSize: 16,
+            lineHeight: 1.1
+        },
+        metadata: {
+            name: 'common.label',
+            icon: 'ion-android-create'
+        },
+        initComponent: function() {
+            var pmgr = this.plugins.manager;
+            var shape, block, label;
+
+            shape = (new Graph.svg.Group(this.props.left, this.props.top))
+                .selectable(false);
+
+            block = (new Graph.svg.Rect(0, 0, 0, 0, 0))
+                .data('text', this.props.label)
+                .render(shape);
+
+            block.style({
+                fill: 'rgba(255,255,255,0)',
+                'stroke-width': 0
+            });
+
+            block.elem.data(Graph.string.ID_SHAPE, this.guid());
+
+            pmgr.install('dragger', block, {dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('editor', block, {width: 300, height: 75, align: 'left', offset: 'pointer'});
+
+            block.on('edit.shape', _.bind(this.onLabelEdit, this));
+            block.on('afterdrag.shape', _.bind(this.onAfterDrag, this));
+            block.on('select.shape', _.bind(this.onSelect, this));
+            block.on('deselect.shape', _.bind(this.onDeselect, this));
+            block.on('beforedestroy.shape',    _.bind(this.onBeforeDestroy, this));
+            block.on('afterdestroy.shape',    _.bind(this.onAfterDestroy, this));
+
+            label = (new Graph.svg.Text(0, (this.props.lineHeight * this.props.fontSize) , this.props.label))
+                .attr('font-size', this.props.fontSize)
+                .attr('text-anchor', this.props.align)
+                .clickable(false)
+                .selectable(false)
+                .render(shape);
+
+            label.on('render.shape', _.bind(this.onLabelRender, this));
+
+            _.assign(this.components, {
+                shape: shape.guid(),
+                block: block.guid(),
+                label: label.guid()
+            });
+        },
+
+        initMetadata: function() {
+            this.metadata.tools = [
+                {
+                    name: 'sendtofront',
+                    icon: Graph.icons.SEND_TO_FRONT,
+                    title: Graph._('Send to front'),
+                    enabled: true,
+                    handler: _.bind(this.onFrontToolClick, this)
+                },
+                {
+                    name: 'sendtoback',
+                    icon: Graph.icons.SEND_TO_BACK,
+                    title: Graph._('Send to back'),
+                    enabled: true,
+                    handler: _.bind(this.onBackToolClick, this)
+                },
+                {
+                    name: 'trash',
+                    icon: Graph.icons.TRASH,
+                    title: Graph._('Click to remove shape'),
+                    enabled: true,
+                    handler: _.bind(this.onTrashToolClick, this)
+                }
+            ];
+        },
+
+        refresh: _.debounce(function() {
+            if (this.layout.suspended) {
+                return;
+            }
+
+            var label = this.component('label'),
+                block = this.component('block');
+
+            label.write(this.props.label);
+            label.dirty(true);
+            
+            var labelBox = label.bbox().toJson();
+
+            block.attr({
+                width: labelBox.width
+            });
+
+            block.dirty(true);
+            
+        }, 1),
+
+        onLabelRender: function() {
+            var label = this.component('label'),
+                block = this.component('block'),
+                labelBox = label.bbox().toJson();
+
+            block.attr({
+                width: labelBox.width,
+                height: labelBox.height
+            });
+        },
+
+        onLabelEdit: function(e) {
+            var text = e.text;
+
+            if (text) {
+                this.component('label').props.text = text;
+                this.props.label = text;
+                this.refresh();    
+            } else {
+                this.remove();
+            }
+        },
+
+        onAfterDrag: function(e) {
+            var blockComponent = this.component('block'),
+                shapeComponent = this.component('shape'),
+                blockMatrix = blockComponent.matrix();
+
+            var shapeMatrix;
+
+            blockComponent.reset();
+
+            shapeComponent.matrix().multiply(blockMatrix);
+            shapeComponent.attr('transform', shapeComponent.matrix().toValue());
+            shapeComponent.dirty(true);
+
+            shapeMatrix = shapeComponent.matrix();
+
+            this.data({
+                left: shapeMatrix.props.e,
+                top: shapeMatrix.props.f
+            });
+
+            this.fire(e);
+            shapeComponent.removeClass('shape-dragging');
+        },
+
+        onSelect: function(e) {
+            this.component().addClass('label-selected');
+            if (e.initial) {
+                Graph.topic.publish('shape:select', {shape: this});
+            }
+        },
+
+        onDeselect: function(e) {
+            this.component().removeClass('label-selected');
+            if (e.initial) {
+                Graph.topic.publish('shape:deselect', {shape: this});
+            }
+        }
+    });
+
 }());
 
 (function(){
@@ -18570,21 +20801,43 @@
         
     };
     
-    Exporter.prototype.exportSVG = function() {
+    Exporter.prototype.exportSVG = function(filename, compression) {
+        var options = _.extend({}, this.options);
         
+        options.encoder = 'application/svg+xml';
+        options.compression = 1;
+        options.background = '#ffffff';
+
+        var uri = createDataURI(this.element, options);
+        var link = document.createElement('a');
+        var click;
+
+        link.setAttribute('download', filename);
+        link.setAttribute('href', uri);
+
+        if (document.createEvent) {
+            click = document.createEvent('MouseEvents');
+            click.initEvent('click', true, false);
+            link.dispatchEvent(click);
+        } else if (document.createEventObject) {
+            link.fireEvent('onclick');
+        }
+
+        link = click = null;
     };
 
     Exporter.prototype.exportJPEG = function(filename, compression) {
         var options = _.extend({}, this.options);
         
         options.encoder = 'image/jpeg';
-        options.compression = compression || 0.8;
+        options.compression = compression || 1;
+        options.background = '#ffffff';
         
         filename = _.defaultTo(filename, 'download.jpg');
         
         exportImage(this.element, options, function(result){
             if (result) {
-                document(filename, result);
+                download(filename, result);
             }
         });
     };
@@ -18706,8 +20959,8 @@
         
         image.src = data; // DOMURL.createObjectURL(blob);
     }
-    
-    function createDataURI(element, options) {
+
+    function createData(element, options) {
         var holder = Graph.dom('<div/>'),
             cloned = element.cloneNode(true);
         
@@ -18745,9 +20998,13 @@
         }
         
         xml = XMLDOC + holder.innerHTML;
-        uri = 'data:image/svg+xml;base64,' + window.btoa(repair(xml));
-        
-        cloned = holder = null;
+        holder = cloned = null;
+        return xml;
+    }
+    
+    function createDataURI(element, options) {
+        var xml = createData(element, options);
+        var uri = 'data:image/svg+xml;base64,' + window.btoa(repair(xml));
         return uri;
     }
     
@@ -18791,10 +21048,283 @@
 
 (function(){
 
-    Graph.pallet.Activity = Graph.extend({
+    var Manager = Graph.diagram.Manager = Graph.extend({
+
+        props: {
+            paper: null,
+            defaultType: 'activity'
+        },
+
+        pallets: [],
+        diagram: null,
+        snapshoot: [],
+
+        constructor: function(paper) {
+            this.props.paper = paper.guid();
+            paper.on('keynavdown', _.bind(this.onKeynavDown, this));
+        },
+
+        paper: function() {
+            return Graph.registry.vector.get(this.props.paper);
+        },
+
+        deselectAll: function() {
+            this.paper().collector().clearCollection();
+        },
+
+        removeSelection: function() {
+            var selection = this.paper().collector().collection.toArray().slice();
+                  
+            this.capture();
+
+            _.forEach(selection, function(vector){
+                vector.remove();
+            });
+        },
+
+        capture: function() {
+            // capture to snapshoot
+        },
+
+        undo: function() {
+
+        },
+
+        redo: function() {
+
+        },
+
+        addPallet: function(pallet) {
+            var me = this,
+                paper = me.paper(),
+                layout = paper.layout(),
+                scale = layout.scale(),
+                drawing = null;
+
+            me.pallets.push(pallet);
+
+            pallet.on({
+                pick: function(e) {
+                    paper.tool().activate('panzoom');
+
+                    if ( ! me.diagram) {
+                        me.create(me.props.defaultType);
+                    }
+
+                    var origin = layout.pointerLocation({
+                        clientX: e.offset.x,
+                        clientY: e.offset.y
+                    });
+
+                    var options = {
+                        left: origin.x,
+                        top: origin.y
+                    };
+
+                    var result = me.diagram.drawShape(e.shape, options);
+                    
+                    if (result.movable) {
+                        drawing = result.shape;
+                        scale = paper.layout().scale();
+                    } else {
+                        drawing = null;
+                        pallet.stopPicking();
+                    }
+
+                },
+                drag: function(e) {
+                    if (drawing) {
+                        var dx = e.dx,
+                            dy = e.dy;
+
+                        dx /= scale.x;
+                        dy /= scale.y;
+
+                        if (scale.x < 1) {
+                            dx += scale.x;
+                        }
+
+                        drawing.translate(dx, dy);
+                    }
+                },
+                drop: function(e) {
+                    if (drawing) {
+                        drawing = null;
+                    }
+                }
+            });
+
+        },
+
+        current: function() {
+            return this.diagram;
+        },
+
+        remove: function() {
+            this.diagram = null;
+            this.paper().fire('diagram.destroy');
+        },
+
+        create: function(type, options, silent) {
+            type = _.defaultTo(this.props.defaultType);
+
+            var clazz = Graph.diagram.type[_.capitalize(type)],
+                paper = this.paper();
+
+            this.diagram = Graph.factory(clazz, [paper, options]);
+            silent = _.defaultTo(silent, false);
+
+            if ( ! silent) {
+                paper.fire('diagram.create', {
+                    diagram: this.diagram
+                });
+            }
+
+            return this.diagram;
+        },
+
+        saveAs: function(type, filename) {
+            var exporter = new Graph.data.Exporter(this.paper());
+              
+            switch(type) {
+                case 'svg':
+                    exporter.exportSVG(filename);
+                    break;
+                case 'png':
+                    exporter.exportPNG(filename);
+                    break;
+                case 'jpg':
+                case 'jpeg':
+                    exporter.exportJPEG(filename);
+                    break;
+            }
+
+            exporter = null;
+        },
+
+        saveAsBlob: function(callback) {
+            var exporter = new Graph.data.Exporter(this.paper());
+            return exporter.exportBlob(callback);
+        },
+
+        onKeynavDown: function(e) {
+            switch (e.keyCode) {
+                case Graph.event.DELETE:
+                    this.removeSelection();
+                    e.preventDefault();
+                    break;
+            }
+        }
+
+    });
+
+}());
+
+(function(){
+    var Parser = Graph.diagram.Parser = function(data) {
+        data = data || {};
+
+        this._props  = data.props || {};
+        this._shapes = data.shapes || [];
+        this._links  = data.links || [];
+        this._tree   = {};
+
+        this.parse();
+    };
+
+    Parser.prototype.constructor = Parser;
+
+    Parser.prototype.parse = function() {
+        var shapes = this._shapes,
+            tree = {},
+            nodes = {},
+            total = shapes.length;
+
+        _.forEach(shapes, function(shape, idx){
+            nodes[shape.props.id] = {
+                id: shape.props.id,
+                parent_id: shape.props.parent_id,
+                index: idx,
+                total: total
+            };
+        });
+
+        var key, node;
+
+        for (key in nodes) {
+            node = nodes[key];
+            if ( ! node.parent_id) {
+                tree[key] = node;
+            } else {
+                if (nodes[node.parent_id].children === undefined) {
+                    nodes[node.parent_id].children = {};
+                }
+                nodes[node.parent_id].children[node.id] = node;
+            }
+        }
+
+        this._tree = tree;
+    };
+
+    Parser.prototype.shapes = function() {
+        var shapes = this._shapes,
+            tree = this._tree;
+
+        return {
+            total: shapes.length,
+            each: function(callback) {
+                traverse(tree, shapes, callback);
+            }
+        };
+    };
+
+    Parser.prototype.links = function() {
+        var links = this._links;
+        return {
+            total: links.length,
+            each: function(callback) {
+                _.forEach(links, callback);
+            }
+        }
+    };
+
+    Parser.prototype.props = function() {
+        var props = this._props;
+        return {
+            each: function(callback) {
+                _.forOwn(props, callback);
+            }
+        }
+    };
+
+    Parser.prototype.destroy = function() {
+        this._shapes = null;
+        this._links = null;
+        this._tree = null;
+        this._props = null;
+    };
+
+    function traverse(nodes, shapes, callback) {
+        var key, node;
+        for (key in nodes) {
+            node = nodes[key];
+            callback(shapes[node.index], node.index, node.total);
+            if (node.children !== undefined) {
+                traverse(node.children, shapes, callback);
+            }
+        }
+    }
+
+}());
+
+
+(function(){
+
+    var Pallet = Graph.diagram.pallet.Activity = Graph.extend({
         
         props: {
-            guid: null
+            guid: null,
+            rendered: false
         },
         
         components: {
@@ -18804,10 +21334,20 @@
         cached: {
             
         },
+
+        picking: {
+            enabled: false,
+            clientX: null,
+            clientY: null,
+            target: null,
+            matrix: null,
+            shape: null,
+            start: null
+        },
         
         constructor: function(options) {
             _.assign(this.props, options || {});
-            this.props.guid = 'pallet-' + (++Graph.pallet.Activity.guid);
+            this.props.guid = 'pallet-' + (++Pallet);
             this.initComponent();
 
             Graph.registry.pallet.register(this);
@@ -18834,7 +21374,7 @@
                     '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Final" transform="matrix(1,0,0,1,40,80)">' + 
                         '<circle cx="32" cy="32" r="30"/>' + 
                         '<circle cx="32" cy="32" r="24" class="full"/>' + 
-                        '<text x="32" y="36">Stop</text>' + 
+                        '<text x="32" y="36">End</text>' + 
                     '</g>' + 
                     '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Action" transform="matrix(1,0,0,1,40,160)">' + 
                         '<rect x="2" y="2" width="60" height="60" rx="7" ry="7"/>' + 
@@ -18845,17 +21385,19 @@
                         '<text x="30" y="34">Route</text>' + 
                     '</g>' + 
                     '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Join" transform="matrix(1,0,0,1,40,340)">' + 
-                        '<rect x="2" y="28" width="60" height="6" rx="0" ry="0" class="full"/>' + 
-                        '<path d="M 10  0 L 10 28"></path>' + 
-                        '<path d="M 54  0 L 54 28"></path>' + 
-                        '<path d="M 32 34 L 32 60" marker-end="url(#marker-arrow-pallet)"></path>' + 
+                        '<rect x="2" width="60" height="58" rx="0" ry="0" style="fill: rgba(255,255,255,0); stroke-width: 0" />' + 
+                        '<rect x="2" y="28" width="60" height="6" rx="0" ry="0" pointer-events="none" class="full"/>' + 
+                        '<path d="M 10  0 L 10 28" pointer-events="none" ></path>' + 
+                        '<path d="M 54  0 L 54 28" pointer-events="none" ></path>' + 
+                        '<path d="M 32 34 L 32 60" marker-end="url(#marker-arrow-pallet)" pointer-events="none" ></path>' + 
                         '<text x="32" y="20">Join</text>' + 
                     '</g>' + 
                     '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Fork" transform="matrix(1,0,0,1,40,420)">' + 
+                        '<rect x="2" width="60" height="58" rx="0" ry="0" pointer-events="none" style="fill: rgba(255,255,255,0); stroke-width: 0" />' + 
                         '<rect x="2" y="28" width="60" height="6" rx="0" ry="0" class="full"/>' + 
-                        '<path d="M 10 34 L 10 60" marker-end="url(#marker-arrow-pallet)"></path>' + 
-                        '<path d="M 54 34 L 54 60" marker-end="url(#marker-arrow-pallet)"></path>' + 
-                        '<path d="M 32  0 L 32 28"></path>' + 
+                        '<path d="M 10 34 L 10 60" marker-end="url(#marker-arrow-pallet)" pointer-events="none" ></path>' + 
+                        '<path d="M 54 34 L 54 60" marker-end="url(#marker-arrow-pallet)" pointer-events="none" ></path>' + 
+                        '<path d="M 32  0 L 32 28" pointer-events="none" ></path>' + 
                         '<text x="32" y="50">Fork</text>' + 
                     '</g>' + 
                     '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Lane" transform="matrix(1,0,0,1,40,500)">' + 
@@ -18870,109 +21412,586 @@
             );
             
             pallet = Graph.$(template);
-            
-            var me = this;
-
-            // setup draggable
-            var draggable = interact('.graph-pallet-item', pallet.node()).draggable({
-                manualStart: true,
-                onstart: function(e) {
-                    var target = Graph.$(e.target),
-                        transform = Graph.util.transform2segments(target.attr('transform')),
-                        shape = target.data('shape');
-
-                    transform = transform[0].slice(1);
-                    me.cached.matrix = Graph.factory(Graph.lang.Matrix, transform);
-
-                    target.addClass('grabbing');
-                    
-                    me.fire('drawstart', {shape: shape});
-                    transform = target = null;
-                },
-                onmove: function(e) {
-                    me.cached.matrix.translate(e.dx, e.dy);
-                    e.target.setAttribute('transform', me.cached.matrix.toValue());
-                },
-                onend: function(e) {
-                    var target = Graph.$(e.target);
-                    
-                    target.removeClass('grabbing');
-                    pallet.node().removeChild(me.cached.clone);
-
-                    me.cached.matrix = null;
-                    target = null;
-
-                    me.fire('drawend');
-                }
-            })
-            .on('move', function(e){
-                var i = e.interaction;
-                if (i.pointerIsDown && ! i.interacting()) {
-                    var action = {name: 'drag'};
-
-                    // -- workaround for a bug in v1.2.6 of interact.js
-                    i.prepared.name = action.name;
-                    i.setEventXY(i.startCoords, i.pointers);
-
-                    me.cached.clone = e.currentTarget.cloneNode(true);
-                    pallet.node().appendChild(me.cached.clone);
-                    i.start(action, e.interactable, me.cached.clone);
-                }
-            });
-            
-            draggable.styleCursor(false);
             this.components.pallet = pallet;
         },
 
+        stopPicking: function() {
+            if (this.picking.enabled) {
+                this.picking.target.remove();
+                _.assign(this.picking, {
+                    clientX: null,
+                    clientY: null,
+                    target: null,
+                    matrix: null,
+                    start: null,
+                    enabled: false,
+                    shape: null
+                });
+            }
+        },
+
         render: function(container) {
+            if (this.props.rendered) {
+                return;
+            }
+
+            var me = this, pallet = this.components.pallet;
+
+            this.props.rendered = true;
+
             container = Graph.$(container);
-            container.prepend(this.components.pallet);
+            container.prepend(pallet);
             container = null;
+
+            interact('.graph-pallet-item')
+                .on('down', function(e){
+                    dragStart(e);
+                })
+                .on('move', function(e){
+                    dragMove(e);
+                })
+                .on('up', function(e){
+                    dragStop();
+                });
+
+            /////////
+            
+            pallet.on('mouseleave', function(e){
+                dragStop();
+            });
+
+            function dragStart(e) {
+                var target = Graph.$(e.currentTarget);
+
+                if (me.picking.enabled) {
+                    dragStop();
+                }
+
+                if (target.data('shape') !== undefined) {
+                    var transform = Graph.util.transform2segments(target.attr('transform'));
+                    transform = transform[0].slice(1);
+
+                    me.picking.enabled = true;
+                    me.picking.matrix = Graph.factory(Graph.lang.Matrix, transform);
+                    me.picking.target = Graph.$(e.currentTarget.cloneNode(true));
+                    me.picking.target.addClass('grabbing');
+                    me.picking.shape = target.data('shape');
+
+                    pallet.append(me.picking.target);
+
+                    me.picking.clientX = e.clientX;
+                    me.picking.clientY = e.clientY;
+
+                    me.fire('pick', {
+                        shape: me.picking.shape,
+                        offset: {
+                            x: me.picking.clientX,
+                            y: me.picking.clientY
+                        }
+                    });
+
+                    transform = null;
+
+                }
+            }
+
+            function dragMove(e) {
+                var i = e.interaction;
+
+                if (i.pointerIsDown && me.picking.target) {
+
+                    e.preventDefault();
+
+                    me.picking.clientX = e.clientX;
+                    me.picking.clientY = e.clientY;
+
+                    var end = {
+                        x: e.clientX,
+                        y: e.clientY
+                    };
+
+                    if ( ! me.picking.start) {
+                        me.picking.start = end;
+                    }
+
+                    var dx = end.x - me.picking.start.x,
+                        dy = end.y - me.picking.start.y;
+
+                    me.picking.matrix.translate(dx, dy);
+                    me.picking.target.attr('transform', me.picking.matrix.toValue());
+
+                    me.fire('drag', {
+                        dx: dx,
+                        dy: dy
+                    });
+
+                    me.picking.start = end;
+                }
+            }
+
+            function dragStop() {
+                me.stopPicking();
+                me.fire('drop');
+            }
+
         },
         
         toString: function() {
-            return 'Graph.pallet.Activity';
+            return 'Graph.diagram.pallet.Activity';
         }
 
     });
 
-    Graph.pallet.Activity.guid = 0;
+    Pallet.guid = 0;
 
 }());
 
 (function(){
 
-    Graph.diagram.Diagram = Graph.extend({
-        
+    Graph.diagram.type.Diagram = Graph.extend({
         props: {
-            type: '',
-            name: '',
-            desc: ''
+            id: null,
+            paper: null,
+            dirty: false
         },
 
-        constructor: function(options) {
+        drawing: {
+            enabled: false
+        },
+
+        metadata: {
+            type: 'diagram.diagram'
+        },
+
+        constructor: function(paper, options) {
             options = options || {};
             _.assign(this.props, options);
+
+            this.props.paper = paper.guid();
+            this.empty();
+        },
+
+        /**
+         * update properties
+         */
+        update: function(data) {
+            var me = this,
+                parser = new Graph.diagram.Parser(data),
+                paper = me.paper();
+            
+            parser.props().each(function(v, k){
+                me.props[k] = v;
+            });
+
+            parser.shapes().each(function(item){
+                var shape;
+
+                if (item.props.id) {
+                    shape = me.getShapeBy(function(shape){ 
+                        return shape.props.id == item.props.id; 
+                    });
+                } else {
+                    shape = me.getShapeBy(function(shape){
+                        return shape.props.guid == item.props.client_id;
+                    });
+                }
+
+                if (shape) {
+                    shape.update(item);
+                }
+            });
+
+            parser.links().each(function(item){
+                var link;
+                if (item.props.id) {
+                    link = me.getLinkBy(function(link){
+                        return link.props.id == item.props.id;
+                    });
+                } else {
+                    link = me.getLinkBy(function(link){
+                        return link.props.guid == item.props.client_id;
+                    });
+                }
+
+                if (link) {
+                    // link.update(item);
+                }
+            });
+
+            parser.destroy();
+            parser = null;
+        },
+
+        commit: function() {
+            this.props.dirty = false;
+            return this;
+        },
+
+        /**
+         * Render data and update properties
+         */
+        render: function(data) {
+
+        },
+
+        paper: function() {
+            return Graph.registry.vector.get(this.props.paper);
+        },
+
+        empty: function() {
+            _.forEach(this.getShapes(), function(shape){
+                if ( ! shape.tree.parent) {
+                    shape.remove();
+                }
+            });
+            return this;
+        },
+
+        getShapes: function() {
+            var context = this.paper().guid();
+            return Graph.registry.shape.collect(context);
+        },
+
+        getLinks: function() {
+            var shapes = this.getShapes(),  
+                indexes = {},
+                links = [];
+
+            var network, connections, i, ii, j, jj;
+
+            for(i = 0, ii = shapes.length; i < ii; i++) {
+                network = shapes[i].connectable().plugin();
+                if (network) {
+                    connections = network.connections();
+                    for (j = 0, jj = connections.length; j < jj; j++) {
+                        if (indexes[connections[j].guid] === undefined) {
+                            links.push(connections[j].link);
+                            indexes[connections[j].guid] = true;
+                        }
+                    }
+                }
+            }
+
+            indexes = null;
+
+            return links;
         },
         
-        toString: function() {
-            return 'Graph.diagram.Diagram';
+        arrange: function() {
+
+        },
+
+        drawShape: function(namespace, options) {
+
+        },
+
+        findShapeBy: function(identity) {
+            return _.filter(this.getShapes(), identity);
+        },
+
+        getShapeBy: function(identity) {
+            return _.find(this.getShapes(), identity);
+        },
+
+        getLinkBy: function(identity) {
+
+        },
+
+        toJson: function() {
+            var json = {};
+            return json;
         }
+
     });
 
 }());
-
 (function(){
 
-    Graph.diagram.Activity = Graph.extend(Graph.diagram.Diagram, {
-        
-        toString: function() {
-            return 'Graph.diagram.Activity';
-        }
-        
-    });
+    var Diagram = Graph.diagram.type.Activity = Graph.extend(Graph.diagram.type.Diagram, {
 
+        props: {
+            name: 'Activity Diagram',
+            description: 'Example of activity diagram'
+        },
+
+        rendering: {
+            active: false
+        },
+
+        metadata: {
+            type: 'diagram.activity'
+        },
+
+        drawShape: function(namespace, options) {
+            var paper = this.paper();
+
+            // already drawing
+            if (this.drawing.enabled) {
+                
+                this.drawing.enabled = false;
+                this.drawing.shape.off('afterdrag', this.drawing.dropHandler);
+                this.drawing.dropHandler = null;
+
+                // mark as invalid
+                this.drawing.shape.remove();
+                this.drawing.shape = null;
+            }
+
+            var clazz, shape, movable;
+
+            options = options || {};
+            movable = true;
+
+            if (namespace == 'Graph.shape.activity.Lane') {
+                if ( ! this.hasLane() && this.getShapes().length) {
+                    var bbox = this.shapes.bbox().toJson();
+                    
+                    options.left = bbox.x - 40;
+                    options.top = bbox.y - 20;
+
+                    movable = false;
+                    bbox = null;
+                }
+            } else if (namespace == 'Graph.shape.common.Label') {
+                movable = false;
+            }
+
+            clazz = Graph.ns(namespace);
+            shape = Graph.factory(clazz, [options]);
+
+            // check again...
+            if (movable) {
+                movable = !!shape.draggable().plugin();
+            }
+
+            var me = this;
+
+            this.drawing.dropHandler = function() {
+                var timer;
+
+                timer = _.delay(function(shape){
+                    var valid = false;
+
+                    clearTimeout(timer);
+                    timer = null;
+
+                    if (shape.is('activity.lane')) {
+                        valid = true;
+                    } else {
+                        if (me.hasLane()) {
+                            var parent = shape.parent();
+                            valid = parent && parent.is('activity.lane');
+                        } else {
+                            valid = true;
+                        }
+                    }
+
+                    if ( ! valid) {
+                        Graph.message("Can't drop shape outside lane or pool", 'warning');
+                        shape.remove();
+                        shape = null;
+                    }
+
+                }, 0, me.drawing.shape);
+
+                me.drawing.dropHandler = null;
+                me.drawing.enabled = false;
+                me.drawing.shape = null;
+
+            };
+
+            if (movable) {
+                this.drawing.enabled = true;
+                this.drawing.shape = shape;
+
+                if (options.left !== undefined && options.top !== undefined) {
+                    var center = shape.center(),
+                        dx = options.left - center.x,
+                        dy = options.top - center.y;
+
+                    shape.translate(dx, dy);    
+                }
+                
+                shape.render(paper);
+                
+                var draggable = shape.draggable().plugin();
+                draggable.start();
+
+                shape.one('afterdrag', this.drawing.dropHandler);
+
+            } else {
+                me.drawing.enabled = false;
+                me.drawing.shape = null;
+                me.drawing.dropHandler = null;
+
+                if (shape.is('activity.lane')) {
+                    shape.render(paper);
+
+                    var children = me.shapes.toArray().slice();    
+                    shape.addChild(children);
+                    children = null;
+
+                } else if (shape.is('common.label')) {
+                    var lanes = me.findShapeBy(function(shape){ return shape.is('activity.lane'); }),
+                        coord = {x: shape.props.left, y: shape.props.top},
+                        found = false;
+                    
+                    shape.render(paper);
+
+                    if (lanes.length) {
+                        var box, i, j;
+
+                        for (i = 0, j = lanes.length; i < j; i++) {
+                            box = lanes[i].bbox().toJson();
+                            
+                            if (Graph.util.isBoxContainsPoint(box, coord)) {
+                                found = lanes[i];
+                                break;
+                            }
+                        }
+
+                        if (found) {
+                            found.addChild(shape);
+                        } else {
+                            Graph.message("Can't drop shape outside lane or pool", 'warning');
+                            shape.remove();
+                            shape = null;
+                        }
+
+                    }
+                }
+            }
+
+            return {
+                movable: movable,
+                shape: shape
+            };
+        },
+
+        hasLane: function() {
+            return this.findShapeBy(function(shape){ return shape.is('activity.lane'); }).length !== 0;
+        },
+
+        render: function(data) {
+            var me = this,
+                paper = this.paper(),
+                parser = new Graph.diagram.Parser(data);
+
+            if (this.rendering.active) {
+                return;
+            }
+
+            this.rendering.active = true;
+            this.empty();
+
+            parser.props().each(function(v, k){
+                me.props[k] = v;
+            });
+
+            render(parser).then(function(rendered){
+                parser.links().each(function(item){
+                    var props = item.props,
+                        sourceShape = rendered[props.source_id],
+                        targetShape = rendered[props.target_id];
+
+                    if (sourceShape && targetShape) {
+                        var sourceNetwork = sourceShape.connectable().plugin(),
+                            targetNetwork = targetShape.connectable().plugin();
+
+                        if (sourceNetwork && targetNetwork) {
+                            sourceNetwork.connect(targetNetwork, null, null, item.props);
+                        }
+                    }
+                })
+                
+                me.rendering.active = false;
+
+                parser.destroy();
+                parser = null;
+            }); 
+
+            ///////// RENDERER /////////
+            
+            function render(parser) {
+                var def = Graph.defer(),
+                    rendered = {},
+                    counter = 0;
+
+                parser.shapes().each(function(item, index, total){
+                    var props = item.props,
+                        clazz = Graph.ns(props.type);
+
+                    var shape;
+
+                    if (clazz) {
+                        var delay;
+
+                        delay = _.delay(function(index, clazz, props){
+                            clearTimeout(delay);
+                            delay = null;
+
+                            shape = Graph.factory(clazz, [props]);
+                            shape.render(paper);
+
+                            if (rendered[props.parent_id] !== undefined) {
+                                rendered[props.parent_id].addChild(shape, false);
+                            }
+
+                            rendered[props.id] = shape;
+
+                            if (index === total - 1) {
+                                def.resolve(rendered);
+                            }
+
+                        }, (counter * 100), index, clazz, props);
+                        
+                    }
+                    counter++;
+                });
+
+                return def.promise();
+            };  
+        },  
+
+        toString: function() {
+            return 'Graph.diagram.type.Activity';
+        },
+
+        toJson: function() {
+            var diagram = {
+                props: {
+                    id: this.props.id,
+                    name: this.props.name,
+                    type: this.toString(),
+                    description: this.props.description
+                },
+                shapes: [],
+                links: []
+            };
+
+            _.forEach(this.getShapes(), function(shape){
+                var data = shape.toJson();
+                diagram.shapes.push({
+                    props: data.props,
+                    params: data.params
+                });
+            });
+
+            _.forEach(this.getLinks(), function(link){
+                var data = link.toJson();
+                diagram.links.push({
+                    props: data.props,
+                    params: data.params
+                });
+            });
+
+            return diagram;
+        }
+    });
+    
 }());
+
+
 
 (function(){
 
