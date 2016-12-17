@@ -260,6 +260,59 @@
                 return hor || ver || 'intersect';
             }
         },
+
+        expandBox: function(box, dx, dy) {
+            dx = _.defaultTo(dx, 0);
+            dy = _.defaultTo(dy, 0);
+
+            box.x  -= dx;
+            box.x2 += dx;
+            box.y  -= dy;
+            box.y2 += dy;
+            box.width = box.x2 - box.x;
+            box.height = box.y2 - box.y;
+
+            return box;
+        },
+
+        groupBox: function(boxes) {
+            var x  = [], 
+                y  = [], 
+                x2 = [], 
+                y2 = [];
+
+            if (boxes.length) {
+                _.forEach(boxes, function(box){
+                    x.push(box.x);
+                    y.push(box.y);
+                    x2.push(box.x + box.width);
+                    y2.push(box.y + box.height);
+                });
+
+                x  = _.min(x);
+                y  = _.min(y);
+                x2 = _.max(x2);
+                y2 = _.max(y2);
+
+                return {
+                    x: x,
+                    y: y,
+                    x2: x2,
+                    y2: y2,
+                    width: (x2 - x),
+                    height: (y2 - y)
+                };
+            } else {
+                return {
+                    x: 0,
+                    y: 0,
+                    x2: 0,
+                    y2: 0,
+                    width: 0,
+                    height: 0
+                }
+            }
+        },
         
         // -------LINE------ //
         

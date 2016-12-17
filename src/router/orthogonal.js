@@ -66,7 +66,7 @@
         },
 
         route: function(start, end) {
-
+            
             var source = this.source(),
                 target = this.target(),
                 sourceNetwork = source.connectable(),
@@ -77,7 +77,7 @@
                 targetBox = targetBBox.toJson(),
                 orient = sourceNetwork.orientation(targetNetwork),
                 direct = sourceNetwork.direction(targetNetwork),
-                tuneup  = false;
+                croping  = false;
 
             if ( ! start) {
                 start = sourceBBox.center(true);
@@ -87,6 +87,12 @@
                 end = targetBBox.center(true);
             }
 
+            // record initial values
+            if ( ! this.values.start && ! this.values.end) {
+                this.values.start = start;
+                this.values.end = end;    
+            }
+            
             var sdot, edot;
 
             if (direct) {
@@ -104,7 +110,7 @@
                                 x: targetBox.x + targetBox.width - 1,
                                 y: end.y
                             };
-
+                            croping = true;
                             break;
                         case 'top-left':
                         case 'left':
@@ -118,13 +124,13 @@
                                 x: targetBox.x + 1,
                                 y: end.y
                             };
-
+                            croping = true;
                             break;
                     }
-                    tuneup = true;
                 }
 
                 if (direct == 'v:v') {
+                    
                     switch (orient) {
                         case 'top-left':
                         case 'top':
@@ -138,6 +144,9 @@
                                 x: end.x,
                                 y: targetBox.y + 1
                             };
+
+                            croping = true;
+
                             break;
                         case 'bottom-left':
                         case 'bottom':
@@ -151,16 +160,31 @@
                                 x: end.x,
                                 y: targetBox.y + targetBox.height - 1
                             };
+
+                            croping = true;
+                            break;
+                        case 'left':
+                        case 'right':
+                            sdot = {
+                                x: start.x,
+                                y: sourceBox.y + 1
+                            };
+
+                            edot = {
+                                x: end.x,
+                                y: targetBox.y + 1
+                            };
+                            break;
+                        case 'right':
+
                             break;
                     }
-                    tuneup = true;
                 }
-
             }
 
-            var routes, bends, shape, cable, inter;
+            var groupBox, routes, bends, shape, cable, inter;
 
-            if (tuneup) {
+            if (croping) {
 
                 shape = source.shapeView();
                 cable = Graph.path(Graph.util.points2path([sdot, edot]));
@@ -184,6 +208,24 @@
                 }
 
                 bends  = Graph.util.lineBendpoints(sdot, edot, direct);
+                routes = [sdot].concat(bends).concat([edot]);
+
+                this.values.waypoints = Router.tidyRoutes(routes);
+            } else if (sdot && edot) {
+                switch(orient) {
+                    case 'left':
+                    case 'right':
+                        groupBox = Graph.util.expandBox(Graph.util.groupBox([sourceBox, targetBox]), 0, 20);
+
+                        bends = [
+                            {x: sdot.x, y: groupBox.y},
+                            {x: edot.x, y: groupBox.y}
+                        ];
+
+                        break;
+                }
+
+                cable = Graph.path(Graph.util.points2path([sdot].concat(bends).concat([edot])));
                 routes = [sdot].concat(bends).concat([edot]);
 
                 this.values.waypoints = Router.tidyRoutes(routes);
@@ -225,6 +267,7 @@
         repair: function(component, port) {
             var routes = this.values.waypoints.slice();
 
+            // TEST: force
             if ( ! Router.isRepairable(routes)) {
                 return this.route();
             }
@@ -342,7 +385,7 @@
                 }
             }
 
-            var offset = this.layout().offset(),
+            var offset = this.layout().position(),
                 snapH = [],
                 snapV = [];
 

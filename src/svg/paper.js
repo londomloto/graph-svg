@@ -32,9 +32,9 @@
             viewport: null
         },
 
-        drawing: {
-            pallets: null,
-            diagram: null
+        diagram: {
+            enabled: true,
+            manager: null
         },
 
         constructor: function (width, height, options) {
@@ -65,22 +65,20 @@
             me.plugins.toolmgr.register('linker', 'plugin');
 
             me.plugins.pencil = new Graph.plugin.Pencil(me);
+            me.plugins.toolmgr.register('pencil', 'plugin');
+
             me.plugins.definer = new Graph.plugin.Definer(me);
 
             me.plugins.snapper = new Graph.plugin.Snapper(me);
             me.plugins.toolpad = new Graph.plugin.Toolpad(me);
 
-            me.on('pointerdown', _.bind(me.onPointerDown, me));
-            me.on('keynavdown', _.bind(me.onKeynavDown, me));
-            me.on('keynavup', _.bind(me.onKeynavUp, me));
+            // diagram feature
+            me.diagram.enabled = true;
+            me.diagram.manager = new Graph.diagram.Manager(me);
 
             // subscribe topics
-            Graph.topic.subscribe('link/update', _.bind(me.listenLinkUpdate, me));
-            Graph.topic.subscribe('link/remove', _.bind(me.listenLinkRemove, me));
-            Graph.topic.subscribe('shape/draw',  _.bind(me.listenShapeDraw, me));
-
-            // drawings
-            me.drawing.pallets = [];
+            Graph.topic.subscribe('link:reload', _.bind(me.listenLinkChange, me));
+            Graph.topic.subscribe('link:afterdestroy', _.bind(me.listenLinkAfterDestroy, me));
 
             if ( ! Paper.defaultInstance) {
                 Paper.defaultInstance = me.guid();
@@ -99,7 +97,7 @@
 
             if (this.props.showOrigin) {
                 var origin = Graph.$(
-                    '<g class="graph-origin">' +
+                    '<g class="graph-elem graph-origin">' +
                         '<rect class="x" rx="1" ry="1" x="-16" y="-1" height="1" width="30"></rect>' +
                         '<rect class="y" rx="1" ry="1" x="-1" y="-16" height="30" width="1"></rect>' +
                         '<text class="t" x="-40" y="-10">(0, 0)</text>' +
@@ -193,22 +191,16 @@
             return this.tree.container;
         },
 
-        selections: function() {
-            return this.plugins.collector.selections;
-        },
-
-        removeSelection: function() {
-            var selections = this.plugins.collector.collection;
-
-            for (var v, i = selections.length - 1; i >= 0; i--) {
-                v = selections[i];
-                selections.splice(i, 1);
-                v.remove();
-            }
+        collector: function() {
+            return this.plugins.collector;
         },
 
         viewport: function() {
             return Graph.registry.vector.get(this.components.viewport);
+        },
+
+        diagram: function() {
+            return this.diagram.manager;
         },
 
         // @Override
@@ -226,90 +218,19 @@
         height: function() {
             return this.elem.height();
         },
-
-        connect: function(source, target, start, end, options) {
-            var layout, router, link;
-
-            if (start) {
-                if ( ! Graph.isPoint(start)) {
-                    options = start;
-                    start = null;
-                    end = null;
-                }
-            }
-
-            source = Graph.isShape(source) ? source.connectable().component() : source;
-            target = Graph.isShape(target) ? target.connectable().component() : target;
-
-            layout = this.layout();
-            router = layout.createRouter(source, target, options);
-
-            link = layout.createLink(router);
-
-            link.connect(start, end);
-            link.render(this);
-
-            return link;
-        },
-
-        addPallet: function(pallet) {
-            var guid = pallet.guid();
-            this.drawing.pallets.push(guid);
-
-            // bind pallet events
-            pallet.on({
-                drawstart: function(e) {
-                    console.log(e.shape);
-                    var shape = e.shape,
-                        clazz = Graph.ns(shape);
-
-                    shape = Graph.factory(clazz);
-                    console.log(shape);
-                },
-                drawend: function() {
-                    console.log('y');
-                }
-            });
-        },
-
-        removePallet: function(pallet) {
-            var guid = pallet.guid();
-            var index = _.indexOf(this.drawing.pallets, guid);
-            if (index > -1) {
-                this.drawing.pallets.splice(index, 1);
+        
+        locateLink: function(guid) {
+            var link = Graph.registry.link.get(guid);
+            if (link) {
+                link.select(false);
             }
         },
 
-        parse: function(json) {
-            var paper  = this;
-            var shapes = {};
-
-            _.forEach(json.shapes, function(o){
-                (function(o){
-                    var s = Graph.shape(o.type, o.data);
-                    s.render(paper);
-                    shapes[o.data.id] = s;
-                }(o));
-            });
-
-            _.forEach(json.links, function(o){
-                (function(o){
-                    paper.connect(shapes[o.source], shapes[o.target]);
-                }(o))
-            });
-
-        },
-
-        save: function() {
-            alert('save');
-        },
-
-        diagram: function(type, options) {
-            var clazz = Graph.diagram[_.capitalize(type)];
-            var diagram = Graph.factory(clazz, options || {});
-
-            this.drawing.diagram = diagram;
-            return diagram;
+        locateShape: function(guid) {
+            var shape = Graph.registry.shape.get(guid);
+            if (shape) {
+                shape.select(false);
+            }
         },
 
         toString: function() {
@@ -317,72 +238,16 @@
         },
 
         ///////// OBSERVERS /////////
-
-        onPointerDown: function(e) {
-
-        },
-
-        onKeynavDown: function(e) {
-            var me = this, key = e.keyCode;
-
-            switch(key) {
-                case Graph.event.DELETE:
-                    me.removeSelection();
-                    e.preventDefault();
-                    break;
-
-                case Graph.event.SHIFT:
-
-                    break;
-
-                case Graph.event.ESC:
-
-                    break;
-            }
-
-        },
-
-        onKeynavUp: function(e) {
-            var me = this, key = e.keyCode;
-
-            switch(key) {
-                case Graph.event.SHIFT:
-
-                    break;
-            }
-        },
-
-        saveAsImage: function(filename) {
-            var exporter = new Graph.data.Exporter(this);
-            exporter.exportPNG(filename);
-            exporter = null;
-        },
-
-        saveAsBlob: function(callback) {
-            var exporter = new Graph.data.Exporter(this);
-            return exporter.exportBlob(callback);
-        },
-
-        /**
-         * save workspace
-         */
-        save: function() {
-
-        },
-
+        
         ///////// TOPIC LISTENERS /////////
 
-        listenLinkUpdate: _.debounce(function() {
+        listenLinkChange: _.debounce(function() {
             this.layout().arrangeLinks();
         }, 300),
 
-        listenLinkRemove: _.debounce(function(){
+        listenLinkAfterDestroy: _.debounce(function(){
             this.layout().arrangeLinks();
-        }, 10),
-
-        listenShapeDraw: _.debounce(function() {
-            this.layout().arrangeShapes();
-        }, 1)
+        }, 10)
 
     });
 

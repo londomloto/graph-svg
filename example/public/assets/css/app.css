@@ -9,6 +9,7 @@ body {
   background-color: #ffffff;
   -webkit-font-smoothing:antialiased;
   font-family:"Roboto","Helvetica Neue",Helvetica,Arial,sans-serif;
+  overflow: hidden;
 }
 body > [data-ui-view] {
     height: 100%;
@@ -821,7 +822,7 @@ a.list-group-item:hover,a.list-group-item:focus,a.list-group-item.hover {
   color:inherit !important;
 }
 .nav-tabs .nav-link.active,.nav-tabs .nav-link.active:hover,.nav-tabs .nav-link.active:focus,.nav-tabs .nav-link:hover,.nav-tabs .nav-link:focus {
-  border-color:rgba(120,130,140,0.13);
+  border-color:rgba(120,130,140,0.3);
   border-bottom-color:transparent;
 }
 .tab-content.tab-alt .tab-pane {
@@ -1234,15 +1235,20 @@ a.list-group-item:hover,a.list-group-item:focus,a.list-group-item.hover {
 .table>tbody>tr>td,.table>tbody>tr>th,.table>tfoot>tr>td,.table>tfoot>tr>th {
   padding-left:16px;
   padding-right:16px;
-  padding-top:5px;
-  padding-bottom:5px;
+  padding-top:10px;
+  padding-bottom:10px;
   border-color: rgba(120,130,140,0.045);
 }
+.table-sm>tbody>tr>td {
+  padding: 5px 16px;
+}
 .table>thead>tr>th {
-  /*padding:10px 16px;*/
-  padding:5px 16px;
-  border-color:rgba(120,130,140,0.045);
-  border-bottom:none;
+  padding:10px 16px;
+  /*padding:5px 16px;*/
+  /*border-color:rgba(120,130,140,0.045);*/
+  border-color:rgba(120,130,140,0.3);
+  border-bottom-width: 2px;
+  border-top: none;
 }
 .table-condensed thead>tr>th,.table-condensed tbody>tr>th,.table-condensed tfoot>tr>th,.table-condensed thead>tr>td,.table-condensed tbody>tr>td,.table-condensed tfoot>tr>td {
   padding:5px;
@@ -2549,7 +2555,8 @@ body {
 }
 .nav-active-bg .nav-link.active,.nav-active-bg .nav>li.active>a {
   color:rgba(0,0,0,0.87) !important;
-  background-color:#f0f0f0 !important;
+  /*background-color:#f0f0f0 !important;*/
+  background-color:#ffffff !important;
 }
 .nav-active-dark .nav-link.active,.nav-active-dark .nav>li.active>a {
   color:rgba(255,255,255,0.87) !important;
@@ -3536,6 +3543,9 @@ body {
 }
 .b-b {
   border-bottom:1px solid rgba(120,130,140,0.13);
+}
+.b-b.dk {
+  border-bottom-color: rgba(120,130,140,0.3);
 }
 .b-l {
   border-left:1px solid rgba(120,130,140,0.13);

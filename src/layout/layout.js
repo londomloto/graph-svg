@@ -17,14 +17,15 @@
 
             link: {
                 smooth: true,
-                smootness: 6
+                smoothness: 6
             }
         },
         
         view: null,
 
         cached: {
-            offset: null
+            offset: null,
+            position: null
         },
 
         constructor: function(view, options) {
@@ -40,34 +41,43 @@
             return this.view().paper();
         },
 
-        offset: function() {
-            var offset = this.cached.offset;
-            var view, node;
+        invalidate: function() {
+            
+        },
 
-            if ( ! offset) {
+        offset: function() {
+            // TODO: please fix...
+            return this.position();
+        },
+
+        position: function() {
+            var position = this.cached.position;
+            var view, node;
+            
+            if ( ! position) {
                 view = this.view();
                 node = view.isViewport() ? view.parent().node() : view.node();
-                offset = node.getBoundingClientRect();
-                this.cached.offset = offset;
+                position = node.getBoundingClientRect();
+                this.cached.position = position;
             }
 
-            return offset;
+            return position;
         },
 
         center: function() {
             var center = this.cached.center;
 
             if ( ! center) {
-                var offset = this.offset();
+                var position = this.position();
 
                 center = {
-                    x: offset.width / 2,
-                    y: offset.height / 2
+                    x: position.width / 2,
+                    y: position.height / 2
                 };
 
                 this.cached.center = _.extend({}, center);
             }
-
+            
             return center;
         },
 
@@ -120,10 +130,10 @@
             return Graph.registry.link.get(event.target);
         },
 
-        grabLocation: function(event) {
-            var x = event.clientX,
-                y = event.clientY,
-                offset = this.offset(),
+        pointerLocation: function(pointer) {
+            var x = pointer.clientX,
+                y = pointer.clientY,
+                position = this.position(),
                 matrix = this.view().matrix(),
                 invert = matrix.clone().invert(),
                 scale  = matrix.scale(),
@@ -132,12 +142,32 @@
                     y: invert.y(x, y)
                 };
 
-            location.x -= offset.left / scale.x;
-            location.y -= offset.top / scale.y;
+            location.x -= position.left / scale.x;
+            location.y -= position.top / scale.y;
 
             matrix = invert = null;
 
             return location;
+        },
+
+        screenLocation: function(coord) {
+            var screen = this.view().node().getScreenCTM();
+                matrix = Graph.matrix(
+                    screen.a,
+                    screen.b,
+                    screen.c,
+                    screen.d,
+                    screen.e,
+                    screen.f
+                );
+
+            var x = matrix.x(coord.x, coord.y),
+                y = matrix.y(coord.x, coord.y);
+
+            coord.x = x;
+            coord.y = y;
+            
+            return coord;
         },
 
         dragSnapping: function() {
@@ -146,6 +176,10 @@
                 x: 1,
                 y: 1
             };
+        },
+
+        routerType: function() {
+            return this.props.router.type;
         },
         
         createRouter: function(source, target, options) {
@@ -157,7 +191,7 @@
 
             return router;
         },
-
+        
         createLink: function(router, options) {
             var clazz, link;
 
@@ -196,8 +230,8 @@
                 for (key in convex) {
                     link = Graph.registry.link.get(key);
                     
-                    link.updateConvex(convex[key]);
-                    link.refresh(true);
+                    link.reloadConvex(convex[key]);
+                    link.reset(true);
                     
                     idx = _.indexOf(inspect, key);
                     
@@ -211,7 +245,7 @@
                         var link = Graph.registry.link.get(key);
                         
                         link.removeConvex();
-                        link.refresh(true);
+                        link.reset(true);
                     });
                 }
                 

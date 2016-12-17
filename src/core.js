@@ -67,6 +67,10 @@
             family: 'Segoe UI',
             size: '12px',
             line: 1
+        },
+        resizer: {
+            image: 'resize-control.png',
+            size: 17
         }
     };
 
@@ -205,21 +209,31 @@
 
     /**
      * Simple hashing
+     * http://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript-jquery
      */
     Graph.hash = function(str) {
-        var hash = 0, chr, len, i;
+        var hval = 0x811c9dc5, i, l;
         
-        if ( ! str.length) {
-            return hash;
+        for (i = 0, l = str.length; i < l; i++) {
+            hval ^= str.charCodeAt(i);
+            hval += (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
         }
 
-        for (i = 0, len = str.length; i < len; i++) {
-            chr   = str.charCodeAt(i);
-            hash  = ((hash << 5) - hash) + chr;
-            hash |= 0;
-        }
+        return ('0000000' + (hval >>> 0).toString(16)).substr(-8);
 
-        return hash;
+        // var hash = 0, chr, len, i;
+        
+        // if ( ! str.length) {
+        //     return hash;
+        // }
+
+        // for (i = 0, len = str.length; i < len; i++) {
+        //     chr   = str.charCodeAt(i);
+        //     hash  = ((hash << 5) - hash) + chr;
+        //     hash |= 0;
+        // }
+
+        // return hash;
     };
 
     // prepare for prototypal factory
@@ -392,17 +406,20 @@
      */
     Graph.diagram = function(name, options) {
         var clazz, diagram;
-        clazz = Graph.diagram[_.capitalize(name)];
-        diagram = Graph.factory(clazz, [options]);
-        console.log(diagram);
+        clazz = Graph.diagram.type[_.capitalize(name)];
+        return Graph.factory(clazz, [options]);
     };
+
+    Graph.diagram.type = {};
+    Graph.diagram.util = {};
+    Graph.diagram.pallet = {};
 
     /**
      * Pallet
      */
     Graph.pallet = function(type, options) {
         var clazz;
-        clazz = Graph.pallet[_.capitalize(type)];
+        clazz = Graph.diagram.pallet[_.capitalize(type)];
         return Graph.factory(clazz, [options]);
     };
     
@@ -418,9 +435,9 @@
                 lsnr = subs[topic] || [];
 
             _.forEach(lsnr, function(handler){
-                (function(){
-                    handler.call(null, message, scope);
-                }(handler));
+                if (handler) {
+                    handler.call(null, message, scope);  
+                }
             });
         },
 
@@ -480,6 +497,15 @@
         }
     };
 
+    Graph.message = function(message, type) {
+        type = _.defaultTo(type, 'info');
+        
+        Graph.topic.publish('graph:message', {
+            type: type,
+            message: message
+        });
+    };
+
     ///////////////////////////// LOAD CONFIG /////////////////////////////
     
     if (GLOBAL.graphConfig) {
@@ -500,6 +526,7 @@
     Graph.ns('Graph.data');
     Graph.ns('Graph.popup');
     Graph.ns('Graph.shape.activity');
+    Graph.ns('Graph.shape.common');
 
     ///////////////////////// HOOK DOCUMENT CLICK /////////////////////////
     

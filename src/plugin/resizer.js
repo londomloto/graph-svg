@@ -7,11 +7,10 @@
             vector: null,
             enabled: true,
             suspended: true,
-            handleImage: Graph.config.base + 'img/resize-control.png',
-            handleSize: 17,
-            rendered: false,
-            minWidth: null,
-            minHeight: null
+            restriction: null,
+            handleImage: null,
+            handleSize: null,
+            rendered: false
         },
 
         components: {
@@ -47,7 +46,9 @@
 
             vector.addClass('graph-resizable');
 
-            me.props.handleImage = Graph.config.base + 'img/resize-control.png';
+            me.props.handleImage = Graph.config.base + 'img/' + Graph.config.resizer.image;
+            me.props.handleSize = Graph.config.resizer.size;
+
             me.props.vector = guid;
 
             me.cached.snapping = null;
@@ -94,14 +95,14 @@
             comp.handle = {};
 
             var handle = {
-                ne: {cursor: 'nesw-resize'},
-                se: {cursor: 'nwse-resize'},
-                sw: {cursor: 'nesw-resize'},
-                nw: {cursor: 'nwse-resize'},
-                 n: {cursor: 'ns-resize', axis: 'y'},
-                 e: {cursor: 'ew-resize', axis: 'x'},
-                 s: {cursor: 'ns-resize', axis: 'y'},
-                 w: {cursor: 'ew-resize', axis: 'x'}
+                ne: {ghost: false, cursor: 'nesw-resize'},
+                se: {ghost: false, cursor: 'nwse-resize'},
+                sw: {ghost: false, cursor: 'nesw-resize'},
+                nw: {ghost: false, cursor: 'nwse-resize'},
+                 n: {ghost: false, cursor: 'ns-resize', axis: 'y'},
+                 e: {ghost: false, cursor: 'ew-resize', axis: 'x'},
+                 s: {ghost: false, cursor: 'ns-resize', axis: 'y'},
+                 w: {ghost: false, cursor: 'ew-resize', axis: 'x'}
             };
 
             _.forOwn(handle, function(c, dir){
@@ -121,9 +122,9 @@
                     h.props.dir = dir;
                     h.draggable(c);
                     
-                    h.on('dragstart', _.bind(me.onHandleMoveStart, me));
-                    h.on('dragmove', _.bind(me.onHandleMove, me));
-                    h.on('dragend', _.bind(me.onHandleMoveEnd, me));
+                    h.on('beforedrag', _.bind(me.onHandleBeforeDrag, me));
+                    h.on('drag', _.bind(me.onHandleDrag, me));
+                    h.on('afterdrag', _.bind(me.onHandleAfterDrag, me));
 
                     h.render(holder);
 
@@ -286,7 +287,7 @@
                 width: vx.box.width,
                 height: vx.box.height
             });
-            
+
             helper.rotate(vx.rotate.deg, vx.rotate.cx, vx.rotate.cy).commit();
 
             _.forOwn(me.components.handle, function(id, dir){
@@ -329,16 +330,85 @@
             }
         },
 
-        setupRestriction: function(handle) {
-            
+        restrict: function(options) {
+            _.assign(this.props, {
+                restriction: options
+            });
         },
 
+        setupRestriction: function(handle) {
+            var me = this,
+                restriction = this.props.restriction || {},
+                vector = me.vector(),
+                paper = vector.paper(),
+                layout = paper.layout(),
+                dir = handle.props.dir,
+                width = +restriction.width || 0,
+                height = +restriction.height || 0,
+                MAX_VALUE = Number.MAX_SAFE_INTEGER;
+
+            var bounds = {
+                top: -MAX_VALUE,
+                left: -MAX_VALUE,
+                right: MAX_VALUE,
+                bottom: MAX_VALUE
+            };
+
+            var origin;
+            
+            if (restriction.origin === undefined) {
+                var box = vector.bboxView().toJson();
+                origin = getRestrictOrigin(handle, box);
+            } else {
+                origin = _.extend({x: 0, y: 0}, restriction.origin);
+            }
+
+            switch(dir) {
+                case 'n':
+                    bounds.bottom = origin.y - height;
+                    break;
+                case 'e':
+                    bounds.left = origin.x + width;
+                    break;
+                case 's':
+                    bounds.top = origin.y + height;
+                    break;
+                case 'w':
+                    bounds.right = origin.x - width;
+                    break;
+                case 'ne':
+                    bounds.left = origin.x + width;
+                    bounds.bottom = origin.y - height;
+                    break;
+                case 'se':
+                    bounds.top = origin.y + height;
+                    bounds.left = origin.x + width;
+                    break;
+                case 'sw':
+                    bounds.right = origin.x - width;
+                    bounds.top = origin.y + height;
+                    break;
+                case 'nw':
+                    bounds.right = origin.x - width;
+                    bounds.bottom = origin.y - height;
+                    break;
+            }
+
+            handle.draggable().restrict(bounds);
+
+        },
+        
         onHolderRender: function(e) {
             
         },
 
-        onHandleMoveStart: function(e) {
+        onHandleBeforeDrag: function(e) {
             var me = this, handle = e.publisher;
+
+            me.fire('beforeresize', {
+                resizer: this,
+                direction: handle.props.dir
+            });
 
             _.forOwn(me.components.handle, function(id, dir){
                 var h = me.handle(dir);
@@ -353,44 +423,15 @@
                 handle.draggable().snap(snapping);    
             }
             
-            // set restriction
-            var minWidth = +me.props.minWidth || 0,
-                minHeight = +me.props.minHeight || 0;
-
-            if (minWidth || minHeight) {
-                var dir = handle.props.dir,
-                    box = me.vector().bboxView().toJson(),
-                    xAxis = null,
-                    yAxis = null;
-
-                switch(dir) {
-                    case 'e':
-
-                        break;
-                }
-
-                // handle.draggable().restrict(function(x, y){
-
-                // });
-            }
-
-            if ( ! _.isNull(me.props.minWidth) || ! _.isNull(me.props.minHeight)) {
-                
-                // handle.draggable().restrict(function(x, y){
-                //     return {
-                //         x: 800, 
-                //         y: 0,
-                //         width: Infinity,
-                //         height: Infinity
-                //     }
-                // });
+            if (this.props.restriction) {
+                this.setupRestriction(handle);    
             }
 
             handle.show();
             handle.removeClass('dragging');
         },
 
-        onHandleMove: function(e) {
+        onHandleDrag: function(e) {
             var me = this, 
                 helper = me.helper(), 
                 handle = e.publisher;
@@ -466,7 +507,7 @@
 
         },
 
-        onHandleMoveEnd: function(e) {
+        onHandleAfterDrag: function(e) {
             var me = this,
                 tr = this.trans,
                 handle = e.publisher;
@@ -526,7 +567,7 @@
             resize.translate.dy = vdy;
             
             me.redraw();
-            me.fire('resize', resize);
+            me.fire('afterresize', resize);
         },
 
         toString: function() {
@@ -557,5 +598,51 @@
         }
         
     });
+
+    ///////// HELPERS /////////
+    
+    function getRestrictOrigin(handle, box) {
+        var origin = {
+            x: box.x,
+            y: box.y
+        };
+
+        switch(handle.props.dir) {
+            case 'n':
+                origin.x = (box.x + box.x2) / 2;
+                origin.y = box.y2;
+                break;
+            case 'e':
+                origin.x = box.x;
+                origin.y = (box.y + box.y2) / 2;
+                break;
+            case 's':
+                origin.x = (box.x + box.x2) / 2;
+                origin.y = box.y;
+                break;
+            case 'w':
+                origin.x = box.x2;
+                origin.y = (box.y + box.y2) / 2;
+                break;
+            case 'ne':
+                origin.x = box.x;
+                origin.y = box.y2;
+                break;
+            case 'se':
+                origin.x = box.x;
+                origin.y = box.y;
+                break;
+            case 'sw':
+                origin.x = box.x2;
+                origin.y = box.y;
+                break;
+            case 'nw':
+                origin.x = box.x2;
+                origin.y = box.y2;
+                break;
+        }
+
+        return origin;
+    }
 
 }());

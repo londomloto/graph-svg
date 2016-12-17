@@ -24,8 +24,10 @@
 
         transfer: null,
 
+        resizing: null,
+
         metadata: {
-            name: 'activity.lane',
+            type: 'activity.lane',
             icon: Graph.icons.SHAPE_LANE,
             style: 'graph-shape-activity-lane'
         },
@@ -108,13 +110,17 @@
                 .addClass(Graph.styles.SHAPE_BLOCK)
                 .render(shape);
 
-            pmgr.install('resizer', block, {minWidth: 200, minHeight: 100});
-            pmgr.install('dragger', block, {ghost: true, batchSync: false});
+            block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            block.on('dragstart.shape', _.bind(this.onDragStart, this));
-            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
-            block.on('resize.shape',    _.bind(this.onResize, this));
-            block.on('remove.shape',    _.bind(this.onRemove, this));
+            pmgr.install('resizer', block, {restriction: { width: 200, height: 100 }});
+            pmgr.install('dragger', block, {ghost: true, batchSync: false, dragClass: Graph.styles.SHAPE_DRAG});
+
+            block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
+            block.on('afterdrag.shape',   _.bind(this.onAfterDrag, this));
+            block.on('beforeresize.shape', _.bind(this.onBeforeResize, this));
+            block.on('afterresize.shape',    _.bind(this.onAfterResize, this));
+            block.on('beforedestroy.shape',    _.bind(this.onBeforeDestroy, this));
+            block.on('afterdestroy.shape',    _.bind(this.onAfterDestroy, this));
             block.on('select.shape',    _.bind(this.onSelect, this));
             block.on('deselect.shape',  _.bind(this.onDeselect, this));
 
@@ -125,7 +131,11 @@
 
             header.data('text', this.props.label);
 
-            pmgr.install('editor', header, {width: 200, height: 100});
+            pmgr.install('editor', header, {
+                width: 200, 
+                height: 100,
+                offset: 'pointer'
+            });
 
             header.on('edit.shape', _.bind(this.onLabelEdit, this));
 
@@ -171,9 +181,10 @@
                 overlap: .2
             })
             .on('dragenter', function laneDragEnter(e){
-                var vector, shape, batch;
+                var poolGuid = me.pool().guid,
+                    laneGuid = me.guid();
 
-                comp.addClass('receiving');
+                var vector, shape, batch;
 
                 if ( ! me.transfer) {
                     vector = Graph.registry.vector.get(e.relatedTarget);
@@ -183,17 +194,27 @@
                         shape = Graph.registry.shape.get(vector);
 
                         if (shape) {
+
+                            if (
+                                (shape.guid() == laneGuid) || 
+                                (shape.is('activity.lane') && shape.pool().guid == poolGuid)
+                            ) {
+                                return;
+                            }
+
                             me.transfer = {
                                 shape: shape,
                                 batch: []
                             };
 
-                            me.transfer.shape.on('dragend', onTransferEnd);
+                            me.transfer.shape.on('afterdrag', onTransferEnd);
                             me.transfer.batch = [shape];
 
-                            if (vector.lasso) {
-                                batch = vector.lasso.collection.slice();
+                            var collector = vector.collector();
 
+                            if (collector) {
+                                batch = collector.collection.toArray().slice();
+                                
                                 _.forEach(batch, function(v){
                                     var s = Graph.registry.shape.get(v);
                                     if (s && s.guid() != shape.guid()) {
@@ -205,6 +226,10 @@
                             }
                         }
                     }
+                }
+
+                if (me.transfer) {
+                    comp.addClass('receiving');
                 }
             })
             .on('dragleave', function laneDragLeave(e){
@@ -218,16 +243,30 @@
                         clearTimeout(delay);
                         delay = null;
 
-                        var placeTarget = me.component('child');
+                        // takeout lane from batch
+                        var appended = [],
+                            lanes = [],
+                            poolGuid = me.pool().guid,
+                            laneGuid = me.guid();
 
                         _.forEach(me.transfer.batch, function(shape){
-                            var shapeComponent = shape.component();
-
-                            shapeComponent.relocate(placeTarget);
-                            me.addChild(shape);
+                            if (shape.is('activity.lane')) {
+                                if (shape.guid() != laneGuid && shape.pool().guid != poolGuid) {
+                                    lanes.push(shape);
+                                }
+                            } else {
+                                appended.push(shape);
+                            }
                         });
 
-                        me.autoResize();
+                        if (appended.length) {
+                            me.addChild(appended);
+                        }
+
+                        if (lanes.length) {
+                            me.addSiblingBellow(lanes);
+                        }
+
                     }, 0);
 
                 }
@@ -247,7 +286,7 @@
                     clearTimeout(delay);
                     delay = null;
 
-                    me.transfer.shape.off('dragend', onTransferEnd);
+                    me.transfer.shape.off('afterdrag', onTransferEnd);
                     me.transfer = null;
 
                 }, 0);
@@ -268,6 +307,7 @@
 
             // save
             this.tree.paper = paper.guid();
+            Graph.registry.shape.setContext(this.guid(), paper.guid());
         },
 
         sendToBack: function() {
@@ -278,9 +318,14 @@
             this.pool().bringToFront(this);
         },
 
-        redraw: function() {
+        refresh: function() {
+            if (this.layout.suspended) {
+                return;
+            }
+
             var block = this.component('block'),
                 shape = this.component('shape'),
+                child = this.component('child'),
                 header = this.component('header'),
                 label = this.component('label');
 
@@ -292,6 +337,7 @@
             shape.matrix().multiply(matrix);
             shape.attr('transform', shape.matrix().toValue());
             shape.dirty(true);
+            child.dirty(true);
 
             block.attr({
                 x: 0,
@@ -360,7 +406,7 @@
                     }
                 }
 
-                this.redraw();
+                this.refresh();
 
             } else if (value !== undefined) {
                 block = this.component('block');
@@ -369,14 +415,108 @@
                     block.attr(maps[name], value);
                 }
 
-                this.redraw();
+                this.refresh();
             }
 
             return result;
         },
 
-        addSiblingAbove: function() {
-            var sibling = new Graph.shape.activity.Lane(),
+        height: function(value) {
+            if (value !== undefined) {
+                var childBox = this.component('child').bbox().toJson();
+                value = Math.max(value, (childBox.y + childBox.height + 20));    
+            }
+
+            return this.superclass.prototype.height.call(this, value);
+        },
+
+        width: function(value) {
+            if (value !== undefined) {
+                var childBox = this.component('child').bbox().toJson();
+                value = Math.max(value, (childBox.x + childBox.width + 20));
+            }
+
+            return this.superclass.prototype.width.call(this, value);
+        },
+
+        stroke: function(value) {
+            var result = this.superclass.prototype.stroke.call(this, value);
+            if (value !== undefined) {
+                this.component('header').elem.css('stroke', this.props.stroke);
+            }
+            return result;
+        },
+
+        addChild: function(child, redraw) {
+            this.superclass.prototype.addChild.call(this, child, redraw);
+            this.pool().invalidate();
+        },
+
+        removeChild: function(child) {
+            this.superclass.prototype.removeChild.call(this, child);
+            this.pool().invalidate();
+        },
+
+        addSiblingBellow: function(lanes) {
+            if ( ! _.isArray(lanes)) {
+                lanes = [lanes];
+            }
+
+            var pool = this.pool(),
+                height = _.reduce(
+                    _.map(lanes, function(lane){
+                        return lane.height();
+                    }),
+                    function(result, curr) {
+                        return result + curr;
+                    },
+                    0
+                ),
+                offsetWidth = this.width(),
+                offsetLeft = this.left(),
+                offsetTop = (this.top() + this.height());
+
+            pool.createSpaceBellow(this, height);
+
+            _.forEach(lanes, function(lane){
+
+                var boxBefore = lane.component().bboxView().clone().toJson();
+                var boxAfter, dx, dy;
+
+                lane.component().reset();
+
+                lane.attr({
+                    width: offsetWidth,
+                    left: offsetLeft,
+                    top: offsetTop
+                });
+
+                height = lane.height();
+                offsetTop += height;
+                
+                lane.tree.pool = pool;
+                pool.insert(lane);
+
+                lane.children().each(function(c){
+                    var netcom = c.connectable().component();
+                    netcom && (netcom.dirty(true));
+                });
+
+                boxAfter = lane.component().bboxView().toJson();
+
+                dx = boxAfter.x - boxBefore.x;
+                dy = boxAfter.y - boxBefore.y;
+
+                pool.relocateLinks(dx, dy, lane);
+                
+            });
+
+            pool.invalidate();
+            
+        },
+
+        createSiblingAbove: function(options) {
+            var sibling = new Graph.shape.activity.Lane(options),
                 paper = this.paper(),
                 pool = this.pool();
 
@@ -399,13 +539,14 @@
 
             if (result !== undefined) {
                 sibling.render(paper, 'before', this.component());
+                pool.invalidate();
             }
 
             return sibling;
         },
 
-        addSiblingBellow: function() {
-            var sibling = new Graph.shape.activity.Lane(),
+        createSiblingBellow: function(options) {
+            var sibling = new Graph.shape.activity.Lane(options),
                 paper = this.paper(),
                 pool = this.pool();
 
@@ -428,6 +569,7 @@
 
             if (result !== undefined) {
                 sibling.render(paper, 'after', this.component());
+                pool.invalidate();
             }
 
             return sibling;
@@ -445,38 +587,29 @@
             var bbox = this.bbox().toJson(),
                 actualBBox = shapeComponent.bbox().toJson(),
                 blockComponent = this.component('block'),
-                childComponent = this.component('child'),
-
-                offset = {
+                padding = {
                     top: 20,
                     bottom: 20,
                     left: 40,
                     right: 20
-                },
-
-                padding = {
-                    top: 0,
-                    bottom: 0,
-                    left: 0,
-                    right: 0
                 };
 
             var bounds = _.extend({}, bbox);
 
-            if (actualBBox.y - bbox.y < padding.top) {
-                bounds.y = actualBBox.y - offset.top;
+            if (actualBBox.y + padding.top - bbox.y < padding.top) {
+                bounds.y = actualBBox.y - padding.top;
             }
 
-            if (actualBBox.x - bbox.x < padding.left) {
-                bounds.x = actualBBox.x - offset.left;
+            if (actualBBox.x + padding.left - bbox.x < padding.left) {
+                bounds.x = actualBBox.x - padding.left;
             }
 
-            if ((bbox.x + bbox.width) - (actualBBox.x + actualBBox.width) < padding.right) {
-                bounds.x2 = (actualBBox.x + actualBBox.width) + offset.right;
+            if (bbox.x2 - actualBBox.x2 + padding.right < padding.right) {
+                bounds.x2 = actualBBox.x2 + padding.right;
             }
 
-            if ((bbox.y + bbox.height) - (actualBBox.y + actualBBox.height) < padding.bottom) {
-                bounds.y2 = (actualBBox.y + actualBBox.height) + offset.bottom;
+            if (bbox.y2 - actualBBox.y2 + padding.bottom < padding.bottom) {
+                bounds.y2 = actualBBox.y2 + padding.bottom;
             }
 
             var dx = bounds.x - bbox.x,
@@ -485,49 +618,62 @@
             var width = bounds.x2 - bounds.x,
                 height = bounds.y2 - bounds.y;
 
-            // preserver child component
-            childComponent.translate(Math.abs(dx), Math.abs(dy)).commit();
+            var pool = this.pool(),
+                curr = this.guid(),
+                lanes = pool.populateChildren(),
+                childOffsets = {};
+
+            lanes.each(function(lane){
+                var childBox = lane.component('child').bboxView().toJson();
+                childOffsets[lane.guid()] = {
+                    x: childBox.x,
+                    y: childBox.y
+                };
+            });
 
             this.translate(dx, dy);
-            // this.pool().translateBy(this, dx, dy);
 
             this.attr({
                 width: width,
                 height: height
             });
 
-            this.pool().resizeBy(this);
-        },
+            pool.resizeBy(this);
 
-        redrawChildren: function() {
-            var pool = this.pool(),
-                lanes = pool.children().toArray(),
-                children = [];
+            lanes.each(function(lane){
+                var child = lane.component('child'),
+                    childBox = child.bboxView().toJson(),
+                    offset = childOffsets[lane.guid()]
 
-            _.forEach(lanes, function(lane){
-                var laneChild = lane.children().toArray();
-                // repair links
-                _.forEach(laneChild, function(shape){
-                    var connectable = shape.connectable(),
-                        snappable = shape.snappable();
+                if (offset) {
+                    var dx = offset.x - childBox.x,
+                        dy = offset.y - childBox.y;
 
-                    connectable.plugin().repairLinks();
-                    snappable.plugin().repairClient(snappable.component());
-                });
-                // children = _.concat(children, laneChild);
+                    child.translate(dx, dy).commit();
+                }
+
             });
 
-            // TODO: redraw links if any
-
-
-            // TODO: redraw snapper if exists
         },
 
         toString: function() {
             return 'Graph.shape.activity.Lane';
         },
 
-        onRemove: function() {
+        onAfterDestroy: function() {
+            var me = this, guid = this.guid();
+
+            me.cascade(function(shape){
+                if (shape.guid() != guid) {
+                    shape.remove();
+                }
+            });
+
+            this.pool().remove(this);
+
+            // remove child
+            this.component('child').remove();
+
             // remove label
             this.component('label').remove();
 
@@ -542,13 +688,30 @@
             }
 
             Graph.registry.shape.unregister(this);
+            this.fire('afterdestroy');
         },
 
-        onSelect: function() {
-            this.superclass.prototype.onSelect.call(this, arguments);
+        onChildConnect: function(e) {
+            var sourceParent = e.source.parent(),
+                targetParent = e.target.parent();
 
-            var me = this,
-                guid = me.guid();
+            if (sourceParent && targetParent) {
+                var sourcePool = sourceParent.pool(),
+                    targetPool = targetParent.pool();
+
+                if (sourcePool.guid != targetPool.guid) {
+                    e.link.type('message');
+                }
+            }
+        },
+
+        onChildBeforeDestroy: function(e) {
+            this.superclass.prototype.onChildBeforeDestroy.call(this, e);
+            this.pool().invalidate();
+        },
+
+        onSelect: function(e) {
+            var me = this, guid = me.guid();
 
             var delay = _.delay(function(){
 
@@ -557,21 +720,62 @@
 
                 me.cascade(function(curr){
                     if (curr.guid() != guid) {
-                        var vector = curr.draggable().component();
-                        if (vector && vector.lasso) {
-                            vector.lasso.decollect(vector);
+                        var vector, network;
+
+                        // deselect shape
+                        vector = curr.draggable().component();
+
+                        if (vector) {
+                            vector.deselect();
                         }
+
+                        // deselect links
+                        network = curr.connectable().plugin();
+
+                        if (network) {
+                            var connections = network.connections();
+                            _.forEach(connections, function(conn){
+                                conn.link.deselect();
+                            });
+                        }
+                        
                     }
                 });
 
-            }, 0)
+                me.component('shape').addClass('shape-selected');
+                Graph.topic.publish('shape:select', {shape: me});
 
+            }, 0);
         },
 
-        onDragEnd: function(e) {
+        onBeforeDrag: function(e) {
+            this.component().addClass('shape-dragging');
+
+            if (e.master) {
+
+                this.paper().diagram().capture();
+
+                var links = this.pool().populateLinks();
+                var link, key;
+
+                for (key in links.isolated) {
+                    link = links.isolated[key].link;
+                    link.deselect();
+                }
+
+                for (key in links.separated) {
+                    link = links.separated[key].link;
+                    link.deselect();
+                }
+
+            }
+        },
+
+        onAfterDrag: function(e) {
             if (e.master) {
                 var blockComponent = this.component('block'),
                     shapeComponent = this.component('shape'),
+                    childComponent = this.component('child'),
                     blockMatrix = blockComponent.matrix(),
                     pool = this.pool();
 
@@ -582,6 +786,7 @@
                 shapeComponent.matrix().multiply(blockMatrix);
                 shapeComponent.attr('transform', shapeComponent.matrix().toValue());
                 shapeComponent.dirty(true);
+                childComponent.dirty(true);
 
                 // update props
                 shapeMatrix = shapeComponent.matrix();
@@ -596,24 +801,148 @@
                 shapeComponent.removeClass('shape-dragging');
 
                 // sync other
-                pool.translateBy(this, e.dx, e.dy);
+                pool.relocateSiblings(this, e.dx, e.dy);
+                pool.refreshContents();
 
-                this.redrawChildren();
+                // sync links
+                pool.relocateLinks(e.dx, e.dy);
+                pool.refreshChildren();
             }
 
         },
 
-        onResize: function(e) {
-            this.superclass.prototype.onResize.call(this, e);
-            this.pool().resizeBy(this);
+        onBeforeResize: function(e){
+            this.resizing = {
+                childOffsets: {}
+            };
+
+            // set resize restriction
+            // calculate max children bound for all lanes
+            var bounds = this.component('child').bboxView().toJson(),
+                lanes = this.pool().populateChildren(),
+                resizing = this.resizing;
+
+            lanes.each(function(lane){
+                var laneChildComponent = lane.component('child'),
+                    laneChildBox = laneChildComponent.bboxView().toJson();
+
+                resizing.childOffsets[lane.guid()] = {
+                    x: laneChildBox.x,
+                    y: laneChildBox.y
+                };
+
+                if (laneChildBox.x < bounds.x) {
+                    bounds.x = laneChildBox.x;
+                }
+
+                if (bounds.x2 < laneChildBox.x2) {
+                    bounds.x2 = laneChildBox.x2;
+                }
+
+            });
+
+            var resizer = e.resizer,
+                direction = e.direction,
+                origin = {
+                    x: bounds.x, 
+                    y: bounds.y
+                },
+                padding = {
+                    top: 10,
+                    left: 40,
+                    right: 10,
+                    bottom: 10
+                };
+
+            switch(direction) {
+                case 'n':
+                    origin.x = (bounds.x + bounds.x2) / 2;
+                    origin.y = bounds.y2 - padding.bottom;
+                    break;
+                case 'e':
+                    origin.x = bounds.x + padding.right;
+                    origin.y = (bounds.y + bounds.y2) / 2;
+                    break;
+                case 's':
+                    origin.x = (bounds.x + bounds.x2) / 2;
+                    origin.y = bounds.y + padding.top;
+                    break;
+                case 'w':
+                    origin.x = bounds.x2 - padding.left;
+                    origin.y = (bounds.y + bounds.y2) / 2;
+                    break;
+                case 'ne':
+                    origin.x = bounds.x + padding.right;
+                    origin.y = bounds.y2 - padding.bottom;
+                    break;
+                case 'se':
+                    origin.x = bounds.x + padding.right;
+                    origin.y = bounds.y + padding.top;
+                    break;
+                case 'sw':
+                    origin.x = bounds.x2 - padding.left;
+                    origin.y = bounds.y + padding.top;
+                    break;
+                case 'nw':
+                    origin.x = bounds.x2 - padding.left;
+                    origin.y = bounds.y2 - padding.bottom;
+                    break;
+            }
+
+            var width = bounds.x2 - bounds.x,
+                height = bounds.y2 - bounds.y;
+
+            if (width <= 0) {
+                width = 200;
+            }
+
+            if (height <= 0) {
+                height = 100;
+            }
+
+            resizer.restrict({
+                width: width,
+                height: height,
+                origin: origin
+            });
+
+        },
+
+        onAfterResize: function(e) {
+            this.superclass.prototype.onAfterResize.call(this, e);
+
+            var pool = this.pool();
+            pool.resizeBy(this);
+
+            if (this.resizing) {
+                var lanes = pool.populateChildren(),
+                    resizing = this.resizing;
+
+                lanes.each(function(lane){
+                    var child = lane.component('child'),
+                        childBox = child.bboxView().toJson(),
+                        offset = resizing.childOffsets[lane.guid()];
+
+                    if (offset) {
+                        var dx = offset.x - childBox.x,
+                            dy = offset.y - childBox.y;
+
+                        child.translate(dx, dy).commit();
+                    }
+
+                });
+
+                this.resizing = resizing = null;
+            }
+
         },
 
         onAboveToolClick: function(e) {
-            this.addSiblingAbove();
+            this.createSiblingAbove();
         },
 
         onBelowToolClick: function(e) {
-            this.addSiblingBellow();
+            this.createSiblingBellow();
         },
 
         onUpToolClick: function(e) {

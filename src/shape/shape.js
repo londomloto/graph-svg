@@ -8,7 +8,11 @@
             guid: null,
             width: 0,
             height: 0,
-            label: ''
+            label: '',
+            alias: '',
+            fill: 'rgb(255, 255, 255)',
+            stroke: 'rgb(0, 0, 0)',
+            strokeWidth: 2
         },
 
         components: {
@@ -18,6 +22,10 @@
             child: null
         },
 
+        layout: {
+            suspended: false
+        },
+
         tree: {
             paper: null,
             parent: null,
@@ -25,7 +33,7 @@
         },
 
         metadata: {
-            name: null,
+            type: null,
             icon: Graph.icons.SHAPE,
             style: 'graph-shape',
             tools: null
@@ -42,7 +50,7 @@
         constructor: function(options) {
             var guid;
 
-            _.assign(this.props, options || {});
+            this.data(options || {});
 
             guid = 'graph-shape-' + (++Shape.guid);
 
@@ -54,19 +62,94 @@
             this.initMetadata();
 
             if (this.components.shape) {
-                var style = Graph.styles.SHAPE;
+                var style = Graph.styles.SHAPE,
+                    shape = this.component();
 
                 if (this.metadata.style) {
                     style += ' ' + this.metadata.style;
                 }
 
-                this.component().addClass(style);
+                shape.addClass(style);
+                shape.attr('data-shape', guid);
+
                 style = null;
             }
 
             Graph.registry.shape.register(this);
 
             guid = null;
+        },
+
+        data: function(name, value) {
+            if (name === undefined && value === undefined) {
+                return this.props;
+            }
+
+            var excludes = {
+                type: true,
+                client_id: true,
+                client_parent: true,
+                client_pool: true,
+                diagram_id: true,
+                parent_id: true,
+                params: true
+            };
+
+            var maps = {
+                stroke_width: 'strokeWidth'
+            };
+
+            var map, key;
+
+            if (_.isPlainObject(name)) {
+                for (key in name) {
+                    if ( ! excludes[key]) {
+                        map = maps[key] || key;
+                        this.props[map] = name[key];    
+                    }
+                }
+                return this;
+            }
+
+            if (value === undefined) {
+                return this.props[name];
+            }
+
+            if ( ! excludes[name]) {
+                map = maps[name] || name;
+                this.props[map] = value;    
+            }
+
+            return this;
+        },
+
+        update: function(data) {
+            data = data || {};
+
+            if (data.props) {
+                this.data(data.props);
+            }
+        },
+
+        redraw: function(props) {
+            var key;
+            
+            props = props || {};
+
+            this.suspendLayout();
+
+            for (key in props) {
+                if (this[key] !== undefined && _.isFunction(this[key])) {
+                    this[key](props[key]);
+                }
+            }
+
+            this.resumeLayout();
+            this.refresh();
+        },
+
+        is: function(type) {
+            return this.metadata.type == type;
         },
 
         initMetadata: function() {
@@ -124,9 +207,11 @@
         },
 
         invalidate: function() {
-
+            for (var key in this.cached) {
+                this.cached[key] = null;
+            }
         },
-        
+
         connectable: function() {
             return this.plugins.manager.get('network');
         },
@@ -143,6 +228,10 @@
             return this.plugins.manager.get('snapper');
         },
 
+        editable: function() {
+            return this.plugins.manager.get('editor');  
+        },
+
         paper: function() {
             return Graph.registry.vector.get(this.tree.paper);
         },
@@ -155,17 +244,63 @@
             return this.tree.children;
         },
 
-        addChild: function(child) {
-            var children = this.children(),
-                parent = child.parent();
+        hasChild: function(child) {
+            return this.children().has(child);
+        },
 
-            if (parent && parent.guid() != this.guid()) {
-                parent.removeChild(child);
+        addChild: function(child, relocate) {
+            var children = this.children(),
+                placeTarget = this.component('child'),
+                guid = this.guid(),
+                me = this;
+
+            relocate = _.defaultTo(relocate, true);
+
+            if ( ! _.isArray(child)) {
+                child = [child];
             }
 
-            if ( ! children.has(child)) {
-                children.push(child);
-                child.tree.parent = this.guid();
+            var beforeDestroyHandler = _.bind(this.onChildBeforeDestroy, this);
+
+            _.forEach(child, function(shape){
+                var parent = shape.parent();
+
+                if (parent && parent.guid() != guid) {
+                    parent.removeChild(shape);
+                }
+
+                if ( ! children.has(shape)) {
+                    var shapeComponent = shape.component();
+
+                    if (relocate) {
+                        shapeComponent.relocate(placeTarget);    
+                    } else {
+                        placeTarget.append(shapeComponent);
+                    }
+                    
+                    shape.cached.beforeDestroyHandler = _.bind(me.onChildBeforeDestroy, me);
+                    shape.cached.afterDragHandler = _.bind(me.onChildAfterDrag, me);
+                    shape.cached.connectHandler = _.bind(me.onChildConnect, me);
+
+                    shape.on('beforedestroy', shape.cached.beforeDestroyHandler);
+                    shape.on('afterdrag', shape.cached.afterDragHandler);
+                    shape.on('connect', shape.cached.connectHandler);
+
+                    children.push(shape);
+                    shape.tree.parent = guid;
+
+                    // update shape props
+                    var matrix = shapeComponent.matrix();
+
+                    shape.data({
+                        left: matrix.props.e,
+                        top: matrix.props.f
+                    });
+                }
+            });
+
+            if (relocate) {
+                this.autoResize();    
             }
         },
 
@@ -180,24 +315,6 @@
 
         guid: function() {
             return this.props.guid;
-        },
-
-        data: function(name, value) {
-            var me = this;
-
-            if (_.isPlainObject(name)) {
-                _.forOwn(name, function(v, k){
-                    me.data(k, v);
-                });
-                return me;
-            }
-
-            if (value === undefined) {
-                return me.props[name];
-            }
-
-            me.props[name] = value;
-            return me;
         },
 
         matrix: function() {
@@ -216,11 +333,37 @@
         },
 
         render: function(paper) {
+            var guid = this.guid(),
+                paperGuid = paper.guid();
+
             var component = this.component();
             component && component.render(paper);
 
             // save
-            this.tree.paper = paper.guid();
+            this.tree.paper = paperGuid;
+            Graph.registry.shape.setContext(guid, paperGuid);
+        },
+
+        select: function(single) {
+            var blockComponent = this.component('block'),
+                paper = this.paper();
+
+            single = _.defaultTo(single, false);
+
+            if (single && paper) {
+                paper.collector().clearCollection();
+            }
+
+            if (blockComponent) {
+                blockComponent.select();
+            }
+        },
+
+        deselect: function() {
+            var blockComponent = this.component('block');
+            if (blockComponent) {
+                blockComponent.deselect();
+            }
         },
 
         remove: function() {
@@ -228,7 +371,11 @@
             this.component('block').remove();
         },
 
-        redraw: _.debounce(function() {
+        refresh: _.debounce(function() {
+            if (this.layout.suspended) {
+                return;
+            }
+
             var label = this.component('label'),
                 block = this.component('block'),
                 bound = block.bbox().toJson();
@@ -241,6 +388,18 @@
             label.wrap(bound.width - 10);
 
         }, 1),
+
+        autoResize: function() {
+
+        },
+
+        center: function() {
+            var bbox = this.bbox().toJson();
+            return {
+                x: (bbox.x + bbox.x2) / 2,
+                y: (bbox.y + bbox.y2) / 2
+            };
+        },
 
         translate: function(dx, dy) {
             var component = this.component();
@@ -256,6 +415,12 @@
                 top: top
             });
 
+            var childComponent = this.component('child');
+
+            if (childComponent) {
+                childComponent.dirty(true);
+            }
+
         },
 
         cascade: function(handler) {
@@ -269,6 +434,14 @@
         sendToFront: function() {
             var paper = this.paper();
             paper.viewport().elem.append(this.component().elem);
+        },
+
+        suspendLayout: function() {
+            this.layout.suspended = true;
+        },
+
+        resumeLayout: function() {
+            this.layout.suspended = false;
         },
 
         /**
@@ -298,14 +471,43 @@
                 return this.props.height;
             }
 
-            return this.attr('height', value);
+            var block = this.component('block'),
+                box = block.bbox().toJson(),
+                sx = 1,
+                sy = value / this.props.height,
+                cx = (box.x + box.x2) / 2,
+                cy = box.y,
+                dx = 0,
+                dy = 0;
+
+            var resize = block.resize(sx, sy, cx, cy, dx, dy);
+            block.fire('afterresize', resize);
+            
+            this.props.height = value;
+
+            return this;
         },
 
         width: function(value) {
             if (value === undefined) {
                 return this.props.width;
             }
-            return this.attr('width', value);
+
+            var block = this.component('block'),
+                box = block.bbox().toJson(),
+                sx = value / this.props.width,
+                sy = 1,
+                cx = box.x,
+                cy = (box.y + box.y2) / 2,
+                dx = 0,
+                dy = 0;
+
+            var resize = block.resize(sx, sy, cx, cy, dx, dy);
+            block.fire('afterresize', resize);
+
+            this.props.width = value;
+
+            return this;
         },
 
         left: function(value) {
@@ -313,7 +515,15 @@
                 return this.props.left;
             }
 
-            return this.attr('left', value);
+            var shape = this.component(),
+                matrix = shape.matrix(),
+                dx = value - matrix.props.e,
+                dy = 0;
+
+            shape.translate(dx, dy).commit();
+            this.props.left = value;
+
+            return this;
         },
 
         top: function(value) {
@@ -321,22 +531,143 @@
                 return this.props.top;
             }
 
-            return this.attr('top', value);
+            var shape = this.component(),
+                matrix = shape.matrix(),
+                dx = 0,
+                dy = value - matrix.props.f;
+
+            shape.translate(dx, dy).commit();
+            this.props.top = value;
+
+            return this;
+        },
+
+        label: function(label) {
+            if (label === undefined) {
+                return this.props.label;
+            }
+
+            var blockComponent = this.component('block'),
+                labelComponent = this.component('label');
+
+            labelComponent.props.text = label;
+            blockComponent.data('text', label);
+
+            this.props.label = label;
+            this.refresh();
+        },
+
+        fill: function(value) {
+            if (value === undefined) {
+                return this.props.fill;
+            }
+            
+            this.props.fill = value;
+            this.component('block').elem.css('fill', value);
+        },
+
+        stroke: function(value) {
+            if (value === undefined) {
+                return this.props.stroke;
+            }
+            
+            this.props.stroke = value;
+            this.component('block').elem.css('stroke', value);
+        },
+
+        strokeWidth: function(value) {
+            if (value === undefined) {
+                return this.props.strokeWidth;
+            }
+
+            this.props.strokeWidth = value;
+            this.component('block').elem.css('stroke-width', value);
+        },
+
+        connect: function(target, start, end, options){
+            var sourceNetwork = this.connectable().plugin(),
+                targetNetwork = target.connectable().plugin();
+
+            if (sourceNetwork && targetNetwork) {
+                return sourceNetwork.connect(targetNetwork, start, end, options);
+            }
+
+            return false;
+        },
+
+        disconnect: function(target, link) {
+            var sourceNetwork = this.connectable().plugin(),
+                targetNetwork = target.connectable().plugin();
+
+            if (sourceNetwork && targetNetwork) {
+                return sourceNetwork.disconnect(targetNetwork, link);
+            }
+
+            return false;
+        },
+
+        toJson: function() {
+            var blockComponent = this.component('block'),
+                paper = this.paper();
+
+            var shape = {
+                metadata: {
+
+                },
+                props: {
+                    id: this.props.id,
+                    type: this.toString(),
+                    guid: this.props.guid,
+                    parent: this.tree.parent,
+                    label: this.props.label,
+                    left: this.props.left,
+                    top: this.props.top,
+                    width: this.props.width,
+                    height: this.props.height,
+                    fill: this.props.fill,
+                    strokeWidth: this.props.strokeWidth,
+                    stroke: this.props.stroke
+                },
+                params: [
+                    {key: 'Source', value: 'db.employee'}
+                ],
+                links: [
+
+                ]
+            };
+
+            var network = this.connectable().plugin();
+
+            if (network) {
+                var connections = network.connections();
+
+                _.forEach(connections, function(conn){
+                    var linkData = conn.link.toJson();
+
+                    shape.links.push({
+                        guid: conn.guid,
+                        mode: conn.type,
+                        pair: conn.type == 'outgoing' ? linkData.props.target : linkData.props.source
+                    });
+                });
+            }
+
+            return shape;
         },
 
         onLabelEdit: function(e) {
-            var text = e.text;
-            this.component('label').props.text = text;
-            this.redraw();
+            this.label(e.text);
         },
 
-        onDragStart: function(e) {
+        onBeforeDrag: function(e) {
+            this.paper().diagram().capture();
             this.component().addClass('shape-dragging');
         },
 
-        onDragEnd: function(e) {
+        onAfterDrag: function(e) {
             var blockComponent = this.component('block'),
                 shapeComponent = this.component('shape'),
+                childComponent = this.component('child'),
                 blockMatrix = blockComponent.matrix();
 
             var shapeMatrix;
@@ -346,6 +677,10 @@
             shapeComponent.matrix().multiply(blockMatrix);
             shapeComponent.attr('transform', shapeComponent.matrix().toValue());
             shapeComponent.dirty(true);
+
+            if (childComponent) {
+                childComponent.dirty(true);
+            }
 
             // update props
             shapeMatrix = shapeComponent.matrix();
@@ -360,21 +695,48 @@
             shapeComponent.removeClass('shape-dragging');
         },
 
-        onSelect: function() {
+        onSelect: function(e) {
             this.component('shape').addClass('shape-selected');
-            Graph.topic.publish('shape/select', {shape: this});
+            if (e.initial) {
+                Graph.topic.publish('shape:select', {shape: this});    
+            }
         },
 
-        onDeselect: function() {
+        onDeselect: function(e) {
             this.component('shape').removeClass('shape-selected');
-            Graph.topic.publish('shape/deselect', {shape: this});
+            if (e.initial) {
+                Graph.topic.publish('shape:deselect', {shape: this});
+            }
         },
 
-        onResize: function() {
-            this.redraw();
+        onConnect: function(e) {
+            var link = e.link,
+                sourceVector = link.router.source(),
+                targetVector = link.router.target();
+
+            if (sourceVector && targetVector) {
+                var sourceShape = Graph.registry.shape.get(sourceVector),
+                    targetShape = Graph.registry.shape.get(targetVector);
+
+                if (sourceShape && targetShape) {
+                    this.fire('connect', {
+                        link: link,
+                        source: sourceShape,
+                        target: targetShape
+                    });
+                }
+            }
         },
 
-        onRemove: function() {
+        onAfterResize: function() {
+            this.refresh();
+        },
+
+        onBeforeDestroy: function() {
+            this.fire('beforedestroy', {shape: this});
+        },
+
+        onAfterDestroy: function() {
             // remove label
             this.component('label').remove();
 
@@ -385,7 +747,50 @@
                 this.components[name] = null;
             }
 
+            this.fire('afterdestroy', {shape: this});
             Graph.registry.shape.unregister(this);
+        },
+
+        onChildConnect: function(e) {
+
+        },
+
+        onChildAfterDrag: function(e) {
+            var childComponent;
+
+            if (e.batch) {
+                if (e.master) {
+                    childComponent = this.component('child');
+                    if (childComponent) {
+                        childComponent.dirty(true);
+                    }
+                }
+            } else {
+                childComponent = this.component('child');
+                if (childComponent) {
+                    childComponent.dirty(true);
+                }
+            }
+        },
+
+        onChildBeforeDestroy: function(e) {
+            var shape = e.shape;
+
+            this.children().pull(shape);
+
+            shape.off('beforedestroy', shape.cached.beforeDestroyHandler);
+            shape.off('afterdrag', shape.cached.afterDragHandler);
+            shape.off('connect', shape.cached.connectHandler);
+
+            shape.cached.beforeDestroyHandler = null;
+            shape.cached.afterDragHandler = null;
+            shape.cached.connectHandler = null;
+
+            var childComponent = shape.component('child');
+
+            if (childComponent) {
+                childComponent.dirty(true);
+            }
         },
 
         onConfigToolClick: function(e) {
@@ -393,6 +798,7 @@
         },
 
         onTrashToolClick: function(e) {
+            this.paper().diagram().capture();
             this.remove();
         },
 
@@ -402,7 +808,7 @@
             if (paper) {
                 var layout = paper.layout(),
                     linker = paper.plugins.linker,
-                    coord  = layout.grabLocation(e);
+                    coord  = layout.pointerLocation(e);
 
                 paper.tool().activate('linker');
                 linker.start(this.connectable().component(), coord);

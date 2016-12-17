@@ -33,7 +33,7 @@
         }
     };
 
-    Registry.prototype.count = function() {
+    Registry.prototype.size = function() {
         return _.keys(storage).length;
     };
 
@@ -45,11 +45,13 @@
         if (key === undefined) {
             return this.toArray();
         }
-
+        
         if (key instanceof SVGElement) {
             key = Graph.$(key).data(Graph.string.ID_LINK);
         } else if (key instanceof Graph.dom.Element) {
             key = key.data(Graph.string.ID_LINK);
+        } else if (key instanceof Graph.svg.Vector) {
+            key = key.elem.data(Graph.string.ID_LINK);
         }
 
         return storage[key];

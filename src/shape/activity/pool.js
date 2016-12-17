@@ -7,21 +7,27 @@
 
     var Pool = Graph.shape.activity.Pool = function() {
         this.guid = 'pool-' + (++Pool.guid);
-        
+
         // tree nodes
         this.lanes = (new Graph.collection.Tree([]))
-            .keygen(function(lane){ 
+            .keygen(function(lane){
                 return lane.bbox.y;
                 // return (lane.bbox.y + (1e-9 * lane.bbox.x));
             });
-        
-        // raw nodes
-        this.cached = {};
+
+        this.cached = {
+            nodes: {},
+            contents: null
+        };
     };
 
-    Pool.prototype.children = function() {
+    Pool.prototype.invalidate = function() {
+        this.cached.contents = null;
+    };
+
+    Pool.prototype.populateChildren = function() {
         var children = [];
-        
+
         _.forEach(this.lanes.toArray(), function(node){
             var lane = Graph.registry.shape.get(node.lane);
             children.push(lane);
@@ -32,9 +38,9 @@
 
     Pool.prototype.bbox = function() {
         var nodes = this.lanes.toArray(),
-             x = [], 
-             y = [], 
-            x2 = [], 
+             x = [],
+             y = [],
+            x2 = [],
             y2 = [];
 
         var bbox;
@@ -65,7 +71,7 @@
             height: y2 - y
         });
     };
-    
+
     Pool.prototype.get = function(index) {
         var data = this.lanes.get(index);
         if (data) {
@@ -77,35 +83,32 @@
     Pool.prototype.prev = function(lane) {
         var index = this.index(lane),
             prev = this.lanes.get(index - 1);
-            
+
         if (prev) {
             return Graph.registry.shape.get(prev.lane);
         }
-        
-        return null;
-    };
-    
-    Pool.prototype.last = function() {
-        var index = this.count() - 1,
-            last = this.lanes.get(index);
-            
-        if (last) {
-            return Graph.registry.shape.get(last.lane);
-        }
-        
+
         return null;
     };
 
-    Pool.prototype.refresh = function(lane) {
-        console.log(lane);
+    Pool.prototype.last = function() {
+        var index = this.size() - 1,
+            last = this.lanes.get(index);
+
+        if (last) {
+            return Graph.registry.shape.get(last.lane);
+        }
+
+        return null;
     };
-    
+
     /**
      * Create new space
      */
     Pool.prototype.createSpaceAbove = function(lane, height) {
         var laneIndex = this.index(lane),
-            prev = this.lanes.get(laneIndex - 1);
+            prev = this.lanes.get(laneIndex - 1),
+            me = this;
 
         if (prev) {
             this.lanes.bubble(prev, function(curr){
@@ -113,14 +116,23 @@
                 if (shape) {
                     shape.translate(0, -height);
                     curr.bbox = shape.bbox().toJson();
+
+                    shape.children().each(function(c){
+                        var comnet = c.connectable().component();
+                        comnet && (comnet.dirty(true));
+                    });
+
+                    me.relocateLinks(0, -height, shape);
                 }
             });
+            this.lanes.order();
         }
     };
-    
+
     Pool.prototype.createSpaceBellow = function(lane, height) {
         var laneIndex = this.index(lane),
-            next = this.lanes.get(laneIndex + 1);
+            next = this.lanes.get(laneIndex + 1),
+            me = this;
 
         if (next) {
             this.lanes.cascade(next, function(curr){
@@ -128,15 +140,23 @@
                 if (shape) {
                     shape.translate(0, height);
                     curr.bbox = shape.bbox().toJson();
+
+                    shape.children().each(function(c){
+                        var comnet = c.connectable().component();
+                        comnet && (comnet.dirty(true));
+                    });
+
+                    me.relocateLinks(0, height, shape);
                 }
             });
+            this.lanes.order();
         }
     };
-    
-    Pool.prototype.translateBy = function(lane, dx, dy) {
+
+    Pool.prototype.relocateSiblings = function(lane, dx, dy) {
         var root = this.lanes.root(),
             guid = lane.guid();
-        
+
         if (root) {
             this.lanes.cascade(root, function(curr){
                 if (curr.lane == guid) {
@@ -157,7 +177,7 @@
             bbox = lane.bbox().toJson(),
             root = this.lanes.root(),
             index = this.index(lane);
-            
+
         if (root) {
 
             // sample
@@ -188,14 +208,14 @@
                 } else {
                     var shape = Graph.registry.shape.get(curr.lane);
                     if (shape) {
-                        
+
                         var group = shape.component(),
                             block = shape.component('block');
-                        
+
                         // up
                         if (index > i) {
                             shape.translate(dx1, dy1);
-                        } 
+                        }
                         // down
                         else if (index < i) {
                             shape.translate(dx2, dy2);
@@ -206,8 +226,7 @@
                         });
 
                         block.dirty(true);
-
-                        shape.redraw();
+                        shape.refresh();
 
                         curr.bbox = shape.bbox().toJson();
                     }
@@ -221,7 +240,7 @@
     Pool.prototype.bringToFront = function(lane) {
         var sets = Graph.$('[data-pool="' + this.guid + '"]'),
             last = sets.last();
-        
+
         if (last.length()) {
             if (last.node() != lane.component().node()) {
                 last.after(lane.component().elem);
@@ -243,7 +262,7 @@
                 dy1 = prevBox.y - laneBox.y,
                 dx2 = 0,
                 dy2 = laneBox.height;
-            
+
             laneNode.bbox.y  += dy1;
             laneNode.bbox.y2 += dy1;
 
@@ -254,6 +273,19 @@
             prev.translate(dx2, dy2);
 
             this.lanes.order();
+
+            lane.children().each(function(c){
+                var comnet = c.connectable().component();
+                comnet && (comnet.dirty(true));
+            });
+
+            prev.children().each(function(c){
+                var comnet = c.connectable().component();
+                comnet && (comnet.dirty(true));
+            });
+
+            this.relocateLinks(dx1, dy1, lane);
+            this.relocateLinks(dx2, dy2, prev);
         }
     };
 
@@ -271,7 +303,7 @@
                 dy1 = nextBox.height,
                 dx2 = 0,
                 dy2 = laneBox.y - nextBox.y;
-            
+
             laneNode.bbox.y  += dy1;
             laneNode.bbox.y2 += dy1;
 
@@ -282,61 +314,209 @@
             next.translate(dx2, dy2);
 
             this.lanes.order();
+
+            lane.children().each(function(c){
+                var comnet = c.connectable().component();
+                comnet && (comnet.dirty(true));
+            });
+
+            next.children().each(function(c){
+                var comnet = c.connectable().component();
+                comnet && (comnet.dirty(true));
+            });
+
+            this.relocateLinks(dx1, dy1, lane);
+            this.relocateLinks(dx2, dy2, next);
         }
     };
 
-    Pool.prototype.count = function() {
-        return this.lanes.count();
+    Pool.prototype.refreshChildren = function() {
+        var children = this.populateChildren();
+
+        children.each(function(lane){
+            lane.component('child').dirty(true);
+        });
     };
-    
+
+    /**
+     * Populate lanes children
+     */
+    Pool.prototype.populateContents = function(lane) {
+        var contents;
+        if (lane !== undefined) {
+            contents = new Graph.collection.Shape(lane.children().toArray());
+        } else {
+            contents = this.cached.contents;
+            if ( ! contents) {
+                contents = [];
+                _.forEach(this.lanes.toArray(), function(node){
+                    var lane = Graph.registry.shape.get(node.lane);
+                    if (lane) {
+                        contents = _.concat(contents, lane.children().toArray());
+                    }
+                });
+
+                contents = new Graph.collection.Shape(contents);
+                this.cached.contents = contents;
+            }    
+        }
+
+        return contents;
+    };
+
+    Pool.prototype.refreshContents = function() {
+        var contents = this.populateContents();
+
+        contents.each(function(shape){
+            var connectableBlock = shape.connectable().component();
+            if (connectableBlock) {
+                connectableBlock.dirty(true);
+            }
+        });
+    };
+
+    Pool.prototype.populateLinks = function(lane) {
+        var me = this, 
+            contents = me.populateContents(lane),
+            contentKeys = contents.keys(),
+            result = {
+                isolated: {},
+                separated: {}
+            };
+
+        contents.each(function(shape){
+            var network = shape.connectable().plugin(),
+                connections = (network && network.connections()) || [];
+
+            var pairVector, pairShape;
+
+            _.forEach(connections, function(conn){
+                pairVector = Graph.registry.vector.get((conn.type == 'incoming' ? conn.source : conn.target));
+                if (pairVector) {
+                    pairShape = Graph.registry.shape.get(pairVector);
+                    if (pairShape) {
+                        if (_.indexOf(contentKeys, pairShape.guid()) > -1) {
+                            if ( ! result.isolated[conn.guid]) {
+                                result.isolated[conn.guid] = conn;
+                            }
+                        } else {
+                            if ( ! result.separated[conn.guid]) {
+                                result.separated[conn.guid] = conn;
+                            }
+                        }
+                    }
+                }
+            });
+        });
+
+        return result;
+    };
+
+    Pool.prototype.relocateLinks = function(dx, dy, lane) {
+        var links = this.populateLinks(lane);
+        var key, conn, router;
+        
+        for (key in links.isolated) {
+            conn = links.isolated[key];
+            conn.link.invalidate('convex');
+            conn.link.relocate(dx, dy);
+        }
+        
+        for (key in links.separated) {
+            conn = links.separated[key];
+            conn.link.invalidate('convex');
+            
+            if (conn.type == 'incoming') {
+                conn.link.relocateHead(dx, dy);
+            } else {
+                conn.link.invalidate('convex');
+                conn.link.relocateTail(dx, dy);
+            }
+        }
+        
+        links = null;
+    };
+
+
+    Pool.prototype.size = function() {
+        return this.lanes.size();
+    };
+
     Pool.prototype.insert = function(lane) {
         var guid = lane.guid();
         var node, index;
-        
+
         node = {
             lane: guid,
             bbox: lane.bbox().toJson()
         };
-        
+
         index = this.lanes.insert(node);
-        
+
         if (index !== undefined) {
-            this.cached[guid] = node;
+            this.cached.nodes[guid] = node;
             lane.component().elem.attr('data-pool', this.guid);
         }
-        
+
         node = null;
         return index;
     };
 
     Pool.prototype.remove = function(lane) {
         var guid = lane.guid(),
-            node = this.cached[guid];
-        
+            node = this.cached.nodes[guid];
+
         var index = this.lanes.remove(node);
         
         if (index !== undefined) {
-            delete this.cached[guid];
+            // shrink pool (direction: up)
+            var prev = this.lanes.get(index - 1),
+                next = this.lanes.get(index),
+                me = this;
+            
+            if (next) {
+                var dx = 0,
+                    dy = -node.bbox.height;
+
+                this.lanes.cascade(next, function(node){
+                    var lane = Graph.registry.shape.get(node.lane);
+                    if (lane) {
+                        lane.translate(dx, dy);
+                        node.bbox = lane.bbox().toJson();
+
+                        lane.children().each(function(c){
+                            var comnet = c.connectable().component();
+                            comnet && (comnet.dirty(true));
+                        });
+
+                        me.relocateLinks(dx, dy, lane);
+                    }
+                });
+
+                this.lanes.order();
+            }
+
+            delete this.cached.nodes[guid];
         }
-        
+
         node = null;
-        
+
         return index;
     };
 
     Pool.prototype.index = function(lane) {
         var guid = lane.guid(),
-            node = this.cached[guid];
-        
+            node = this.cached.nodes[guid];
+
         var index = this.lanes.index(node);
-        
+
         node = null;
-        
+
         return index;
     };
-    
+
     ///////// STATIC /////////
-    
+
     Pool.guid = 0;
-    
+
 }());

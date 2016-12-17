@@ -77,7 +77,7 @@
             me.tree.children = new Graph.collection.Vector();
 
             guid  = 'graph-elem-' + (++Vector.guid);
-            attrs = _.extend({ id: guid }, me.attrs, attrs || {});
+            attrs = _.extend({}, me.attrs, attrs || {});
 
             me.elem = Graph.$(document.createElementNS(Graph.config.xmlns.svg, type));
 
@@ -96,6 +96,7 @@
             guid = null;
 
             me.elem.data(Graph.string.ID_VECTOR, me.props.guid);
+            me.elem.attr('data-elem', me.props.guid);
 
             // me.plugins.history = new Graph.plugin.History(me);
             me.plugins.transformer = (new Graph.plugin.Transformer(me))
@@ -136,11 +137,12 @@
 
                     matrix = Graph.matrix();
 
+                    // TODO: check this....
                     this.bubble(function(curr){
-                        matrix.multiply(curr.matrix());
                         if (curr.guid() == viewportGuid) {
                             return false;
                         }
+                        matrix.multiply(curr.matrix());
                     });
                 } else {
                     matrix = this.matrix();
@@ -303,7 +305,8 @@
             if ( ! this.plugins.resizer) {
                 this.plugins.resizer = new Graph.plugin.Resizer(this, options);
                 this.plugins.resizer.on({
-                    resize: _.bind(this.onResizerResize, this)
+                    beforeresize: _.bind(this.onResizerBeforeResize, this),
+                    afterresize: _.bind(this.onResizerAfterResize, this)
                 });
             } else if (options !== undefined) {
                 this.plugins.resizer.options(options);
@@ -320,9 +323,9 @@
                 this.plugins.dragger = new Graph.plugin.Dragger(this, config);
 
                 this.plugins.dragger.on({
-                    dragstart: _.bind(this.onDraggerStart, this),
-                    dragmove: _.bind(this.onDraggerMove, this),
-                    dragend: _.bind(this.onDraggerEnd, this)
+                    beforedrag: _.bind(this.onDraggerStart, this),
+                    drag: _.bind(this.onDraggerMove, this),
+                    afterdrag: _.bind(this.onDraggerEnd, this)
                 });
             }
             return this.plugins.dragger;
@@ -427,16 +430,6 @@
 
             var enabled, snapper;
 
-            if ( ! paper) {
-                // try to get default paper
-                paper = Graph.svg.Paper.getDefaultInstance();
-            }
-
-            // still no exists?
-            if ( ! paper) {
-                throw Graph.error("Unable to install snapper plugin. Paper doesn't rendered yet!");
-            }
-
             if (_.isBoolean(options)) {
                 options = {
                     enabled: options
@@ -449,8 +442,21 @@
 
             me.props.snappable = options.enabled;
 
-            snapper = paper.plugins.snapper;
-            snapper.setup(me, options);
+            if ( ! paper) {
+                paper = Graph.svg.Paper.getDefaultInstance();
+                snapper = paper.plugins.snapper;
+                
+                me.on('render', function(){
+                    me.paper().plugins.snapper.setup(me, options);
+                });
+            } else {
+                snapper = paper.plugins.snapper;
+            }
+            
+            // still no exists?
+            if ( ! paper) {
+                throw Graph.error("Unable to install snapper plugin. Paper doesn't rendered yet!");
+            }
 
             return snapper;
         },
@@ -939,9 +945,11 @@
                 applyMatrix = this.matrix().clone();
 
             applyMatrix.multiply(targetMatrix.invert());
-
+            
             this.graph.matrix = applyMatrix;
             this.attr('transform', applyMatrix.toValue());
+
+            targetMatrix = applyMatrix = null;
 
             // flag as dirty
             this.dirty(true);
@@ -1002,9 +1010,8 @@
         remove: function() {
             var parent = this.parent();
 
-            if (this.lasso) {
-                this.lasso.decollect(this);
-            }
+            this.fire('beforedestroy');
+            this.deselect();
 
             // destroy plugins
             for (var name in this.plugins) {
@@ -1026,8 +1033,7 @@
             Graph.registry.vector.unregister(this);
 
             // last chance
-            this.fire('remove');
-
+            this.fire('afterdestroy');
             this.listeners = null;
         },
 
@@ -1046,35 +1052,62 @@
             return this;
         },
 
-        select: function(batch) {
+        select: function() {
+            var paper = this.paper(),
+                initial = false;
+            
+            if (paper) {
+                var collector = paper.collector();
+                collector.add(this);
+
+                if (collector.index(this) === 0) {
+                    initial = true;
+                }
+
+            } else {
+                initial = true;
+            }
+
             this.addClass('graph-selected');
             this.props.selected = true;
 
-            batch = _.defaultTo(batch, false);
-            this.fire('select', {batch: batch});
-
-            if ( ! batch) {
-                if (this.plugins.resizer) {
-                    this.plugins.resizer.resume();
-                }
+            if (initial && this.isResizable()) {
+                this.resizable().resume();
             }
+
+            this.fire('select', {
+                initial: initial
+            });
 
             return this;
         },
 
-        deselect: function(batch) {
+        deselect: function() {
+            var paper = this.paper(),
+                initial = false;
+
+            if (paper) {
+                var collector = paper.collector();
+                initial = collector.index(this) === 0 ? true : false;
+                collector.remove(this);
+            }
 
             this.removeClass('graph-selected');
             this.props.selected = false;
 
-            batch = _.defaultTo(batch, false);
-            this.fire('deselect', {batch: batch});
-
-            if (this.plugins.resizer) {
-                this.plugins.resizer.suspend();
+            if (this.isResizable()) {
+                this.resizable().suspend();
             }
 
+            this.fire('deselect', {
+                initial: initial
+            });
+            
             return this;
+        },
+
+        collector: function() {
+            return this._collector;
         },
 
         transform: function(command) {
@@ -1189,21 +1222,27 @@
 
         ///////// OBSERVERS /////////
 
-        onResizerResize: function(e) {
+        onResizerBeforeResize: function(e) {
+            this.fire(e);
+        },
+
+        onResizerAfterResize: function(e) {
             this.dirty(true);
             // forward
             this.fire(e);
 
             // publish
-            Graph.topic.publish('vector/resize', e);
+            Graph.topic.publish('vector:afterresize', e);
         },
 
         onDraggerStart: function(e) {
             e.master = true;
             this.fire(e);
+            
+            var collector = this.collector();
 
-            if (this.lasso) {
-                this.lasso.syncDragStart(this, e);
+            if (collector) {
+                collector.syncBeforeDrag(this, e);
             }
 
             // invoke core plugins
@@ -1219,11 +1258,14 @@
         onDraggerMove: function(e) {
             // forward event
             e.master = true;
-            this.fire(e);
+            
+            var collector = this.collector();
 
-            if (this.lasso) {
-                this.lasso.syncDragMove(this, e);
+            if (collector) {
+                collector.syncDrag(this, e);
             }
+
+            this.fire(e);
         },
 
         onDraggerEnd: function(e) {
@@ -1231,19 +1273,14 @@
 
             e.master = true;
             this.fire(e);
+            
+            var collector = this.collector();
 
-            if (this.lasso) {
-                this.lasso.syncDragEnd(this, e);
+            if (collector) {
+                collector.syncAfterDrag(this, e);
             }
 
-            Graph.topic.publish('vector/dragend', e);
-
-            if (this.plugins.resizer) {
-                this.plugins.resizer.resume();
-                if ( ! this.props.selected) {
-                    this.plugins.resizer.suspend();
-                }
-            }
+            Graph.topic.publish('vector:afterdrag', e);
         },
 
         onDropperEnter: function(e) {

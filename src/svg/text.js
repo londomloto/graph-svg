@@ -13,7 +13,7 @@
             text: '',
             type: 'text',
             rotate: 0,
-            lineHeight: 1,
+            lineHeight: 1.1,
             fontSize: 12,
             traversable: true,
             focusable: false,
@@ -106,16 +106,8 @@
                         rows[i].attr('dy', size * line);
                     }
                 }
-
                 rows[0].attr('dy', 0);
-
-                // var box = this.bbox().toJson(),
-                //     off = this.attrs.y - (box.y + box.height / 2);
-
-                // if (off) {
-                //     rows[0].setAttribute('dy', off);    
-                // }
-                
+                this.dirty(true);
             }
         },
 

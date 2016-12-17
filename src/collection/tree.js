@@ -17,7 +17,7 @@
         return this.nodes[index];
     };
 
-    Tree.prototype.count = function() {
+    Tree.prototype.size = function() {
         return this.nodes.length;
     };
 

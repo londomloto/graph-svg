@@ -12,7 +12,7 @@
         },
 
         metadata: {
-            name: 'activity.router',
+            type: 'activity.router',
             icon: Graph.icons.SHAPE_ROUTER,
             style: 'graph-shape-activity-router'
         },
@@ -50,12 +50,14 @@
             pmgr.install('snapper', block);
 
             block.on('edit.shape',      _.bind(this.onLabelEdit, this));
-            block.on('dragstart.shape', _.bind(this.onDragStart, this));
-            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
-            block.on('resize.shape',    _.bind(this.onResize, this));
-            block.on('remove.shape',    _.bind(this.onRemove, this));
+            block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
+            block.on('afterdrag.shape',   _.bind(this.onAfterDrag, this));
+            block.on('afterresize.shape',    _.bind(this.onAfterResize, this));
+            block.on('beforedestroy.shape',    _.bind(this.onBeforeDestroy, this));
+            block.on('afterdestroy.shape',    _.bind(this.onAfterDestroy, this));
             block.on('select.shape',    _.bind(this.onSelect, this));
             block.on('deselect.shape',  _.bind(this.onDeselect, this));
+            block.on('connect.shape', _.bind(this.onConnect, this));
 
             label = (new Graph.svg.Text(cx, cy, this.props.label))
                 .addClass(Graph.styles.SHAPE_LABEL)
@@ -70,7 +72,52 @@
             shape = block = label = null;
         },
 
-        redraw: function() {
+        width: function(value) {
+            if (value === undefined) {
+                return this.props.width;
+            }
+
+            var box = this.component('block').bbox().toJson(),
+                sx = value / this.props.width,
+                sy = 1,
+                cx = box.x,
+                cy = (box.y + box.y2) / 2,
+                dx = 0,
+                dy = 0;
+
+            this.component('block').resize(sx, sy, cx, cy, dx, dy);
+            this.component().dirty(true);
+
+            this.props.width = value;
+            return this;
+        },
+
+        height: function(value) {
+            if (value === undefined) {
+                return this.props.height;
+            }
+
+            var block = this.component('block'),
+                box = block.bbox().toJson(),
+                sx = 1,
+                sy = value / this.props.height,
+                cx = (box.x + box.x2) / 2,
+                cy = box.y,
+                dx = 0,
+                dy = 0;
+
+            var resize = block.resize(sx, sy, cx, cy, dx, dy);
+            block.fire('afterresize', resize);
+
+            this.props.height = value;
+            return this;
+        },
+
+        refresh: function() {
+            if (this.layout.suspended) {
+                return;
+            }
+
             var block = this.component('block'),
                 shape = this.component('shape'),
                 label = this.component('label');

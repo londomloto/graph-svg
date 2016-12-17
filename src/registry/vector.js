@@ -14,7 +14,7 @@
         var id = vector.guid(), found = this.get(id);
         
         if (found !== vector) {
-            // vector.on('resize', function(){
+            // vector.on('afterresize', function(){
             //     if (vector.isConnectable()) {
             //         var delay = _.delay(function(){
             //             clearTimeout(delay);
@@ -53,7 +53,7 @@
         }
     };
 
-    Registry.prototype.count = function() {
+    Registry.prototype.size = function() {
         return _.keys(storage).length;
     };
 

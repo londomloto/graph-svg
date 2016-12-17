@@ -304,7 +304,7 @@
                 this.panning.stopHandler = null;
             }
 
-            if (tool == 'collector') {
+            if (' collector pencil '.indexOf(tool) > -1) {
                 return;
             }
 
@@ -383,7 +383,7 @@
 
         onBeforeZoom: _.debounce(function(paper){
 
-            Graph.topic.publish('paper/beforezoom', null, paper);
+            Graph.topic.publish('paper:beforezoom', null, paper);
 
         }, 300, {leading: true, trailing: false}),
 
@@ -398,7 +398,7 @@
 
         onBeforeScroll: _.debounce(function(paper){
 
-            Graph.topic.publish('paper/beforescroll', null, paper);
+            Graph.topic.publish('paper:beforescroll', null, paper);
 
         }, 300, {leading: true, trailing: false}),
 
@@ -431,7 +431,7 @@
         return Math.max(range.min, Math.min(range.max, scale));
     }
 
-    function pointerLocation(event, paper) {
+    function onDestroy(event, paper) {
         var offset = paper.node().getBoundingClientRect(),
             x = event.clientX - offset.left,
             y = event.clientY - offset.top;

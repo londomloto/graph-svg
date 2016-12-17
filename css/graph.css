@@ -334,7 +334,7 @@ text.graph-elem tspan {
     opacity: .3;
 }
 .graph-selected {
-    stroke: #007DFC;
+    stroke: #007DFC !important;
 }
 
 /** zoombox */
@@ -428,12 +428,16 @@ text.graph-elem tspan {
     cursor: pointer;
 }
 
+.graph-link.link-message .graph-link-path {
+    stroke-dasharray: 10 5;
+}
+
 .graph-link.editing .graph-link-path {
     stroke: #FFA500;
 }
 
 .graph-link-coat {
-    stroke: rgba(255, 255, 255, 0);
+    stroke: rgba(255, 255, 255, 0) !important;
     fill: none;
     stroke-width: 20;
     cursor: pointer;
@@ -578,6 +582,10 @@ text.graph-elem tspan {
     opacity: .3;
 }
 
+.graph-shape.shape-dragging .normal-mode ~ text {
+    display: none;
+}
+
 .graph-shape-activity-final .comp-block {
     fill: rgba(255,255,255,0);
 }
@@ -606,25 +614,35 @@ text.graph-elem tspan {
 }
 
 .graph-shape-activity-lane > rect {
-    stroke-width: 1;
+    /*stroke-width: 1;*/
 }
 
 .graph-shape-activity-lane.receiving > .comp-block {
-    fill: rgba(0, 125, 252, .05);
+    fill: rgba(0, 125, 252, .05) !important;
 }
 
-
 /** JOIN */
-.graph-shape-activity-join .block {
+.graph-shape-activity-join .comp-block,
+.graph-shape-activity-fork .comp-block {
     fill: #000;
     stroke-width: 0;
 }
 
-.graph-shape-activity-join .block.allowed:hover {
-    fill: #30D0C6;
+.linking .graph-shape-activity-join .comp-block.connect-valid:hover,
+.linking .graph-shape-activity-fork .comp-block.connect-valid:hover {
+    fill: #30d0c6;
 }
 
+.linking .graph-shape-activity-join .comp-block.connect-invalid:hover,
+.linking .graph-shape-activity-fork .comp-block.connect-invalid:hover {
+    fill: #FF4081;
+}
 
+/** LABEL */
+.graph-shape.label-selected text,
+.graph-shape.label-selected text tspan {
+    fill: #007DFC;    
+}
 
 /** PALLET */
 .graph-pallet path {

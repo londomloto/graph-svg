@@ -1,56 +1,40 @@
 <?php
-require_once ("libs/database.php");
-dispatch();
+require_once('micro/autoload.php');
 
-///////// SIMPLE APP /////////
+$app = new Micro\App(array(
+    'database' => array(
+        'host' => 'localhost',
+        'user' => 'root',
+        'pass' => 'secret',
+        'name' => 'graph'
+    )
+));
 
-function db() {
-    static $db;
+$app->get('diagrams', function($app){
+    $result = Micro\Libs\Diagram::find();
+    $app->responseJson($result);
+});
 
-    if (is_null($db)) {
-        
-        $db = new Database(
-            'localhost',
-            'root',
-            'secret',
-            'graph'
-        );
+$app->get('diagrams/{:id}', function($app){
+    $result = Micro\Libs\Diagram::export($app->getParam('id'));
+    $app->responseJson($result);
+});
 
-        $db->connect();
-    }
+$app->post('diagrams', function($app){
+    $post = $app->getPost();
+    $result = Micro\Libs\Diagram::create($post);
+    $app->responseJson($result);
+});
 
-    return $db;
-}
+$app->put('diagrams/{:id}', function($app){
+    $post = $app->getPost();
+    $result = Micro\Libs\Diagram::update($post, $app->getParam('id'));
+    $app->responseJson($result);
+});
 
-function dispatch() {
-    $uri = isset($_REQUEST['_uri']) ? $_REQUEST['_uri'] : '';
-    $segments = explode('/', $uri);
-    $action = (empty($segments[0]) ? 'index' : $segments['0']) . 'Action';
-    
-    if (function_exists($action)) {
-        $action();
-    }
-}
+$app->delete('diagrams/{:id}', function($app){
+    $result = Micro\Libs\Diagram::delete($app->getParam('id'));
+    $app->responseJson($result);
+});
 
-function responseJson($data) {
-    header('Content-Type: application/json;charset=utf-8');
-    print(json_encode($data, JSON_PRETTY_PRINT));
-    exit();
-}
-
-function loadAction() {
-
-    $result = array(
-        'success' => TRUE,
-        'data' => array(),
-        'total' => 0
-    );
-
-    $query = "SELECT SQL_CALC_FOUND_ROWS * FROM diagrams";
-    $db = db();
-
-    $result['data'] = $db->fetchAll($query);
-    $result['total'] = $db->foundRows();
-
-    responseJson($result);
-}
+$app->start();

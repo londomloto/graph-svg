@@ -1,0 +1,25 @@
+<div data-uimodal="diagram-editor" class="modal fade animate">
+    <div class="modal-dialog zoom">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="_600">DIAGRAM EDITOR</h5>
+            </div>
+            <div class="modal-body">
+                <form name="formDiagram" novalidate>
+                    <div class="form-group">
+                        <label>Diagram name</label>
+                        <input data-ng-model="diagram.props.name" type="text" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Sort description</label>
+                        <textarea data-ng-model="diagram.props.description" class="form-control"></textarea>
+                    </div> 
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button data-ng-disabled="formDiagram.$invalid" data-ng-click="saveDiagramEditor()" class="btn primary">Save Diagram</button>
+                <button data-ng-click="hideModal('diagram-editor')" class="btn btn-link">Close Window</button>
+            </div>
+        </div>
+    </div>
+</div>

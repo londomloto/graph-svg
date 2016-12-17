@@ -5,6 +5,7 @@
         this.items = _.map(vectors || [], function(v){
             return v.guid();
         });
+        vectors = null;
     };
 
     Collection.prototype.constructor = Collection;
@@ -24,10 +25,10 @@
         return new Collection(items);
     };
 
-    Collection.prototype.count = function() {
+    Collection.prototype.size = function() {
         return this.items.length;
     };
-
+    
     Collection.prototype.index = function(vector) {
         var id = vector.guid();
         return _.indexOf(this.items, id);

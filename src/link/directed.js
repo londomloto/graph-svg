@@ -19,16 +19,18 @@
             var points = this.cached.bendpoints,
                 maxlen = points.length - 1,
                 linkid = me.guid(),
-                controls = [];
+                controls = [],
+                controlImage = Graph.config.base + 'img/' + Graph.config.resizer.image,
+                controlSize = Graph.config.resizer.size;
 
             _.forEach(points, function(dot, i){
                 
                 var control = (new Graph.svg.Image(
-                    Graph.config.base + 'img/resize-control.png',
-                    dot.x - 17 / 2,
-                    dot.y - 17 / 2,
-                    17,
-                    17
+                    controlImage,
+                    dot.x - controlSize / 2,
+                    dot.y - controlSize / 2,
+                    controlSize,
+                    controlSize
                 ));
                 
                 control.selectable(false);
@@ -71,12 +73,12 @@
                     }
                 };
                 
-                control.draggable();
+                control.draggable({ghost: false});
                 control.cursor('default');
                 
-                control.on('dragstart', _.bind(me.onControlStart, me, _, context, control));
-                control.on('dragmove',  _.bind(me.onControlMove,  me, _, context, control));
-                control.on('dragend',   _.bind(me.onControlEnd,   me, _, context, control));
+                control.on('beforedrag', _.bind(me.onControlStart, me, _, context, control));
+                control.on('drag',  _.bind(me.onControlMove,  me, _, context, control));
+                control.on('afterdrag',   _.bind(me.onControlEnd,   me, _, context, control));
                 
                 control.render(editor);
                 controls.push(control.guid());
@@ -135,11 +137,11 @@
             
             if (context.trans == 'BENDING') {
                 me.router.bending(context, function(result){
-                    me.update(result.command, true);
+                    me.reload(result.command, true);
                 });
             } else {
                 me.router.connecting(context, function(result){
-                    me.update(result.command, true);
+                    me.reload(result.command, true);
                 });
             }
             
@@ -161,7 +163,7 @@
                 }
             }
 
-            this.update(this.router.command());
+            this.reload(this.router.command());
             this.invalidate();
             this.resumeControl();
         }

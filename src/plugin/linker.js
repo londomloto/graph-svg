@@ -74,7 +74,7 @@
                 .removeClass(Graph.styles.VECTOR)
                 .selectable(false)
                 .render(block)
-                .attr('marker-end', 'url(#marker-arrow)');
+                .attr('marker-end', 'url(#marker-link-end)');
 
             comp.block = block.guid();
             comp.pointer = pointer.guid();
@@ -188,7 +188,7 @@
         start: function(source, anchor) {
             var paper = this.vector(),
                 layout = paper.layout(),
-                offset = layout.offset();
+                offset = layout.position();
                 
             if (paper.tool().current() != 'linker') {
                 return;
@@ -278,13 +278,10 @@
                 head = path.head();
 
             if (tail && head) {
-                var paper = this.vector();
-                paper.connect(
-                    this.linking.source, 
-                    this.linking.target,
-                    tail,
-                    head
-                );
+                var sourceNetwork = this.linking.source.connectable(),
+                    targetNetwork = this.linking.target.connectable();
+
+                sourceNetwork.connectByLinker(targetNetwork, tail, head);
             }
 
             this.invalidate();
@@ -303,7 +300,6 @@
         },
 
         onPointerMove: function(e, paper, path) {
-
             if (this.linking.enabled) {
 
                 var layout = paper.layout(),
@@ -324,7 +320,7 @@
                     }
                     
                     var start = this.linking.start,
-                        coord = layout.grabLocation(e),
+                        coord = layout.pointerLocation(e),
                         x = coord.x,
                         y = coord.y,
                         rad = Graph.util.rad(Graph.util.theta(start, {x: x, y: y})),

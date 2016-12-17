@@ -5,11 +5,16 @@
         this.items = _.map(shapes, function(s){
             return s.guid();
         });
+        shapes = null;
     };
 
     Collection.prototype.constructor = Collection;
 
-    Collection.prototype.count = function() {
+    Collection.prototype.keys = function() {
+        return this.items.slice();
+    };
+
+    Collection.prototype.size = function() {
         return this.items.length;
     };
 
@@ -23,10 +28,24 @@
         return _.indexOf(this.items, id) !== -1;
     };
 
+    Collection.prototype.find = function(identity) {
+        var shapes = this.toArray();
+        return _.find(shapes, identity);
+    };
+
     Collection.prototype.push = function(shape) {
-        var id = shape.guid();
-        this.items.push(id);
-        return this.items.length;
+        var me = this;
+        
+        if (_.isArray(shape)) {
+            _.forEach(shape, function(s){
+                var id = s.guid();
+                me.items.push(id);
+            });
+        } else {
+            me.items.push(shape.guid());
+        }
+        
+        return me.items.length;
     };
 
     Collection.prototype.pop = function() {

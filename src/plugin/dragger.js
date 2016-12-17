@@ -7,7 +7,7 @@
             ready: false,
             manual: false,
 
-            ghost: false,
+            ghost: true,
             vector: null,
             enabled: true,
             rendered: false,
@@ -21,7 +21,8 @@
             dragClass: '',
 
             // batching operation
-            batchSync: true
+            batchSync: true,
+            restriction: false
         },
 
         rotation: {
@@ -36,12 +37,14 @@
             y: 1
         },
 
-        trans: {
+        dragging: {
+            enabled: false,
             vector: null,
             paper: null,
             helper: null,
             dx: 0,
-            dy: 0
+            dy: 0,
+            coord: null
         },
 
         components: {
@@ -146,14 +149,11 @@
             me.cached.origin = vendor.origin();
             me.cached.snapping = [];
 
-            vendor.on('down', function draggerDown(e){
-                e.preventDefault();
-                // e.stopPropagation();
-            });
+            vendor.on('down', _.bind(me.onPointerDown, me));
 
-            if ( ! me.props.manual) {
-                vendor.on('move', _.bind(me.onPointerMove, me, _, vector));
-            }
+            // if ( ! me.props.manual) {
+            //     vendor.on('move', _.bind(me.onPointerMove, me, _, vector));
+            // }
 
             var matrix = vector.matrixCurrent(),
                 rotate = matrix.rotate(),
@@ -334,20 +334,35 @@
         },
 
         restrict: function(options) {
-            var vendor = this.vector().interactable().vendor();
+            this.props.restriction = options;
+        },
 
-            if (vendor) {
-                options = options || {};
-                vendor.setPerAction('drag', {
-                    restrict: {
-                        restriction: options
-                    }
-                });
+        start: function() {
+            var me = this, 
+                vector = me.vector(),
+                vendor = vector.interactable().vendor();
+
+            if (me.props.manual) {
+                return;
             }
+
+            if (me.dragging.enabled) {
+                return;
+            }
+
+            me.dragging.enabled = true;
+            me.dragging.moveHandler = _.bind(me.onPointerMove, me, _, vector);
+            
+            vendor.on('move', me.dragging.moveHandler);
         },
 
         onVectorRender: function() {
             this.setup();
+        },
+
+        onPointerDown: function draggerDown(e) {
+            e.preventDefault();
+            this.start();
         },
 
         onPointerMove: function draggerMove(e, vector) {
@@ -357,7 +372,7 @@
                 if (i.pointerIsDown && ! i.interacting()) {
                     var paper = vector.paper(),
                         node = vector.node(),
-                        action = {name: 'drag'};
+                        action = { name: 'drag' };
 
                     // -- workaround for a bug in v1.2.6 of interact.js
                     i.prepared.name = action.name;
@@ -398,19 +413,20 @@
         onDragStart: function(e) {
             var vector = this.vector(),
                 paper = vector.paper(),
+                layout = paper.layout(),
                 helper = this.helper();
 
-            vector.addClass('dragging');
+            vector.addClass('dragging' + (this.props.ghost ? ' ghost-mode' : ' normal-mode'));
             paper.cursor(this.props.cursor);
 
-            this.trans.vector = vector;
-            this.trans.paper = paper;
-            this.trans.helper = helper;
+            this.dragging.vector = vector;
+            this.dragging.paper = paper;
+            this.dragging.helper = helper;
 
-            this.trans.dx = 0;
-            this.trans.dy = 0;
-            this.trans.hx = 0;
-            this.trans.hy = 0;
+            this.dragging.dx = 0;
+            this.dragging.dy = 0;
+            this.dragging.hx = 0;
+            this.dragging.hy = 0;
 
             var edata = {
                 x: e.clientX,
@@ -420,15 +436,19 @@
                 ghost: this.props.ghost
             };
 
-            this.fire('dragstart', edata);
+            this.fire('beforedrag', edata);
+
+            var coord = layout.pointerLocation(e);
+            this.dragging.coord = coord;
         },
 
         onDragMove: function(e) {
 
-            var trans = this.trans,
-                paper = trans.paper,
-                vector = trans.vector,
-                helper = trans.helper,
+            var dragging = this.dragging,
+                paper = dragging.paper,
+                vector = dragging.vector,
+                helper = dragging.helper,
+                ghost = this.props.ghost,
                 axs = this.props.axis,
                 deg = this.rotation.deg,
                 sin = this.rotation.sin,
@@ -454,7 +474,7 @@
 
             edx /= scaleX;
             edy /= scaleY;
-
+            
             if (axs == 'x') {
                 dx = hx = edx;
                 dy = hy = 0;
@@ -475,11 +495,34 @@
                 dy = ty = edx * -sin + edy * cos;
             }
 
-            this.trans.dx += tx;
-            this.trans.dy += ty;
+            // check restriction
+            var restriction = this.props.restriction;
 
-            this.trans.hx += hx;
-            this.trans.hy += hy;
+            if (restriction) {
+                var coord = this.dragging.coord;
+
+                if (helper) {
+                    coord.x += hx;
+                    coord.y += hy;
+                } else {
+                    coord.x += dx;
+                    coord.y += dy;
+                }
+
+                if (coord.x < restriction.left || coord.x > restriction.right) {
+                    hx = dx = tx = edx = 0;
+                }
+                
+                if (coord.y < restriction.top || coord.y > restriction.bottom) {
+                    hy = dy = ty = edy = 0;
+                }
+            }
+
+            this.dragging.dx += tx;
+            this.dragging.dy += ty;
+
+            this.dragging.hx += hx;
+            this.dragging.hy += hy;
 
             var pageX = _.defaultTo(e.pageX, e.x0),
                 pageX = _.defaultTo(e.pageY, e.y0);
@@ -506,9 +549,9 @@
                 ghost: this.props.ghost
             };
 
-            this.fire('dragmove', event);
+            this.fire('drag', event);
 
-            if (helper) {
+            if (ghost) {
                 helper.translate(event.hx, event.hy).commit();
             } else {
                 vector.translate(event.dx, event.dy).commit();
@@ -516,16 +559,17 @@
         },
 
         onDragEnd: function(e) {
-            var trans = this.trans,
-                paper = trans.paper,
-                vector = trans.vector,
-                helper = trans.helper,
-                dx = trans.dx,
-                dy = trans.dy,
-                hx = trans.hx,
-                hy = trans.hy;
+            var dragging = this.dragging,
+                paper = dragging.paper,
+                vector = dragging.vector,
+                helper = dragging.helper,
+                ghost = this.props.ghost,
+                dx = dragging.dx,
+                dy = dragging.dy,
+                hx = dragging.hx,
+                hy = dragging.hy;
 
-            if (helper) {
+            if (ghost) {
                 vector.translate(dx, dy).commit();
                 this.redraw();
                 this.suspend();
@@ -540,17 +584,25 @@
                 ghost: this.props.ghost
             };
 
-            this.fire('dragend', edata);
+            var vendor = vector.interactable().vendor();
+            vendor.off('move', this.dragging.moveHandler);
+            
+            this.dragging.moveHandler = null;
+            this.dragging.enabled = false;
 
-            this.trans.vector = null;
-            this.trans.paper = null;
-            this.trans.helper = null;
+            this.fire('afterdrag', edata);
 
-            this.trans.dx = 0;
-            this.trans.dy = 0;
-            this.trans.hx = 0;
-            this.trans.hy = 0;
+            this.dragging.vector = null;
+            this.dragging.paper = null;
+            this.dragging.helper = null;
 
+            this.dragging.dx = 0;
+            this.dragging.dy = 0;
+            this.dragging.hx = 0;
+            this.dragging.hy = 0;
+            this.dragging.coord = null;
+
+            
         },
 
         destroy: function() {

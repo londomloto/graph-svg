@@ -12,7 +12,7 @@
         },
 
         metadata: {
-            name: 'activity.action',
+            type: 'activity.action',
             icon: Graph.icons.SHAPE_ACTION,
             style: 'graph-shape-activity-action'
         },
@@ -42,13 +42,15 @@
             pmgr.install('network', block, {wiring: 'h:v'});
             pmgr.install('snapper', block);
 
-            block.on('edit.shape',      _.bind(this.onLabelEdit, this));
-            block.on('dragstart.shape', _.bind(this.onDragStart, this));
-            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
-            block.on('resize.shape',    _.bind(this.onResize, this));
-            block.on('remove.shape',    _.bind(this.onRemove, this));
-            block.on('select.shape',    _.bind(this.onSelect, this));
-            block.on('deselect.shape',  _.bind(this.onDeselect, this));
+            block.on('edit.shape', _.bind(this.onLabelEdit, this));
+            block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
+            block.on('afterdrag.shape', _.bind(this.onAfterDrag, this));
+            block.on('afterresize.shape', _.bind(this.onAfterResize, this));
+            block.on('beforedestroy.shape', _.bind(this.onBeforeDestroy, this));
+            block.on('afterdestroy.shape', _.bind(this.onAfterDestroy, this));
+            block.on('select.shape', _.bind(this.onSelect, this));
+            block.on('deselect.shape', _.bind(this.onDeselect, this));
+            block.on('connect.shape', _.bind(this.onConnect, this));
 
             label = (new Graph.svg.Text(cx, cy, this.props.label))
                 .addClass(Graph.styles.SHAPE_LABEL)
@@ -62,8 +64,12 @@
 
             shape = block = label = null;
         },
-
-        redraw: function() {
+        
+        refresh: function() {
+            if (this.layout.suspended) {
+                return;
+            }
+            
             var block = this.component('block'),
                 shape = this.component('shape'),
                 label = this.component('label');
@@ -93,11 +99,13 @@
 
             // update props
 
-            matrix = shape.matrix();
 
+            matrix = shape.matrix();
+            
             this.data({
                 left: matrix.props.e,
                 top: matrix.props.f,
+
                 width: bound.width,
                 height: bound.height
             });
@@ -106,8 +114,8 @@
             matrix = null;
         },
 
-        onResize: function() {
-            this.redraw();
+        onAfterResize: function() {
+            this.refresh();
         },
 
         toString: function() {

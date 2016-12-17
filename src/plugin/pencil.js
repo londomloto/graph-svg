@@ -3,96 +3,76 @@
 
     Graph.plugin.Pencil = Graph.extend(Graph.plugin.Plugin, {
 
-        paper: null,
-
-        drawing: {
-            offset: {
-                x: 0, 
-                y: 0
-            },
-            moveHandler: null,
-            stopHandler: null
+        writing: {
+            startHandler: null
         },
 
-        constructor: function(paper) {
-            this.paper = paper;
-        },
-        
-        draw: function() {
-            var paper, shape, vendor;
-            
-            // activate panzoom
-            this.paper.tool().activate('panzoom');
-
-            shape = Graph.shape.apply(null, arguments);
-
-            if (shape) {
-
-                shape.render(this.paper);
-                shape.move(-500, -500);
-                
-                this.refresh(shape);
-                this.paper.state('drawing');
-
-                vendor = this.paper.interactable().vendor();
-
-                this.drawing.offset = this.paper.layout().offset();
-                this.drawing.moveHandler = _.bind(this.onPointerMove, this, _, shape);
-                this.drawing.stopHandler = _.bind(this.onPointerStop, this, _, shape);
-
-                vendor.on('move', this.drawing.moveHandler);
-                vendor.on('up', this.drawing.stopHandler);    
-            }
-
-            return shape;
+        constructor: function(vector) {
+            this.props.vector = vector.guid();
         },
 
-        refresh: function(shape) {
-            var snapping = this.paper.layout().dragSnapping();
+        enable: function(activator) {
+            this.props.enabled = true;
+            this.props.activator = activator;
 
-            shape.component().cascade(function(comp){
-                if (comp.isDraggable()) {
-                    comp.draggable().snap(snapping);
-                }
+            var vector = this.vector(),
+                vendor = vector.interactable().vendor();
 
-                if (comp.isResizable()) {
-                    comp.resizable().snap(snapping);
-                }
-            });
+            vector.cursor('text');
+            vector.state('writing');
+
+            this.writing.startHandler = _.bind(this.onPointerDown, this);
+            vendor.on('down', this.writing.startHandler);
 
         },
 
-        onPointerMove: function(e, shape) {
-            var offset = this.drawing.offset,   
-                viewport = this.paper.viewport(),
-                coords = Graph.event.relative(e, viewport),
-                scale = viewport.scale();
-
-            var x = coords.x - (offset.left / scale.x),
-                y = coords.y - (offset.top / scale.y);
-
-            shape.move(x, y);
+        disable: function() {
+            this.props.enabled = false;
+            var vendor = this.vector().interactable().vendor();
+            vendor.off('down', this.writing.startHandler);
+            this.writing.startHandler = null;
         },
 
-        onPointerStop: function(e, shape) {
-            var vendor = this.paper.interactable().vendor();
-            var delay;
-
-            delay = _.delay(_.bind(function(){
-                if (this.drawing.moveHandler) {
-                    vendor.off('move', this.drawing.moveHandler);    
-                    this.drawing.moveHandler = null;
-                }
-
-                if (this.drawing.stopHandler) {
-                    vendor.off('up', this.drawing.stopHandler);    
-                    this.drawing.stopHandler = null;
-                }
-            }, this), 0);
-            
-        },
         toString: function() {
             return 'Graph.plugin.Pencil';
+        },
+
+        onPointerDown: function(e) {
+            var vector = this.vector();
+
+            if (vector.isPaper()) {
+                var offset, options, result;
+
+                offset = vector.layout().pointerLocation(e);
+                options = {
+                    left: offset.x,
+                    top: offset.y
+                };
+
+                if ( ! vector.diagram().current()) {
+                    vector.diagram().create();
+                }
+
+                result = vector.diagram().current().drawShape(
+                    vector, 
+                    'Graph.shape.common.Label', 
+                    options
+                );
+
+                if (result.shape) {
+                    var t = _.delay(function(e){
+                        clearTimeout(t);
+                        t = null;
+
+                        vector.tool().activate('panzoom');
+                        result.shape.editable().plugin().startEdit();
+
+                    }, 10);    
+                } else {
+                    //vector.tool().activate('panzoom');
+                }
+                
+            }
         }
 
     });

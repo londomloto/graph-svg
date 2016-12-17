@@ -146,7 +146,18 @@
     };
 
     E.prototype.offset = function() {
-        return this.query.offset();
+        var node = this.query[0];
+        if (Graph.isSVG(node)) {
+            var offset = node.getBoundingClientRect();
+            return {
+                left: offset.left,
+                top: offset.top,
+                width: offset.width,
+                height: offset.height
+            };
+        } else {
+           return this.query.offset(); 
+        }
     };
 
     E.prototype.position = function() {
@@ -299,8 +310,41 @@
         return this;
     };
 
-    E.prototype.focus = function() {
-        this.query.focus();
+    E.prototype.focus = function(select, delay) {
+        var query = this.query, timer;
+
+        delay = _.defaultTo(delay, 0);
+
+        if (this.query.attr('contenteditable') !== undefined) {
+            timer = _.delay(function(){
+                clearTimeout(timer);
+                timer = null;
+
+                query[0].focus();
+
+                if (document.createRange && window.getSelection) {
+                    var range = document.createRange();
+                    range.selectNodeContents(query[0]);
+                    var selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+
+            }, delay);
+            
+        } else {
+            timer = _.delay(function(){
+                clearTimeout(timer);
+                timer = null;
+
+                query.focus();
+
+                if (select) {
+                    query.select();
+                }
+            }, delay);
+        }
+        
         return this;
     };
 

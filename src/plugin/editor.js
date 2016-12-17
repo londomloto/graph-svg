@@ -5,7 +5,7 @@
         MIN_BOX_HEIGHT = 50,
         OFFSET_TRESHOLD = 10;
 
-    Graph.plugin.Editor = Graph.extend(Graph.plugin.Plugin, {
+    var Editor = Graph.plugin.Editor = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
             vector: null,
@@ -13,7 +13,8 @@
             suspended: true,
             width: 'auto',
             height: 'auto',
-            offset: 'auto'
+            offset: 'auto',
+            align: 'center'
         },
 
         editing: {
@@ -46,16 +47,28 @@
 
         initComponent: function() {
             var me = this, comp = this.components;
+            
             comp.editor = Graph.$('<div class="graph-editor" contenteditable="true"></div>');
-            comp.editor.on('keypress', function(e){
-                if (e.keyCode === Graph.event.ENTER) {
-                    me.commit();
+            comp.editor.css('text-align', this.props.align);
+            
+            comp.editor.on('keydown', function(e){
+                switch(e.keyCode) {
+                    case Graph.event.ENTER:
+                        me.commit();
+                        break;
+                    case Graph.event.DELETE:
+                    case Graph.event.SHIFT:
+                        e.stopPropagation();
+                        break;
+
                 }
             });
         },
         
         commit: function() {
+
             var text = this.components.editor.text();
+
             this.suspend();
             this.vector().props.text = text;
 
@@ -78,13 +91,15 @@
         },
 
         suspend: function() {
+
             this.props.suspended = true;
             this.components.editor.detach();
 
             if (this.editing.commitHandler) {
-                Graph.topic.unsubscribe('paper/beforezoom', this.editing.commitHandler);
-                Graph.topic.unsubscribe('paper/beforescroll', this.editing.commitHandler);
-                this.vector().paper().off('pointerdown', this.editing.commitHandler);
+                Graph.topic.unsubscribe('paper:beforezoom', this.editing.commitHandler);
+                Graph.topic.unsubscribe('paper:beforescroll', this.editing.commitHandler);
+                Graph.topic.unsubscribe('vector:pointerdown', this.editing.commitHandler);
+
                 this.editing.commitHandler = null;
             }
         },
@@ -120,19 +135,22 @@
             top  = vbox.y;
 
             if (this.props.width != 'auto') {
-                width = Math.max(Math.min(this.props.width, width), MIN_BOX_WIDTH);
-                left = vbox.x + (vbox.width - width) / 2;
-            }
+                width = Math.max(this.props.width, MIN_BOX_WIDTH);
+                width = Math.max(width * scale.x, width);
+                left = vbox.x;
+            } else {
+                width = width - 8 * scale.x;
+                left = left + 4 * scale.x;
+            }   
 
             if (this.props.height != 'auto') {
-                height = Math.max((Math.min(this.props.height, height)), MIN_BOX_HEIGHT);
-                top = vbox.y + (vbox.height - height) / 2;
+                height = Math.max(this.props.height, MIN_BOX_HEIGHT);
+                height = Math.max(height * scale.y, height);
+                top = vbox.y;
+            } else {
+                height = height - 8 * scale.y;
+                top = top + 4 * scale.y;
             }
-
-            left = left + 4 * scale.x;
-            top = top + 4 * scale.y;
-            width = width - 8 * scale.x;
-            height = height - 8 * scale.y;
 
             editor.css({
                 left: left,
@@ -157,9 +175,7 @@
         startEdit: function(e) {
             var me = this, vector = me.vector();
 
-            if (vector.lasso) {
-                vector.lasso.decollect(vector);
-            }
+            vector.deselect();
 
             if (vector.paper().tool().current() == 'linker') {
                 vector.paper().tool().activate('panzoom');
@@ -171,36 +187,51 @@
             if (e && this.props.offset == 'pointer') {
                 var editor = me.components.editor,
                     paper = vector.paper(),
-                    scale = paper.layout().scale();
+                    layout = paper.layout(),
+                    scale = layout.scale();
 
-                var offset, coords, left, top;
+                var offset, coords, screen;
 
                 if (paper) {
-                    offset = paper.offset();
-                    coords = paper.layout().grabLocation(e);
+                    offset = paper.position();
+                    coords = layout.pointerLocation(e);
+                    
+                    if (this.props.align == 'center') {
+                        screen = {
+                            x: e.clientX - offset.left,
+                            y: e.clientY - offset.top
+                        };
 
-                    left = e.clientX - offset.left + (OFFSET_TRESHOLD * scale.x);
-                    top = e.clientY - offset.top + (OFFSET_TRESHOLD * scale.y);
+                        editor.css({
+                            left: screen.x - editor.width() / 2,
+                            top: screen.y - editor.height() / 2
+                        });
+                    } else {
+                        screen = vector.bboxView().toJson();
+                        screen = layout.screenLocation({x: screen.x, y: screen.y});
 
-                    editor.css({
-                        left: left,
-                        top: top
-                    });
+                        editor.css({
+                            left: screen.x - offset.left,
+                            top: screen.y - offset.top
+                        });
+                    }
+
+                    editor.focus(true);
 
                     me.cached.left = coords.x;
-                    me.cached.top = coords.y;
+                    me.cached.top  = coords.y;
                 }
             }
 
-            me.editing.commitHandler = function() {
-                me.commit();
-            };
+            if ( ! me.editing.commitHandler) {
+                me.editing.commitHandler = function() {
+                    me.commit();
+                };
 
-            Graph.topic.subscribe('paper/beforezoom', me.editing.commitHandler);
-            Graph.topic.subscribe('paper/beforescroll', me.editing.commitHandler);
-
-            vector.paper().on('pointerdown', me.editing.commitHandler);
-            vector = null;
+                Graph.topic.subscribe('paper:beforezoom', me.editing.commitHandler);
+                Graph.topic.subscribe('paper:beforescroll', me.editing.commitHandler);
+                Graph.topic.subscribe('vector:pointerdown', me.editing.commitHandler);
+            }
         },
 
         onDoubleTap: function(e) {
@@ -209,6 +240,13 @@
         },
 
         destroy: function() {
+            if (this.editing.commitHandler) {
+                Graph.topic.unsubscribe('paper:beforezoom', this.editing.commitHandler);
+                Graph.topic.unsubscribe('paper:beforescroll', this.editing.commitHandler);
+                Graph.topic.unsubscribe('vector:pointerdown', this.editing.commitHandler);
+
+                this.editing.commitHandler = null;
+            }
 
         },
 
@@ -217,5 +255,9 @@
         }
 
     });
+
+    ///////// STATICS /////////
+    
+    
 
 }());

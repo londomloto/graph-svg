@@ -4,6 +4,7 @@
     var Router = Graph.router.Router = Graph.extend({
 
         props: {
+            type: 'directed',
             domain: null,
             source: null,
             target: null
@@ -32,6 +33,10 @@
             this.props.target = target.guid();
 
             this.values.waypoints = [];
+        },
+
+        type: function() {
+            return this.props.type;
         },
 
         invalidate: function() {
@@ -74,14 +79,18 @@
             var head = _.last(this.values.waypoints);
             return head ? _.extend({}, head) : null;
         },
-        
+
         center: function() {
             var path = this.path(),
                 center = path.pointAt(path.length() / 2, true);
             path = null;
             return center;
         },
-        
+
+        execute: function(command) {
+            this.command(command);
+            this.fire('route', { command: this.command() });
+        },
 
         /**
          * Get compiled waypoints, or
@@ -104,7 +113,7 @@
 
             points = _.map(segments, function(s){
                 return {
-                    x: s[1], 
+                    x: s[1],
                     y: s[2]
                 };
             });
@@ -113,7 +122,6 @@
             this.invalidate();
 
             segments = points = null;
-
             return this;
         },
 
@@ -121,7 +129,7 @@
             var segments = this.cached.segments;
             if ( ! segments) {
                 segments = [];
-                
+
                 _.forEach(this.values.waypoints, function(p, i){
                     var cmd = i === 0 ? 'M' : 'L';
                     segments.push([cmd, p.x, p.y]);
@@ -146,7 +154,7 @@
 
             return points;
         },
-        
+
         path: function() {
             var path = this.cached.path;
             if ( ! path) {
@@ -174,14 +182,14 @@
         },
 
         repair: function(component, port) {
-            
+
         },
 
         reset: function() {
             this.invalidate();
             this.values.waypoints = null;
         },
-        
+
         relocate: function(dx, dy) {
             _.forEach(this.values.waypoints, function(p){
                 p.x += dx;
@@ -219,20 +227,20 @@
         destroy: function() {
             this.reset();
         }
-        
+
     });
-    
+
     ///////// STATICS /////////
-    
+
     Router.portCentering = function(port, center, axis) {
         if (axis == 'x') {
             port.y = center.y;
         }
-        
+
         if (axis == 'y') {
             port.x = center.x;
         }
-        
+
         return port;
     }
 
@@ -240,7 +248,7 @@
         var index = source ? 0 : routes.length - 1,
             cable = Graph.path(Graph.util.points2path(routes)),
             inter = shape.intersection(cable, true);
-        
+
         var point, port;
 
         point = routes[index];
@@ -259,15 +267,15 @@
 
     Router.isRepairable = function(routes) {
         var count = routes.length;
-        
+
         if (count < 3) {
             return false;
         }
-        
+
         if (count > 4) {
             return true;
         }
-        
+
         return !_.find(routes, function(p, i){
             var q = routes[i - 1];
             return q && Graph.util.pointDistance(p, q) <= 5;
@@ -283,7 +291,7 @@
                 return false;
             }
         });
-        
+
         return segment;
     };
 
@@ -319,7 +327,7 @@
 
     Router.repairBendpoint = function(bend, oldport, newport) {
         var align = Graph.util.pointAlign(oldport, bend);
-        
+
         switch(align) {
             case 'v':
                 return {
@@ -332,7 +340,7 @@
                     y: bend.y
                 };
         }
-        
+
         return {
             x: bend.x,
             y: bend.y
@@ -342,12 +350,12 @@
     Router.repairRoutes = function(bound1, bound2, newport, routes) {
         var oldport = routes[0],
             clonedRoutes = routes.slice();
-        
+
         var slicedRoutes;
-        
+
         clonedRoutes[0] = newport;
         clonedRoutes[1] = Router.repairBendpoint(clonedRoutes[1], oldport, newport);
-        
+
         return clonedRoutes;
     };
 

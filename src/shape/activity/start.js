@@ -6,7 +6,7 @@
     Graph.shape.activity.Start = Graph.extend(Graph.shape.Shape, {
 
         props: {
-            label: 'START',
+            label: 'Start',
             width: 60,
             height: 60,
             left: 0,
@@ -14,7 +14,7 @@
         },
 
         metadata: {
-            name: 'activity.start',
+            type: 'activity.start',
             style: 'graph-shape-activity-start'
         },
 
@@ -44,12 +44,14 @@
             pmgr.install('snapper', block);
 
             block.on('edit.shape',      _.bind(this.onLabelEdit, this));
-            block.on('dragstart.shape', _.bind(this.onDragStart, this));
-            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
-            block.on('resize.shape',    _.bind(this.onResize, this));
-            block.on('remove.shape',    _.bind(this.onRemove, this));
+            block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
+            block.on('afterdrag.shape',   _.bind(this.onAfterDrag, this));
+            block.on('afterresize.shape',    _.bind(this.onAfterResize, this));
+            block.on('beforedestroy.shape',    _.bind(this.onBeforeDestroy, this));
+            block.on('afterdestroy.shape',    _.bind(this.onAfterDestroy, this));
             block.on('select.shape',    _.bind(this.onSelect, this));
             block.on('deselect.shape',  _.bind(this.onDeselect, this));
+            block.on('connect.shape', _.bind(this.onConnect, this));
 
             label = (new Graph.svg.Text(cx, cy, this.props.label))
                 .addClass(Graph.styles.SHAPE_LABEL)
@@ -64,7 +66,11 @@
             shape = block = label = null;
         },
 
-        redraw: function() {
+        refresh: function() {
+            if (this.layout.suspended) {
+                return;
+            }
+            
             var block = this.component('block'),
                 shape = this.component('shape'),
                 label = this.component('label');

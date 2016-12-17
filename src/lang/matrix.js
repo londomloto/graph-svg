@@ -54,7 +54,7 @@
             ];
 
         var x, y, z, tmp;
-
+        
         if (Graph.isMatrix(a)) {
             matrix = [
                 [a.props.a, a.props.c, a.props.e],

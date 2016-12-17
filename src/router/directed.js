@@ -238,7 +238,7 @@
                 ];
             }
 
-            var offset  = this.layout().offset();
+            var offset  = this.layout().position();
             
             context.snap.hor = [];
             context.snap.ver = [];

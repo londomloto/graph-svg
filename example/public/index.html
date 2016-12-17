@@ -10,6 +10,7 @@
     <link rel="stylesheet" type="text/css" href="assets/vendor/roboto/roboto.css">
     <link rel="stylesheet" type="text/css" href="assets/vendor/ionicons/ionicons.css">
     <link rel="stylesheet" type="text/css" href="assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="assets/vendor/snackbar/snackbar.css">
     <link rel="stylesheet" type="text/css" href="assets/css/app.css">
 
     <link rel="stylesheet" type="text/css" href="../../css/graph.css">
@@ -41,22 +42,25 @@
                         <i class="ion-navicon-round icon-md"></i>
                     </a>
                     <div class="ui-caption hidden-sm-down">
-                        <p class="text-md m-b-0 _700 text-accent">{{ diagram.name }}</p>
-                        <div class="_300 text-sm text-ellipsis" style="max-width: 340px;">{{ diagram.description }}</div>
+                        <p class="text-md m-b-0 _700 text-accent">{{ diagram.props.name }}</p>
+                        <div class="_300 text-sm text-ellipsis" style="max-width: 340px;">{{ diagram.props.description }}</div>
                     </div>
                     <div class="ui-toolbar hidden-sm-down">
-                        <a href="javascript:;" data-ng-click="open()" title="Open diagram"><i class="ion-folder"></i></a>
+                        <a href="javascript:;" data-ng-click="showBrowseDiagram()" title="Open diagram"><i class="ion-folder"></i></a>
+                        <a href="javascript:;" data-ng-click="showBrowseDiagram()" title="Open flow simulator"><i class="ion-paper-airplane"></i></a>
                     </div>
                     <div class="ui-toolbar hidden-sm-down">
-                        <a href="javascript:;" data-ng-click="create()" title="New diagram"><i class="ion-android-add"></i></a>
-                        <a href="javascript:;" data-ng-click="update()" title="Save diagram"><i class="ion-android-done"></i></a>
+                        <a href="javascript:;" data-ng-click="showCreateDiagram()" title="Create new diagram"><i class="ion-android-add"></i></a>
+                        <a href="javascript:;" data-ng-click="showUpdateDiagram()" title="Update diagram"><i class="ion-compose"></i></a>
+                        <a href="javascript:;" data-ng-click="saveDiagram()" title="Save diagram"><i class="ion-android-done"></i></a>
                     </div>
                     <div class="ui-toolbar">
                         <a data-uitool="panzoom" data-ng-click="activateTool('panzoom')" href="javascript:;" title="Activate hand tool"><i class="bpmn-icon-hand-tool"></i></a>
                         <a data-uitool="collector" data-ng-click="activateTool('collector')" href="javascript:;" title="Activate lasso tool"><i class="bpmn-icon-lasso-tool"></i></a>
                         <a data-uitool="linker" data-ng-click="activateTool('linker')" href="javascript:;" title="Activate link tool"><i class="bpmn-icon-connection-multi"></i></a>
-                        <a href="javascript:;" data-ng-click="trash()" title="Delete selection"><i class="bpmn-icon-trash"></i></a>
-                        <a href="javascript:;" data-ng-click="export()" title="Save as Image"><i class="ion-ios-printer-outline"></i></a>
+                        <a data-uitool="pencil" data-ng-click="activateTool('pencil')" href="javascript:;" title="Add label"><i class="ion-android-create"></i></a>
+                        <a href="javascript:;" data-ng-click="trash()" title="Delete selection"><i class="ion-ios-trash-outline"></i></a>
+                        <a href="javascript:;" data-ng-click="showDownload()" title="Download diagram"><i class="ion-ios-printer-outline"></i></a>
                         <a href="javascript:;" data-ng-click="config()" title="Editor config"><i class="ion-ios-gear-outline"></i></a>
                     </div>
                 </div>
@@ -68,64 +72,11 @@
     </div>
 
     <!-- MODALS -->
-    <div data-uimodal="create-diagram" class="modal fade animate">
-        <div class="modal-dialog zoom">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h4>Create diagram</h4>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label>Diagram name</label>
-                        <input name="diagram_name" type="text" class="form-control">
-                    </div>
-                    <div class="form-group">
-                        <label>Sort description</label>
-                        <textarea name="diagram_desc" class="form-control"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button data-click="createDiagram()" class="btn primary">Save Diagram</button>
-                    <button data-ng-click="hideModal('create-diagram')" class="btn white">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div data-uimodal="open-diagram" class="modal fade animate">
-        <div class="modal-dialog modal-lg zoom">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h4>Open diagram</h4>
-                </div>
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-xs-6 col-sm-4 col-md-3" data-ng-repeat="item in diagrams track by item.id">
-                            <div class="box dker">
-                                <div class="box-header">
-                                    <h3 class="_600">{{ item.name }}</h3>
-                                    <small>Activity Diagram</small>
-                                </div>
-                                <div class="box-tool">
-                                    <ul class="nav">
-                                        <li class="nav-item inline">
-                                          <a class="nav-link text-muted">
-                                            <i class="ion-close-round" style="font-size: 14px;"></i>
-                                          </a>
-                                        </li>
-                                    </ul>
-                                </div>
-                                <div class="box-body p-t-0">
-                                    <button data-ng-click="openDiagram(item)" class="btn btn-xs btn-outline b-info text-info">Open diagram</button>
-                                </div>
-                              </div>
-                        </div>
-                    </div>
-                    
-                </div>
-            </div>
-        </div>
-    </div>    
+    <div data-uitemplate="diagram-editor"></div>
+    <div data-uitemplate="diagram-browser"></div>
+    <div data-uitemplate="shape-editor"></div>
+    <div data-uitemplate="link-editor"></div>
+    <div data-uitemplate="download-dialog"></div>
     <!-- END OF MODALS -->
 
     <script>
@@ -140,6 +91,7 @@
     <script src="assets/vendor/tether/tether.min.js"></script>
     <script src="assets/vendor/bootstrap/js/bootstrap.js"></script>
     <script src="assets/vendor/angular/angular.min.js"></script>
+    <script src="assets/vendor/snackbar/snackbar.min.js"></script>
     
     <script src="../../src/poly.js"></script>
     <script src="../../src/core.js"></script>
@@ -159,6 +111,7 @@
     <script src="../../src/collection/vector.js"></script>
     <script src="../../src/collection/shape.js"></script>
     <script src="../../src/collection/tree.js"></script>
+    <script src="../../src/collection/link.js"></script>
 
     <script src="../../src/dom/element.js"></script>
 
@@ -221,14 +174,16 @@
     <script src="../../src/shape/activity/join.js"></script>
     <script src="../../src/shape/activity/lane.js"></script>
     <script src="../../src/shape/activity/pool.js"></script>
+    <script src="../../src/shape/common/label.js"></script>
 
     <script src="../../src/data/exporter.js"></script>
     <script src="../../src/data/importer.js"></script>
 
-    <script src="../../src/pallet/activity.js"></script>
-
-    <script src="../../src/diagram/diagram.js"></script>
-    <script src="../../src/diagram/activity.js"></script>
+    <script src="../../src/diagram/manager.js"></script>
+    <script src="../../src/diagram/parser.js"></script>
+    <script src="../../src/diagram/pallet/activity.js"></script>
+    <script src="../../src/diagram/type/Diagram.js"></script>
+    <script src="../../src/diagram/type/Activity.js"></script>
     
     <script src="../../src/popup/dialog.js"></script>
 

@@ -1,0 +1,164 @@
+<div data-uimodal="shape-editor" class="modal fade animate">
+    <div class="modal-dialog zoom">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="_600 m-b-0">BLOCK EDITOR</h5>
+            </div>
+            <div class="modal-body p-t-0">
+                
+                <div class="b-b dk nav-active-bg">
+                    <ul class="nav nav-tabs">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="" data-toggle="tab" data-target="#tab1">Properties</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="" data-toggle="tab" data-target="#tab2">Connections</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="" data-toggle="tab" data-target="#tab3">Parameters</a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="tab-content p-t">
+                    <div class="tab-pane animated fadeIn active text-muted" id="tab1">
+                        <form >
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>NAME</th>
+                                        <th>VALUE</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Component Type</td>
+                                        <td><input data-ng-model="shape.props.type" type="text" class="form-control form-control-sm _600" readonly></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Component ID</td>
+                                        <td><input data-ng-model="shape.props.guid" type="text" class="form-control form-control-sm _600" readonly></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Label</td>
+                                        <td><input data-ng-model="shape.props.label" type="text" class="form-control form-control-sm _600"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Left (px)</td>
+                                        <td><input data-ng-model="shape.props.left" type="text" class="form-control form-control-sm _600"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Top (px)</td>
+                                        <td><input data-ng-model="shape.props.top" type="text" class="form-control form-control-sm _600"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Width (px)</td>
+                                        <td><input data-ng-model="shape.props.width" type="text" class="form-control form-control-sm _600"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Height (px)</td>
+                                        <td><input data-ng-model="shape.props.height" type="text" class="form-control form-control-sm _600"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Fill Color</td>
+                                        <td><input data-ng-model="shape.props.fill" type="text" class="form-control form-control-sm _600"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Stroke Color</td>
+                                        <td><input data-ng-model="shape.props.stroke" type="text" class="form-control form-control-sm _600"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Stroke Width (px)</td>
+                                        <td><input data-ng-model="shape.props.strokeWidth" type="text" class="form-control form-control-sm _600"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </form>
+                    </div>
+
+                    <div class="tab-pane animated fadeIn text-muted" id="tab2">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>NO.</th>
+                                    <th>ID</th>
+                                    <th>MODE</th>
+                                    <th>PAIR</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr data-ng-repeat="item in shape.links">
+                                    <td>{{ ($index + 1) }}</td>
+                                    <td><a href="javascript:;" data-ng-click="locateLink(item.guid)" class="link">{{ item.guid }}</a></td>
+                                    <td>{{ item.mode }}</td>
+                                    <td><a href="javascript:;" data-ng-click="locateShape(item.pair)" class="link">{{ item.pair }}</a></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="tab-pane animated fadeIn text-muted" id="tab3">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>NAME</th>
+                                    <th>VALUE</th>
+                                    <th width="120"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr data-ng-repeat="item in shape.params">
+                                    <td>
+                                        <span data-ng-if="!item.editing">{{ item.key }}</span>
+                                        <div data-ng-if="item.editing">
+                                            <input data-ng-model="item.key" type="text" class="form-control form-control-sm">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span data-ng-if="!item.editing">{{ item.value }}</span>
+                                        <div data-ng-if="item.editing">
+                                            <input data-ng-model="item.value" type="text" class="form-control form-control-sm">
+                                        </div>
+                                    </td>
+                                    <td align="right">
+                                        <a data-ng-if="!item.editing" data-ng-click="item.editing = true" href="javascript:;" class="btn btn-xs primary">Edit</a>
+                                        <a data-ng-if="item.editing" data-ng-click="item.editing = false" class="btn btn-xs text-white btn-primary">Save</a>
+                                        <a href="javascript:;" class="btn btn-xs text-danger"><i class="ion-close"></i></a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>    
+
+                        <form name="formData" data-ng-submit="addShapeParam()" novalidate>
+                            <div class="box">
+                                <div class="box-header dker">
+                                  <h3>Add parameters</h3>
+                                  <small>Custom user parameters</small>
+                                </div>
+                                <div class="box-body p-t-0 dker">
+                                    <div class="row">
+                                        <div class="form-group col-sm-6">
+                                            <input data-ng-model="shapeParam.key" data-uifocus="shapeParam.focus" type="text" class="form-control" placeholder="Parameter name" required>
+                                        </div>
+                                        <div class="form-group col-sm-6">
+                                            <input data-ng-model="shapeParam.value" type="text" class="form-control" placeholder="Parameter value" required>
+                                        </div>
+                                    </div>
+                                    <button data-ng-disabled="formData.$invalid" class="btn btn-primary">Add Param</button>
+                                </div>
+                            </div>    
+                        </form>
+                    </div>
+
+                </div>
+
+                
+
+            </div>
+            <div class="modal-footer">
+                <button data-ng-click="saveShapeEditor()" class="btn primary">Save Changes</button>
+                <button data-ng-click="hideModal('shape-editor')" class="btn btn-link">Close Window</button>
+            </div>
+        </div>
+    </div>
+</div>

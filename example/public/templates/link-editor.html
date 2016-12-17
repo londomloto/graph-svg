@@ -1,0 +1,134 @@
+<div data-uimodal="link-editor" class="modal fade animate">
+    <div class="modal-dialog zoom">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="_600 m-b-0">FLOW EDITOR</h5>
+            </div>
+            <div class="modal-body p-t-0">
+                
+                <div class="b-b dk nav-active-bg">
+                    <ul class="nav nav-tabs">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="" data-toggle="tab" data-target="#tab-link-1">Properties</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="" data-toggle="tab" data-target="#tab-link-2">Parameters</a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="tab-content p-t">
+                    <div class="tab-pane animated fadeIn active text-muted" id="tab-link-1">
+                        
+                        <form >
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>NAME</th>
+                                        <th>VALUE</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Component Type</td>
+                                        <td><input data-ng-model="link.props.type" type="text" class="form-control form-control-sm _600" readonly></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Component ID</td>
+                                        <td><input data-ng-model="link.props.guid" type="text" class="form-control form-control-sm _600" readonly></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Link Command</td>
+                                        <td><textarea data-ng-model="link.props.command" class="form-control form-control-sm _600" readonly></textarea></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Source Component</td>
+                                        <td><input data-ng-model="link.props.source" type="text" class="form-control form-control-sm _600" readonly></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Target Component</td>
+                                        <td><input data-ng-model="link.props.target" type="text" class="form-control form-control-sm _600" readonly></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Smooth</td>
+                                        <td><input data-ng-model="link.props.smooth" type="text" class="form-control form-control-sm _600" readonly></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Smoothness</td>
+                                        <td><input data-ng-model="link.props.smoothness" type="text" class="form-control form-control-sm _600" readonly></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Convex</td>
+                                        <td><input data-ng-model="link.props.convex" type="text" class="form-control form-control-sm _600" readonly></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </form>
+
+                    </div>
+
+                    <div class="tab-pane animated fadeIn text-muted" id="tab-link-2">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>NAME</th>
+                                    <th>VALUE</th>
+                                    <th width="120"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr data-ng-repeat="item in link.params">
+                                    <td>
+                                        <span data-ng-if="!item.editing">{{ item.key }}</span>
+                                        <div data-ng-if="item.editing">
+                                            <input data-ng-model="item.key" type="text" class="form-control form-control-sm">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span data-ng-if="!item.editing">{{ item.value }}</span>
+                                        <div data-ng-if="item.editing">
+                                            <input data-ng-model="item.value" type="text" class="form-control form-control-sm">
+                                        </div>
+                                    </td>
+                                    <td align="right">
+                                        <a data-ng-if="!item.editing" data-ng-click="item.editing = true" href="javascript:;" class="btn btn-xs primary">Edit</a>
+                                        <a data-ng-if="item.editing" data-ng-click="item.editing = false" class="btn btn-xs text-white btn-primary">Save</a>
+                                        <a href="javascript:;" class="btn btn-xs text-danger"><i class="ion-close"></i></a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>    
+
+                        <form name="formData" data-ng-submit="addLinkParam()" novalidate>
+                            <div class="box">
+                                <div class="box-header dker">
+                                  <h3>Add parameters</h3>
+                                  <small>Custom user parameters</small>
+                                </div>
+                                <div class="box-body p-t-0 dker">
+                                    <div class="row">
+                                        <div class="form-group col-sm-6">
+                                            <input data-ng-model="linkParam.key" data-uifocus="linkParam.focus" type="text" class="form-control" placeholder="Data name" required>
+                                        </div>
+                                        <div class="form-group col-sm-6">
+                                            <input data-ng-model="linkParam.value" type="text" class="form-control" placeholder="Data value" required>
+                                        </div>
+                                    </div>
+                                    <button data-ng-disabled="formData.$invalid" class="btn btn-primary">Add Param</button>
+                                </div>
+                            </div>    
+                        </form>
+                    </div>
+
+                </div>
+
+                
+
+            </div>
+            <div class="modal-footer">
+                <button data-click="saveConfig()" class="btn primary">Save Changes</button>
+                <button data-ng-click="hideModal('link-editor')" class="btn btn-link">Close Window</button>
+            </div>
+        </div>
+    </div>
+</div>

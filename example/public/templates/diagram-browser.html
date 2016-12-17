@@ -1,0 +1,34 @@
+<div data-uimodal="diagram-browser" class="modal fade animate">
+    <div class="modal-dialog modal-lg zoom">
+        <div class="modal-content">
+            <div class="modal-header">
+                <p class="_600">BROWSE DIAGRAM</p>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-xs-6 col-sm-4 col-md-3" data-ng-repeat="item in diagrams track by item.id">
+                        <div class="box dker">
+                            <div class="box-header">
+                                <h3 class="_600">{{ item.name }}</h3>
+                                <small>{{ item.created_date }}</small>
+                            </div>
+                            <div class="box-tool">
+                                <ul class="nav">
+                                    <li class="nav-item inline">
+                                      <a class="nav-link text-muted">
+                                        <i class="ion-close-round" style="font-size: 14px;"></i>
+                                      </a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="box-body p-t-0">
+                                <button data-ng-click="openDiagram(item.id)" class="btn btn-xs btn-outline b-info text-info">Open diagram</button>
+                            </div>
+                          </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>

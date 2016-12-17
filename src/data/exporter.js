@@ -42,21 +42,43 @@
         
     };
     
-    Exporter.prototype.exportSVG = function() {
+    Exporter.prototype.exportSVG = function(filename, compression) {
+        var options = _.extend({}, this.options);
         
+        options.encoder = 'application/svg+xml';
+        options.compression = 1;
+        options.background = '#ffffff';
+
+        var uri = createDataURI(this.element, options);
+        var link = document.createElement('a');
+        var click;
+
+        link.setAttribute('download', filename);
+        link.setAttribute('href', uri);
+
+        if (document.createEvent) {
+            click = document.createEvent('MouseEvents');
+            click.initEvent('click', true, false);
+            link.dispatchEvent(click);
+        } else if (document.createEventObject) {
+            link.fireEvent('onclick');
+        }
+
+        link = click = null;
     };
 
     Exporter.prototype.exportJPEG = function(filename, compression) {
         var options = _.extend({}, this.options);
         
         options.encoder = 'image/jpeg';
-        options.compression = compression || 0.8;
+        options.compression = compression || 1;
+        options.background = '#ffffff';
         
         filename = _.defaultTo(filename, 'download.jpg');
         
         exportImage(this.element, options, function(result){
             if (result) {
-                document(filename, result);
+                download(filename, result);
             }
         });
     };
@@ -178,8 +200,8 @@
         
         image.src = data; // DOMURL.createObjectURL(blob);
     }
-    
-    function createDataURI(element, options) {
+
+    function createData(element, options) {
         var holder = Graph.dom('<div/>'),
             cloned = element.cloneNode(true);
         
@@ -217,9 +239,13 @@
         }
         
         xml = XMLDOC + holder.innerHTML;
-        uri = 'data:image/svg+xml;base64,' + window.btoa(repair(xml));
-        
-        cloned = holder = null;
+        holder = cloned = null;
+        return xml;
+    }
+    
+    function createDataURI(element, options) {
+        var xml = createData(element, options);
+        var uri = 'data:image/svg+xml;base64,' + window.btoa(repair(xml));
         return uri;
     }
     

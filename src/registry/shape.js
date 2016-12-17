@@ -1,7 +1,8 @@
 
 (function(){
 
-    var storage = {};
+    var storage = {},
+        context = {};
 
     var Registry = function() {
         
@@ -14,15 +15,36 @@
         storage[id] = shape;
     };
 
+    Registry.prototype.setContext = function(id, scope) {
+        if (storage[id]) {
+            context[id] = scope;
+        }
+    };
+
+    Registry.prototype.collect = function(scope) {
+        var shapes = [];
+        for (var id in context) {
+            if (context[id] == scope && storage[id]) {
+                shapes.push(storage[id]);
+            }
+        }
+        return shapes;
+    };
+
     Registry.prototype.unregister = function(shape) {
         var id = shape.guid();
+        
         if (storage[id]) {
             storage[id] = null;
             delete storage[id];
         }
+
+        if (context[id]) {
+            delete context[id];
+        }
     };
 
-    Registry.prototype.count = function() {
+    Registry.prototype.size = function() {
         return _.keys(storage).length;
     };
 

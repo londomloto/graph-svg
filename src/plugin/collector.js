@@ -20,18 +20,19 @@
         },
 
         collecting: {
-
+            enabled: false
         },
 
         constructor: function(paper) {
             var me = this;
 
             if ( ! paper.isPaper()) {
-                throw Graph.error('Lasso tool only available for paper !');
+                throw Graph.error('Collector tool only available for paper !');
             }
 
             me.paper = paper;
             me.components.rubber = Graph.$('<div class="graph-rubberband">');
+            me.collection = new Graph.collection.Vector();
 
             paper.on('keynavdown', _.bind(me.onKeynavDown, me));
             paper.on('keynavup', _.bind(me.onKeynavUp, me));
@@ -70,7 +71,7 @@
             var collecting = me.collecting,
                 paper = me.paper,
                 layout = paper.layout(),
-                offset = layout.offset(),
+                position = layout.position(),
                 rubber = me.components.rubber,
                 vendor = paper.interactable().vendor();
 
@@ -81,8 +82,8 @@
                 manualStart: true,
 
                 onstart: function(e) {
-
                     _.assign(collecting, {
+                        enabled: true,
                         start: {
                             x: e.clientX,
                             y: e.clientY,
@@ -97,7 +98,7 @@
                     rubber.query.css({
                         width: 0,
                         height: 0,
-                        transform: 'translate(' + (collecting.start.x - offset.left) + 'px, ' + (collecting.start.y - offset.top) + 'px)'
+                        transform: 'translate(' + (collecting.start.x - position.left) + 'px, ' + (collecting.start.y - position.top) + 'px)'
                     });
                 },
 
@@ -152,22 +153,26 @@
                     rubber.query.css({
                         width:  bounds.width,
                         height: bounds.height,
-                        transform: 'translate(' + (bounds.x - offset.left) + 'px,' + (bounds.y - offset.top) + 'px)'
+                        transform: 'translate(' + (bounds.x - position.left) + 'px,' + (bounds.y - position.top) + 'px)'
                     });
                 },
 
                 onend: function() {
+                    
+                    if ( ! collecting.enabled) return;
+                    collecting.enabled = false;
+
                     var context = paper.guid(),
                         vectors = Graph.registry.vector.collect(context),
                         bounds = collecting.bounds,
                         scale = layout.scale();
 
-                    var start = layout.grabLocation({
+                    var start = layout.pointerLocation({
                         clientX: bounds.x,
                         clientY: bounds.y
                     });
 
-                    var end = layout.grabLocation({
+                    var end = layout.pointerLocation({
                         clientX: bounds.x + bounds.width,
                         clientY: bounds.y + bounds.height
                     });
@@ -227,7 +232,7 @@
                         me.clearCollection();
                     }
 
-                    me.collect(vector, ! single);
+                    me.collect(vector);
                 }
 
             }, true)
@@ -236,7 +241,6 @@
 
                 if (me.props.enabled) {
                     if (i.pointerIsDown && ! i.interacting()) {
-
                         var action = {name: 'drag'};
 
                         // -- workaround for a bug in v1.2.6 of interact.js
@@ -265,47 +269,42 @@
             me.props.rendered = true;
         },
 
-        collect: function(vector, batch) {
-            var me = this, offset;
+        size: function() {
+            return this.collection.size();
+        },
 
-            vector.lasso = this;
-            vector.batch = batch;
+        index: function(vector) {
+            return this.collection.index(vector);
+        },
 
-            vector.select(batch);
-
-            offset = _.indexOf(this.collection, vector);
-
+        add: function(vector) {
+            var offset = this.index(vector);
+            vector._collector = this;
             if (offset === -1) {
                 this.collection.push(vector);
             }
+        },
 
-            Graph.cached.paper = me.paper.guid();
+        remove: function(vector) {
+            delete vector._collector;
+            this.collection.pull(vector);
+        },
+
+        collect: function(vector) {
+            vector.select();
+            Graph.cached.paper = this.paper.guid();
         },
 
         decollect: function(vector) {
-            var batch, offset;
-
-            batch = vector.batch;
-
-            delete vector.lasso;
-            delete vector.batch;
-
-            vector.deselect(batch);
-            offset = _.indexOf(this.collection, vector);
-
-            if (offset > -1) {
-                this.collection.splice(offset, 1);
-            }
+            vector.deselect();
         },
 
-        clearCollection: function(except) {
+        clearCollection: function() {
             var me = this,
-                collection = me.collection.slice();
+                collection = me.collection.toArray().slice();
 
-            _.forEach(collection, function(v){
-                if (v !== except) {
-                    me.decollect(v);
-                }
+            _.forEach(collection, function(vector){
+                me.decollect(vector);
             });
 
             collection = null;
@@ -327,10 +326,10 @@
             }
         },
 
-        syncDragStart: function(master, e) {
+        syncBeforeDrag: function(master, e) {
             var me = this;
 
-            _.forEach(me.collection, function(v){
+            me.collection.each(function(v){
                 if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(){
                         var mat = v.graph.matrix.data(),
@@ -354,7 +353,7 @@
 
                         v.addClass('dragging');
 
-                        v.fire('dragstart', {
+                        v.fire('beforedrag', {
                             dx: e.dx *  cos + e.dy * sin,
                             dy: e.dx * -sin + e.dy * cos,
                             master: false
@@ -367,12 +366,13 @@
             me.fire('beforedrag');
         },
 
-        syncDragMove: function(master, e) {
+        syncDrag: function(master, e) {
             var me = this, dx, dy;
 
-            _.forEach(me.collection, function(v){
+            me.collection.each(function(v){
                 if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(v, e){
+
                         var dx = e.ox *  v.syncdrag.cos + e.oy * v.syncdrag.sin,
                             dy = e.ox * -v.syncdrag.sin + e.oy * v.syncdrag.cos;
 
@@ -385,7 +385,7 @@
                         v.syncdrag.tdx += dx;
                         v.syncdrag.tdy += dy;
 
-                        v.fire('dragmove', {
+                        v.fire('drag', {
                             dx: dx,
                             dy: dy,
                             master: false
@@ -397,10 +397,10 @@
 
         },
 
-        syncDragEnd: function(master, e) {
+        syncAfterDrag: function(master, e) {
             var me = this;
 
-            _.forEach(me.collection, function(v, i){
+            me.collection.each(function(v){
                 if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(v, e){
                         var batchSync = v.plugins.dragger.props.batchSync,
@@ -417,9 +417,10 @@
                             v.dirty(true);
                         }
 
-                        v.fire('dragend', {
+                        v.fire('afterdrag', {
                             dx: v.syncdrag.tdx,
                             dy: v.syncdrag.tdy,
+                            batch: true,
                             master: false
                         });
 

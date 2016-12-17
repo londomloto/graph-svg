@@ -4,7 +4,7 @@
     Graph.shape.activity.Final = Graph.extend(Graph.shape.Shape, {
 
         props: {
-            label: 'STOP',
+            label: 'End',
             width: 60,
             height: 60,
             left: 0,
@@ -12,7 +12,7 @@
         },
 
         metadata: {
-            name: 'activity.final',
+            type: 'activity.final',
             style: 'graph-shape-activity-final'
         },
 
@@ -42,12 +42,14 @@
             pmgr.install('snapper', block);
 
             block.on('edit.shape',      _.bind(this.onLabelEdit, this));
-            block.on('dragstart.shape', _.bind(this.onDragStart, this));
-            block.on('dragend.shape',   _.bind(this.onDragEnd, this));
-            block.on('resize.shape',    _.bind(this.onResize, this));
-            block.on('remove.shape',    _.bind(this.onRemove, this));
+            block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
+            block.on('afterdrag.shape',   _.bind(this.onAfterDrag, this));
+            block.on('afterresize.shape',    _.bind(this.onAfterResize, this));
+            block.on('beforedestroy.shape',    _.bind(this.onBeforeDestroy, this));
+            block.on('afterdestroy.shape',    _.bind(this.onAfterDestroy, this));
             block.on('select.shape',    _.bind(this.onSelect, this));
             block.on('deselect.shape',  _.bind(this.onDeselect, this));
+            block.on('connect.shape', _.bind(this.onConnect, this));
 
             inner = (new Graph.svg.Ellipse(cx, cy, cx - 6, cy - 6))
                 .addClass('comp-inner')
@@ -70,7 +72,22 @@
             shape = block = label = inner = null;
         },
 
-        redraw: function() {
+        fill: function(value) {
+            if (value === undefined) {
+                return this.props.value;
+            }
+
+            this.component('inner').elem.css('fill', value);
+            this.props.fill = value;
+
+            return this;
+        },
+
+        refresh: function() {
+            if (this.layout.suspended) {
+                return;
+            }
+
             var block = this.component('block'),
                 shape = this.component('shape'),
                 inner = this.component('inner'),
@@ -127,7 +144,7 @@
             return 'Graph.shape.activity.Final';
         },
 
-        onRemove: function() {
+        onAfterDestroy: function() {
             // remove label
             this.component('label').remove();
 
@@ -142,6 +159,8 @@
             }
 
             Graph.registry.shape.unregister(this);
+            
+            this.fire('afterdestroy');
         }
 
     });

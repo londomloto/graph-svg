@@ -226,7 +226,7 @@
             cachedRegex.rgex = eventRegex;
         }
 
-        for (i = listeners.length - 1; i >= 0; i--) {
+        for (var i = listeners.length - 1; i >= 0; i--) {
             if (eventRegex.test(listeners[i].eventType)) {
                 if (handler) {
                     if (handler === listeners[i].original) {

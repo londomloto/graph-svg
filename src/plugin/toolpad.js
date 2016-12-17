@@ -19,12 +19,14 @@
             this.initComponent(paper);
 
             this.cached.tools = null;
+            this.cached.shape = null;
+            this.cached.link  = null;
             
-            Graph.topic.subscribe('shape/select', _.bind(this.onShapeSelect, this));
-            Graph.topic.subscribe('shape/deselect', _.bind(this.onShapeDeselect, this));
+            Graph.topic.subscribe('shape:select', _.bind(this.onShapeSelect, this));
+            Graph.topic.subscribe('shape:deselect', _.bind(this.onShapeDeselect, this));
             
-            Graph.topic.subscribe('link/select', _.bind(this.onLinkSelect, this));
-            Graph.topic.subscribe('link/deselect', _.bind(this.onLinkDeselect, this));
+            Graph.topic.subscribe('link:select', _.bind(this.onLinkSelect, this));
+            Graph.topic.subscribe('link:deselect', _.bind(this.onLinkDeselect, this));
         },
         
         initComponent: function(paper) {
@@ -37,7 +39,8 @@
 
             pad = Graph.$(pad);
 
-            pad.on('click', '[data-shape-tool]', _.bind(this.onToolClick, this));
+            pad.on('click', '[data-shape-tool]', _.bind(this.onShapeToolClick, this));
+            pad.on('click', '[data-link-tool]', _.bind(this.onLinkToolClick, this));
             
             this.components.pad = pad;
         },
@@ -77,7 +80,7 @@
             pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
             
             var body = '';
-            
+
             _.forEach(meta.tools, function(tool){
                 if (tool.enabled) {
                     body += '<div class="splitter"></div>';
@@ -86,8 +89,10 @@
             });
             
             pad.find('.pad-body').html(body);
-            
+
             this.cached.tools = meta.tools;
+            this.cached.shape = shape;
+
             this.resume();
         },
         
@@ -108,13 +113,14 @@
             _.forEach(meta.tools, function(tool){
                 if (tool.enabled) {
                     body += '<div class="splitter"></div>';
-                    body += '<a data-shape-tool="' + tool.name + '" href="#" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
+                    body += '<a data-link-tool="' + tool.name + '" href="#" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
                 }
             });
             
             pad.find('.pad-body').html(body);
             
             this.cached.tools = meta.tools;
+            this.cached.link = link;
             this.resume();
         },
 
@@ -122,19 +128,48 @@
             this.suspend();
         },
         
-        onToolClick: function(e) {
+        onShapeToolClick: function(e) {
             var target = Graph.$(e.currentTarget),
                 name = target.data('shapeTool');
             
             var tool = _.find(this.cached.tools, function(t){
                 return t.name == name;
             });
-            
-            if (tool && tool.handler) {
-                tool.handler(e);
+
+            if (tool) {
+                if (tool.name == 'config') {
+                    var paper = this.vector();
+                    paper.fire('shapetoolclick', {
+                        shape: this.cached.shape
+                    });
+                } else if (tool.handler) {
+                    tool.handler(e);
+                }
             }
             
             e.preventDefault();
+        },
+
+        onLinkToolClick: function(e) {
+            var target = Graph.$(e.currentTarget),
+                name = target.data('linkTool');
+            
+            var tool = _.find(this.cached.tools, function(t){
+                return t.name == name;
+            });
+
+            if (tool) {
+                if (tool.name == 'config') {
+                    var paper = this.vector();
+                    paper.fire('linktoolclick', {
+                        link: this.cached.link
+                    });
+                } else if (tool.handler) {
+                    tool.handler(e);
+                }
+            }
+            
+            e.preventDefault();  
         },
 
         toString: function() {

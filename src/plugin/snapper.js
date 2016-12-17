@@ -115,9 +115,9 @@
             var key;
 
             if (me.clients[clientId]) {
-                client.off('dragstart', me.clients[clientId].dragStartHandler);
-                client.off('dragend',  me.clients[clientId].dragEndHandler);
-                client.off('remove',  me.clients[clientId].removeHandler);
+                client.off('beforedrag', me.clients[clientId].beforeDragHandler);
+                client.off('afterdrag',  me.clients[clientId].afterDragHandler);
+                client.off('afterdestroy',  me.clients[clientId].afterDestroyHandler);
 
                 if (me.clients[clientId].coords) {
                     delete me.snapping.coords[me.clients[clientId].coords];
@@ -133,17 +133,19 @@
                 me.clients[clientId] = {
                     coords: null,
                     osnaps: dragger.snap(),
-                    dragStartHandler: _.bind(me.onClientDragStart, me, _, client),
-                    dragEndHandler: _.bind(me.onClientDragEnd, me, _, client),
-                    removeHandler: _.bind(me.onClientRemove, me, _, client)
+                    beforeDragHandler: _.bind(me.onClientBeforeDrag, me, _, client),
+                    afterDragHandler: _.bind(me.onClientAfterDrag, me, _, client),
+                    afterDestroyHandler: _.bind(me.onClientAfterDestroy, me, _, client)
                 };
 
-                client.on('dragstart', me.clients[clientId].dragStartHandler);
-                client.on('dragend', me.clients[clientId].dragEndHandler);
-                client.on('remove',  me.clients[clientId].removeHandler);
+                client.on('beforedrag', me.clients[clientId].beforeDragHandler);
+                client.on('afterdrag', me.clients[clientId].afterDragHandler);
+                client.on('afterdestroy',  me.clients[clientId].afterDestroyHandler);
 
                 var center = me.getClientCenter(client),
                     coords = this.snapping.coords;
+
+                // this.vector().circle(center.x, center.y, 5);
 
                 key = center.x + '_' + center.y;
 
@@ -193,12 +195,12 @@
             this.snapping[stub].removeClass('visible');
         },
 
-        onClientDragStart: function(e, client) {
+        onClientBeforeDrag: function(e, client) {
             var me = this,
                 paper = me.vector(),
                 viewport = paper.viewport(),
                 layout = paper.layout(),
-                offset = layout.offset(),
+                offset = layout.position(),
                 center = me.getClientCenter(client);
 
             var snapping = this.snapping,
@@ -212,7 +214,7 @@
                 ma = viewport.matrix(),
                 dx = ma.props.e,
                 dy = ma.props.f,
-                point = layout.grabLocation({clientX: e.x, clientY: e.y}),
+                point = layout.pointerLocation({clientX: e.x, clientY: e.y}),
                 diffx = center.x - point.x,
                 diffy = center.y - point.y,
                 snapx = [],
@@ -248,7 +250,7 @@
                     x1 = rx.value;
                     y1 = ry.value;
 
-                    pt = layout.grabLocation({
+                    pt = layout.pointerLocation({
                         clientX: x1,
                         clientY: y1
                     });
@@ -275,7 +277,7 @@
             me.resume();
         },
 
-        onClientDragEnd: function(e, client) {
+        onClientAfterDrag: function(e, client) {
             var snapping = this.snapping,
                 options = this.clients[client.guid()];
 
@@ -312,7 +314,7 @@
             });
         },
 
-        onClientRemove: function(e, client) {
+        onClientAfterDestroy: function(e, client) {
             var guid = client.guid(),
                 options = this.clients[guid],
                 snapping = this.snapping;
