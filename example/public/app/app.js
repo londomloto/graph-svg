@@ -14,33 +14,29 @@
         .directive('uitemplate', uitemplate)
         .directive('uifocus', uifocus);
 
-    function AppController($timeout, $scope, api, modal) {
-
+    function AppController($timeout, $scope, $q, api, modal) {
+        
         ///////// DATA /////////
 
+        $scope.paper = null;
+        $scope.pallet = null;
         $scope.diagrams = [];
         
         $scope.diagram = {
-            props: {},
-            phantom: true
+
+        };
+
+        $scope.shape = {
+            
+        };
+
+        $scope.link = {
+            
         };
 
         $scope.download = {
             type: 'png',
             name: 'example.png'
-        };
-
-        $scope.paper = null;
-        $scope.pallet = null;
-        $scope.shape = {
-            props: {},
-            links: [],
-            params: []
-        };
-
-        $scope.link = {
-            props: {},
-            params: {}
         };
 
         $scope.shapeParam = {
@@ -55,78 +51,36 @@
             value: ''
         };
 
-        ///////// HELPERS /////////
+        $scope.saveDiagram = saveDiagram;
+        $scope.removeDiagram = removeDiagram;
 
-        $scope.showBrowseDiagram = function() {
+        $scope.showDiagramBrowser = function() {
             modal.open('diagram-browser').then(function(){
-                api.get('diagrams').then(function(result){
-                    $scope.diagrams = result.data;
-                });
+                loadDiagrams();
             });
         };
 
-        $scope.openDiagram = function(id) {
-            modal.hide('diagram-browser');
-
-            api.get('diagrams/' + id).then(function(result){
-                if (result.success) {
-                    var diagram = $scope.paper.diagram().current();
-                    
-                    if ( ! diagram) {
-                        diagram = $scope.paper.diagram().create('activity', result.data.props, true);
-                    }
-
-                    diagram.render(result.data);
-                }
-            });
+        $scope.showDiagramSimulator = function() {
+            $.snackbar({content: 'Not implemented yet!'});
         };
 
-        $scope.showCreateDiagram = function() {
-            _.assign($scope.diagram, {
-                props: {},
-                phantom: true
-            });
+        $scope.showDiagramCreator = function() {
+            if ($scope.paper.diagram().current()) {
+                $scope.paper.diagram().remove();
+            }
             modal.open('diagram-editor');
         };
 
-        $scope.saveDiagramEditor = function() {
-            var diagram = $scope.paper.diagram().current(),
-                options = angular.copy($scope.diagram);
-
-            if ( ! diagram) {
-                diagram = $scope.paper.diagram().create('activity', options.props, true);
-            }
-
-            diagram.update(options);
-            modal.hide('diagram-editor');
-        };
-
-        $scope.showUpdateDiagram = function() {
+        $scope.showDiagramUpdater = function() {
             modal.open('diagram-editor');
         };
 
-        $scope.saveDiagram = function() {
-            var diagram = $scope.paper.diagram().current();
-            if (diagram) {
-                var json = diagram.toJson(),
-                    diagramId = json.props.id;
+        $scope.showDiagramDownloader = function() {
+            modal.open('download-dialog');
+        };
 
-                if (diagramId) {
-                    api.put('diagrams/' + diagramId, json).then(function(result){
-                        if (result.success) {
-                            diagram.update(result.data);
-                            $.snackbar({ content: 'Diagram updated!' });
-                        }
-                    });
-                } else {
-                    api.post('diagrams', json).then(function(result){
-                        if (result.success) {
-                            diagram.update(result.data);
-                            $.snackbar({ content: 'Diagram created!' });
-                        }
-                    });
-                }
-            }
+        $scope.showPaperConfig = function() {
+            $.snackbar({content: 'Not implemented yet!'});
         };
 
         $scope.showShapeEditor = function(shape) {
@@ -137,6 +91,48 @@
             });
 
             modal.open('shape-editor');
+        };
+
+        $scope.showLinkEditor = function(link) {
+            $scope.link = link.toJson();
+            _.forEach($scope.link.params, function(item){
+                item.editing = false;
+            });
+            modal.open('link-editor');
+        };
+
+        $scope.openDiagram = function(id) {
+            modal.hide('diagram-browser');
+
+            api.get('diagrams/' + id).then(function(result){
+                if (result.success) {
+                    $scope.paper.diagram().remove();
+                    
+                    $timeout(function(){
+                        var diagram = diagram = $scope.paper.diagram().create('activity', result.data.props, true);
+                        diagram.render(result.data);
+                        $scope.diagram = diagram.toJson();
+                    });
+                }
+            });
+        };
+
+        $scope.saveDiagramEditor = function() {
+            var diagram = $scope.paper.diagram().current(),
+                options = angular.copy($scope.diagram);
+
+            if ( ! diagram) {
+                diagram = $scope.paper.diagram().create('activity', options.props, true);
+                diagram.update(options);
+            } else {
+                diagram.update(options);
+            }
+
+            saveDiagram().then(function(){
+                $scope.diagram = diagram.toJson();
+            });
+
+            modal.hide('diagram-editor');
         };
 
         $scope.saveShapeEditor = function() {
@@ -170,14 +166,6 @@
             $timeout(function(){
                 entry.focus = true;    
             }, 200);
-        };
-
-        $scope.showLinkEditor = function(link) {
-            $scope.link = link.toJson();
-            _.forEach($scope.link.params, function(item){
-                item.editing = false;
-            });
-            modal.open('link-editor');
         };
 
         $scope.addLinkParam = function() {
@@ -220,8 +208,12 @@
             }
         };
 
-        $scope.showDownload = function() {
-            modal.open('download-dialog');
+        $scope.undo = function() {
+            $scope.paper.diagram().undo();
+        };
+
+        $scope.redo = function() {
+            $scope.paper.diagram().redo();
         };
 
         $scope.downloadDiagram = function() {
@@ -231,7 +223,7 @@
 
             name = name.replace(/\.?([^.]+)$/, '.' + ext);
 
-            $scope.paper.diagram().saveAs(type, name);
+            $scope.paper.diagram().saveAsImage(type, name);
             modal.hide('download-dialog');  
         };
 
@@ -257,6 +249,8 @@
             }
         });
 
+        ///////// HELPERS /////////
+
         Graph.topic.subscribe('graph:message', function(e){
             $.snackbar({
                 content: e.message,
@@ -264,6 +258,87 @@
             });
         });
 
+        function loadDiagrams() {
+            api.get('diagrams').then(function(result){
+                if (result.success) {
+                    $scope.diagrams = result.data;
+                }
+            });
+        }
+
+        function saveDiagram() {
+            var def = $q.defer(),
+                diagram = $scope.paper.diagram().current();
+            
+            $scope.paper.tool().activate('panzoom');
+
+            if (diagram) {
+                var data = diagram.toJson();
+
+                if (data.props.id) {
+                    api.put('diagrams/' + data.props.id, data).then(function(result){
+                        if (result.success) {
+                            diagram.update(result.data);
+                            $.snackbar({ content: 'Diagram updated!' });
+                        }
+
+                        upload(diagram).then(function(){
+                            def.resolve(diagram);
+                        });
+                    });
+                } else {
+                    api.post('diagrams', data).then(function(result){
+                        if (result.success) {
+                            diagram.update(result.data);
+                            $.snackbar({ content: 'Diagram created!' });
+                        }
+                        upload(diagram).then(function(){
+                            def.resolve(diagram);
+                        });
+                    });
+                }
+            } else {
+                $.snackbar({ content: 'No diagram', style: 'warning' });
+                def.resolve(null);
+            }
+
+            return def.promise;
+        }
+
+        function removeDiagram(id) {
+            api.del('diagrams/' + id).then(function(result){
+                if (result.success) {
+                    loadDiagrams();
+                    
+                    var diagram = $scope.paper.diagram().current();
+
+                    if (diagram && diagram.props.id == id) {
+                        $scope.paper.diagram().remove();
+                    }
+                }
+            });
+        }
+
+        function upload(diagram) {
+            var def = $q.defer(),
+                json = diagram.toJson();
+
+            $scope.paper.diagram().saveAsFile(function(file){
+                var data = new FormData();
+
+                data.append('userfile', file);
+                
+                for (var key in json) {
+                    data.append(key, JSON.stringify(json[key]));
+                }
+                
+                api.post('upload/diagrams/' + diagram.props.id, data, {upload: true}).then(function(){
+                    def.resolve(diagram);
+                });
+            });
+
+            return def.promise;
+        }
     }
 
     function apiProvider() {
@@ -297,19 +372,19 @@
 
                     return request(api, options);
                 },
-                post: function(api, data) {
-                    var options = { 
-                        method: 'POST',
-                        data: data || {}
-                    };
+                post: function(api, data, options) {
+                    options = options || {};
+
+                    options.method = 'POST';
+                    options.data = data || {};
 
                     return request(api, options);
                 },
-                put: function(api, data) {
-                    var options = { 
-                        method: 'PUT',
-                        data: data || {}
-                    };
+                put: function(api, data, options) {
+                    options = options || {};
+
+                    options.method = 'PUT';
+                    options.data = data || {};
 
                     return request(api, options);
                 },
@@ -330,7 +405,14 @@
 
                 options.url = base + url;
                 options.headers = options.headers || {};
-                options.headers['Content-Type'] = 'application/json';
+
+                if (options.upload) {
+                    options.transformRequest = angular.identity;
+                    options.headers['Content-Type'] = undefined;
+                } else {
+                    options.headers['Content-Type'] = 'application/json';    
+                    options.headers['X-Accept'] = 'application/json';
+                }
 
                 return $http(options).then(function(response){
                     return response.data;
@@ -502,7 +584,7 @@
         }
     }
 
-    function uipaper(tool) {
+    function uipaper($timeout, tool) {
         var directive = {
             restrict: 'A',
             link: link
@@ -524,70 +606,36 @@
                     tool.deactivate(e.name);
                 },
                 shapetoolclick: function(e) {
-                    scope.$apply(function(){
+                    _apply(function(){
                         scope.showShapeEditor(e.shape);    
                     });
                 },
                 linktoolclick: function(e) {
-                    scope.$apply(function(){
-                        scope.showLinkEditor(e.link);
-                    });
+                    _apply(function(){
+                        scope.showLinkEditor(e.link);   
+                    })
                 },
                 'diagram.create': function(e) {
-                    scope.$apply(function(){
+                    _apply(function(){
                         scope.diagram = e.diagram.toJson();
+                    });
+                },
+                'diagram.destroy': function(e) {
+                    _apply(function(){
+                        scope.diagram = { };
                     });
                 }
             });
 
             paper.render(element);
 
-            var s1 = Graph.shape('activity.action', {left: 300, top: 120, label: 'Business Process'});
-            var s2 = Graph.shape('activity.action', {left: 150, top: 340, label: 'Approval'});
-
-            s1.render(paper);
-            s2.render(paper);
-
-            s1.connect(s2);
-
-            ///////// examples /////////
-            /*
-            var s1 = Graph.shape('activity.action', {left: 300, top: 120, label: 'Business Process'});
-            var s2 = Graph.shape('activity.action', {left: 150, top: 340, label: 'Approval'});
-            var s3 = Graph.shape('activity.action', {left: 300, top: 450});
-            var s4 = Graph.shape('activity.action', {left: 500, top: 120});
-            var s5 = Graph.shape('activity.start', {left: 1200, top: 200});
-            var s6 = Graph.shape('activity.lane', {left: 100, top: 100, label: 'Administrator'});
-            var s7 = Graph.shape('activity.router', {left: 580, top: 430});
-            var s8 = Graph.shape('activity.final', {left: 600, top: 640});
-
-            s1.render(paper);
-            s2.render(paper);
-            s3.render(paper);
-            s4.render(paper);
-            s5.render(paper);
-            s6.render(paper);
-            s7.render(paper);
-            s8.render(paper);
-
-            var s9 = s6.addSiblingBellow({label: 'Project Manager'});
-            var s10 = s9.addSiblingBellow();
-
-            s6.addChild([s1, s2, s4]);
-            s9.addChild([s3]);
-            s10.addChild([s8]);
-
-            s1.connect(s2, {
-                label: "Indonesia\nRaya\nMerdeka",
-                labelDistance: .14
-            });
-
-            var l = s1.connect(s3, {
-                label: 'Indonesia Merdeka',
-                labelDistance: .1
-            });
-
-            s2.connect(s4);*/
+            /////////
+            
+            function _apply(applyHandler) {
+                $timeout(function(){
+                    applyHandler();
+                });
+            }
 
         }
     }

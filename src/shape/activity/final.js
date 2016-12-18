@@ -8,7 +8,8 @@
             width: 60,
             height: 60,
             left: 0,
-            top: 0
+            top: 0,
+            fill: '#FF4081'
         },
 
         metadata: {
@@ -30,12 +31,16 @@
 
             block = (new Graph.svg.Ellipse(cx, cy, cx, cy))
                 .addClass(Graph.styles.SHAPE_BLOCK)
+                .style({
+                    stroke: this.props.stroke,
+                    strokeWidth: this.props.strokeWidth
+                })
                 .data('text', this.props.label)
                 .render(shape);
 
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            pmgr.install('dragger', block, {ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('dragger', block, {ghost: true, cls: Graph.styles.SHAPE_DRAG});
             pmgr.install('network', block, {wiring: 'h:v'});
             pmgr.install('resizer', block);
             pmgr.install('editor',  block);
@@ -53,6 +58,9 @@
 
             inner = (new Graph.svg.Ellipse(cx, cy, cx - 6, cy - 6))
                 .addClass('comp-inner')
+                .style({
+                    fill: this.props.fill
+                })
                 .clickable(false)
                 .selectable(false)
                 .render(shape);

@@ -43,7 +43,7 @@
 
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
             
-            pmgr.install('dragger', block, {ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('dragger', block, {ghost: true, cls: Graph.styles.SHAPE_DRAG});
             pmgr.install('resizer', block);
             pmgr.install('editor',  block);
             pmgr.install('network', block, {wiring: 'h:v'});

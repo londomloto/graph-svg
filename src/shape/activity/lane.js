@@ -113,7 +113,7 @@
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
             pmgr.install('resizer', block, {restriction: { width: 200, height: 100 }});
-            pmgr.install('dragger', block, {ghost: true, batchSync: false, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('dragger', block, {ghost: true, batchSync: false, cls: Graph.styles.SHAPE_DRAG});
 
             block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
             block.on('afterdrag.shape',   _.bind(this.onAfterDrag, this));
@@ -512,6 +512,7 @@
             });
 
             pool.invalidate();
+            this.refreshSnapper();
             
         },
 
@@ -540,6 +541,7 @@
             if (result !== undefined) {
                 sibling.render(paper, 'before', this.component());
                 pool.invalidate();
+                this.refreshSnapper();
             }
 
             return sibling;
@@ -570,9 +572,14 @@
             if (result !== undefined) {
                 sibling.render(paper, 'after', this.component());
                 pool.invalidate();
+                this.refreshSnapper();
             }
 
             return sibling;
+        },
+
+        refreshSnapper: function() {
+            this.paper().snapper().refresh();
         },
 
         autoResize: function() {
@@ -658,6 +665,12 @@
 
         toString: function() {
             return 'Graph.shape.activity.Lane';
+        },
+
+        toJson: function() {
+            var result = this.superclass.prototype.toJson.call(this);
+            result.props.pool = this.pool().guid;
+            return result;
         },
 
         onAfterDestroy: function() {
@@ -749,10 +762,9 @@
         },
 
         onBeforeDrag: function(e) {
-            this.component().addClass('shape-dragging');
-
             if (e.master) {
 
+                this.fire(e);
                 this.paper().diagram().capture();
 
                 var links = this.pool().populateLinks();
@@ -798,7 +810,6 @@
 
                 // forward
                 this.fire(e);
-                shapeComponent.removeClass('shape-dragging');
 
                 // sync other
                 pool.relocateSiblings(this, e.dx, e.dy);
@@ -807,6 +818,8 @@
                 // sync links
                 pool.relocateLinks(e.dx, e.dy);
                 pool.refreshChildren();
+
+                this.refreshSnapper();
             }
 
         },
@@ -947,10 +960,12 @@
 
         onUpToolClick: function(e) {
             this.pool().moveUp(this);
+            this.refreshSnapper();
         },
 
         onDownToolClick: function(e) {
             this.pool().moveDown(this);
+            this.refreshSnapper();
         }
 
     });

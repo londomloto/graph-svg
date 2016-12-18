@@ -4,7 +4,8 @@
 
         props: {
             name: 'Activity Diagram',
-            description: 'Example of activity diagram'
+            description: 'No diagram description',
+            cover: null
         },
 
         rendering: {
@@ -19,11 +20,14 @@
             var paper = this.paper();
 
             // already drawing
-            if (this.drawing.enabled) {
-                
-                this.drawing.enabled = false;
-                this.drawing.shape.off('afterdrag', this.drawing.dropHandler);
-                this.drawing.dropHandler = null;
+            if (this.drawing.dragging) {
+                this.drawing.dragging = false;
+
+                this.drawing.shape.off('beforedrag', this.drawing.beforeDrag);
+                this.drawing.shape.off('aferdrag', this.drawing.afterDrag);
+
+                this.drawing.beforeDrag = null;
+                this.drawing.afterDrag = null;
 
                 // mark as invalid
                 this.drawing.shape.remove();
@@ -36,8 +40,9 @@
             movable = true;
 
             if (namespace == 'Graph.shape.activity.Lane') {
-                if ( ! this.hasLane() && this.getShapes().length) {
-                    var bbox = this.shapes.bbox().toJson();
+                var shapes = this.getShapes();
+                if (shapes.size() && ! this.hasLane()) {
+                    var bbox = shapes.bbox().toJson();
                     
                     options.left = bbox.x - 40;
                     options.top = bbox.y - 20;
@@ -45,6 +50,7 @@
                     movable = false;
                     bbox = null;
                 }
+                shapes = null;
             } else if (namespace == 'Graph.shape.common.Label') {
                 movable = false;
             }
@@ -59,7 +65,11 @@
 
             var me = this;
 
-            this.drawing.dropHandler = function() {
+            this.drawing.beforeDrag = function(e) {
+                shape.component().addClass('picking');
+            };
+
+            this.drawing.afterDrag = function() {
                 var timer;
 
                 timer = _.delay(function(shape){
@@ -84,43 +94,52 @@
                         shape.remove();
                         shape = null;
                     }
-
                 }, 0, me.drawing.shape);
 
-                me.drawing.dropHandler = null;
-                me.drawing.enabled = false;
+                shape.component().removeClass('picking');
+
+                me.drawing.beforeDrag = null;
+                me.drawing.afterDrag = null;
+                me.drawing.dragging = false;
                 me.drawing.shape = null;
 
             };
 
             if (movable) {
-                this.drawing.enabled = true;
+                this.drawing.dragging = true;
                 this.drawing.shape = shape;
+
+                shape.render(paper);
+
+                var draggable = shape.draggable().plugin(),
+                    snappcomp = shape.snappable().component();
+
+                draggable.start();
 
                 if (options.left !== undefined && options.top !== undefined) {
                     var center = shape.center(),
                         dx = options.left - center.x,
                         dy = options.top - center.y;
-
                     shape.translate(dx, dy);    
-                }
-                
-                shape.render(paper);
-                
-                var draggable = shape.draggable().plugin();
-                draggable.start();
 
-                shape.one('afterdrag', this.drawing.dropHandler);
+                    if (snappcomp) {
+                        snappcomp.dirty(true);
+                    }
+                }
+
+                shape.one('beforedrag', this.drawing.beforeDrag);
+                shape.one('afterdrag', this.drawing.afterDrag);
 
             } else {
-                me.drawing.enabled = false;
+                me.drawing.dragging = false;
                 me.drawing.shape = null;
-                me.drawing.dropHandler = null;
+                me.drawing.beforeDrag = null;
+                me.drawing.afterDrag = null;
 
                 if (shape.is('activity.lane')) {
-                    shape.render(paper);
+                    var children = me.getShapes().toArray();
 
-                    var children = me.shapes.toArray().slice();    
+                    shape.render(paper);
                     shape.addChild(children);
                     children = null;
 
@@ -182,6 +201,7 @@
             });
 
             render(parser).then(function(rendered){
+
                 parser.links().each(function(item){
                     var props = item.props,
                         sourceShape = rendered[props.source_id],
@@ -201,6 +221,8 @@
 
                 parser.destroy();
                 parser = null;
+
+                me.paper().snapper().refresh();
             }); 
 
             ///////// RENDERER /////////
@@ -208,6 +230,7 @@
             function render(parser) {
                 var def = Graph.defer(),
                     rendered = {},
+                    pools = {},
                     counter = 0;
 
                 parser.shapes().each(function(item, index, total){
@@ -226,13 +249,47 @@
                             shape = Graph.factory(clazz, [props]);
                             shape.render(paper);
 
+                            if (props.client_pool) {
+                                if (pools[props.client_pool] === undefined) {
+                                    pools[props.client_pool] = [];
+                                }
+                                pools[props.client_pool].push(shape);
+                            }
+
                             if (rendered[props.parent_id] !== undefined) {
                                 rendered[props.parent_id].addChild(shape, false);
+                                
+                                var netcom = shape.connectable().component();
+
+                                if (netcom) {
+                                    netcom.dirty(true);
+                                }
                             }
 
                             rendered[props.id] = shape;
 
                             if (index === total - 1) {
+                                var lanes, master, pool;
+                                for (pool in pools) {
+                                    lanes  = pools[pool];
+                                    master = null;
+                                    
+                                    if (lanes.length > 1) {
+                                        _.forEach(lanes, function(lane, idx){
+                                            if ( ! master) {
+                                                master = lane.pool();
+                                            } else {
+                                                lane.tree.pool = master;
+                                                master.insert(lane);
+                                            }
+                                        });
+                                    }
+
+                                    if (master) {
+                                        master.invalidate();
+                                    }
+                                }
+
                                 def.resolve(rendered);
                             }
 
@@ -256,13 +313,17 @@
                     id: this.props.id,
                     name: this.props.name,
                     type: this.toString(),
-                    description: this.props.description
+                    description: this.props.description,
+                    cover: this.props.cover
                 },
                 shapes: [],
                 links: []
             };
 
-            _.forEach(this.getShapes(), function(shape){
+            var shapes = this.getShapes(),
+                links = this.getLinks();
+
+            shapes.each(function(shape){
                 var data = shape.toJson();
                 diagram.shapes.push({
                     props: data.props,
@@ -270,7 +331,7 @@
                 });
             });
 
-            _.forEach(this.getLinks(), function(link){
+            links.each(function(link){
                 var data = link.toJson();
                 diagram.links.push({
                     props: data.props,
@@ -278,6 +339,7 @@
                 });
             });
 
+            shapes = links = null;
             return diagram;
         }
     });

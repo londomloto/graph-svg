@@ -1,24 +1,17 @@
 <?php
 namespace Micro;
 
-class App {
+class App implements IApp {
 
     private $_routes;
-    private $_currentRoute;
-    private $_cachedInput;
-    private $_headers;
-    private $_content;
-
     private $_db;
+
     private static $_default;
 
     public function __construct($config = array()) {
+        $this->_url = array();
         $this->_routes = array();
-        $this->_headers = array();
-        $this->_currentRoute = NULL;
-        $this->_cachedInput = NULL;
-        $this->_content = NULL;
-
+        
         $this->_db = Database\Mysql::factory($config['database']);
         $this->_db->connect();
 
@@ -29,6 +22,33 @@ class App {
 
     public static function getDefault() {
         return self::$_default;
+    }
+
+    public function getRootPath() {
+        static $path;
+        if (is_null($path)) {
+            $path = dirname(__DIR__).DIRECTORY_SEPARATOR;
+        }
+        return $path;
+    }
+
+    public function getSysPath() {
+        static $path;
+        if (is_null($path)) {
+            $path = __DIR__;
+        }
+        return $path;
+    }
+
+    public function getBaseUrl() {
+        static $url;
+        if (is_null($url)) {
+            $scheme = (( ! empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) != 'off') || $_SERVER['SERVER_PORT'] === 443) ? 'https' : 'http';
+            $host = $_SERVER['HTTP_HOST'];
+            $uri = substr($_SERVER['SCRIPT_NAME'], 0, strpos($_SERVER['SCRIPT_NAME'], basename($_SERVER['SCRIPT_FILENAME'])));
+            $url = "{$scheme}://{$host}{$uri}";
+        }
+        return $url;
     }
 
     public function db() {
@@ -86,37 +106,14 @@ class App {
     }
 
     public function dispatch() {
-        $request = isset($_REQUEST['_uri']) ? $_REQUEST['_uri'] : '';
-        $method = $_SERVER['REQUEST_METHOD'];
-        $query = array();
+        $req = new Http\Request();
+        $res = new Http\Response();
 
-        foreach($_REQUEST as $key => $val) {
-            if ($key != '_uri') {
-                $query[$key] = $val;
-            }
-        }
+        $method = $req->getMethod();
+        $path = isset($_REQUEST['_uri']) ? $_REQUEST['_uri'] : '';
 
-        if (empty($request)) {
-            $request = 'index';
-        }
-
-        // cached input
-        $this->_cachedInput = $this->getInput();
-
-        if ( ! empty($this->_cachedInput)) {
-            try {
-                $decoded = json_decode($this->_cachedInput, TRUE);
-                foreach($decoded as $key => $val) {
-                    $_REQUEST[$key] = $val;
-                    if ($method == 'GET') {
-                        $_GET[$key] = $val;
-                    } else if (in_array($method, array('POST', 'PUT', 'DELETE'))) {
-                        $_POST[$key] = $val;
-                    }
-                }    
-            } catch(\Exception $e) {
-
-            }
+        if (empty($path)) {
+            $path = 'index';
         }
 
         ob_start();
@@ -124,7 +121,7 @@ class App {
         foreach($this->_routes as $item) {
             if ($method == $item['method']) {
 
-                preg_match_all('#'.$item['pattern'].'#', $request, $matches, PREG_SET_ORDER);
+                preg_match_all('#'.$item['pattern'].'#', $path, $matches, PREG_SET_ORDER);
 
                 if (count($matches) > 0) {
                     $values = array_values($matches[0]);
@@ -137,94 +134,24 @@ class App {
                             $values['params'] = preg_replace('#(^/|/$)#', '', $values['params']);
                             $values['params'] = explode('/', $values['params']);
                         }
-
+                        $req->setParam($values);
                     }
 
-                    $this->_currentRoute = array(
-                        'params' => $values,
-                        'query'  => $query
-                    );
-                    
-                    $item['callback']($this);
+                    $item['callback']($req, $res);
+                    break;
                 }
             }
         }
 
         if (ob_get_length()) {
-            $this->_content = ob_get_contents();
+            $res->setContent(ob_get_contents());
             ob_end_clean();
         }
 
-        $this->response();
-    }
-
-    public function getParam($key = NULL) {
-        if ($this->_currentRoute) {
-            $params = $this->_currentRoute['params'];
-            if (is_null($key)) {
-                return $params;
-            }
-            return isset($params[$key]) ? $params[$key] : NULL;
-        }
-        return NULL;
-    }
-
-    public function getQuery($key = NULL) {
-        if ($this->_currentRoute) {
-            $query = $this->_currentRoute['query'];
-            if (is_null($key)) {
-                return $query;
-            }
-            return isset($query[$key]) ? $query[$key] : NULL;
-        }
-        return NULL;   
-    }
-
-    public function getInput() {
-        if (is_null($this->_cachedInput)) {
-            $this->_cachedInput = file_get_contents('php://input');
-        }
-        return $this->_cachedInput;
-    }
-
-    public function getPost($key = NULL) {
-        if (is_null($key)) {
-            return $_POST;
-        }
-        return isset($_POST[$key]) ? $_POST[$key] : NULL;
-    }
-
-    public function addHeader($header, $value) {
-        if (is_null($value)) {
-            $this->_headers[] = $header;
-        } else {
-            $this->_headers[] = "$header: $value";
-        }
-    }
-
-    public function sendHeaders() {
-        if ( ! headers_sent()) {
-            foreach($this->_headers as $header) {
-                header($header);
-            }
-        }
-        $this->_headers = array();
-    }
-
-    public function responseJson($content) {
-        $this->addHeader('Content-Type', 'application/json');
-        $this->_content = json_encode($content, JSON_PRETTY_PRINT);
-    }
-
-    public function response() {
-        $this->sendHeaders();
-        echo $this->_content;
+        $res->send();
     }
 
     public function start() {
-        // start database
-        
-        // disptach request
         $this->dispatch();
     }
 

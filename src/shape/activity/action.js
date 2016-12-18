@@ -31,12 +31,17 @@
 
             block = (new Graph.svg.Rect(0, 0, this.props.width, this.props.height))
                 .addClass(Graph.styles.SHAPE_BLOCK)
+                .style({
+                    fill: this.props.fill,
+                    stroke: this.props.stroke,
+                    strokeWidth: this.props.strokeWidth
+                })
                 .data('text', this.props.label)
                 .render(shape);
 
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            pmgr.install('dragger', block, {ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('dragger', block, {ghost: true, cls: Graph.styles.SHAPE_DRAG});
             pmgr.install('resizer', block);
             pmgr.install('editor',  block);
             pmgr.install('network', block, {wiring: 'h:v'});

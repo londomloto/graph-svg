@@ -18,7 +18,7 @@
             axis: false,
             cursor: 'move',
 
-            dragClass: '',
+            cls: '',
 
             // batching operation
             batchSync: true,
@@ -101,17 +101,13 @@
                     .traversable(false)
                     .selectable(false);
 
-                var style = 'graph-dragger-helper' + (me.props.dragClass ? ' ' + me.props.dragClass : '');
-
                 helper = (new Graph.svg.Rect(0, 0, 0, 0, 0))
-                    .addClass(style)
+                    .addClass('graph-dragger-helper' + ((this.props.cls ? ' ' : '') + this.props.cls ))
                     .removeClass('graph-elem graph-elem-rect')
                     .traversable(false)
                     .selectable(false)
                     .clickable(false)
                     .render(holder);
-
-                style = null;
 
                 helper.elem.data(Graph.string.ID_VECTOR, this.vector().guid());
 
@@ -120,6 +116,8 @@
 
                 holder = null;
                 helper = null;
+            } else {
+                this.props.cls && (this.vector().addClass(this.props.cls));
             }
         },
 
@@ -151,10 +149,6 @@
 
             vendor.on('down', _.bind(me.onPointerDown, me));
 
-            // if ( ! me.props.manual) {
-            //     vendor.on('move', _.bind(me.onPointerMove, me, _, vector));
-            // }
-
             var matrix = vector.matrixCurrent(),
                 rotate = matrix.rotate(),
                 scale  = matrix.scale();
@@ -185,45 +179,45 @@
             if (ghost === undefined) {
                 return this.props.ghost;
             }
+            
             this.props.ghost = ghost;
             return this;
         },
 
         render: function() {
-            var me = this, vector = me.vector();
-
-            if ( ! me.props.rendered) {
-                me.props.rendered = true;
-                me.holder().render(vector.parent());
+            if (this.props.ghost) {
+                if ( ! this.props.rendered) {
+                    this.props.rendered = true;
+                    this.holder().render(this.vector().parent());
+                    this.redraw();
+                }
             }
-
-            if (me.props.ghost) {
-                me.redraw();
-            }
-
         },
 
         suspend: function() {
-            this.props.suspended = true;
-            this.holder().elem.detach();
+            if (this.props.ghost) {
+                this.props.suspended = true;
+                this.holder().elem.detach();    
+            }
         },
 
         resume: function() {
-            this.props.suspended = false;
-
-            if ( ! this.props.rendered) {
-                this.render();
-            } else {
-                this.vector().parent().elem.append(this.holder().elem);
-                this.redraw();
+            if (this.props.ghost) {
+                this.props.suspended = false;
+                if ( ! this.props.rendered) {
+                    this.render();
+                } else {
+                    this.vector().parent().elem.append(this.holder().elem);
+                    this.redraw();
+                }    
             }
         },
 
         redraw: function() {
-            var vector = this.vector(),
-                helper = this.helper();
+            if (this.props.ghost) {
+                var vector = this.vector(),
+                    helper = this.helper();    
 
-            if (helper) {
                 var vbox = vector.bbox().toJson(),
                     hbox = helper.bbox().toJson();
 
@@ -416,7 +410,8 @@
                 layout = paper.layout(),
                 helper = this.helper();
 
-            vector.addClass('dragging' + (this.props.ghost ? ' ghost-mode' : ' normal-mode'));
+            vector.addClass('dragging');
+
             paper.cursor(this.props.cursor);
 
             this.dragging.vector = vector;

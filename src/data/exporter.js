@@ -8,15 +8,15 @@
         this.options = _.extend({}, Exporter.defaults, options || {});
         this.element = vector.node();
         
-        var width, height, scale;
+        var bounds, width, height, scale;
         
         if (vector.isPaper()) {
-            width  = vector.elem.width();
-            height = vector.elem.height();
+            bounds = vector.viewport().bbox().toJson();
+            height = Math.max((bounds.y + bounds.height + 100), vector.elem.height());
+            width  = Math.max((bounds.x + bounds.width), vector.elem.width());
             scale  = vector.layout().scale();
         } else {
-            var bounds = vector.bbox().toJson();
-            
+            bounds = vector.bbox().toJson();
             width  = bounds.width;
             height = bounds.height;
             scale  = vector.matrixCurrent().scale();
@@ -94,6 +94,23 @@
         exportImage(this.element, options, function(result){
             if (result) {
                 download(filename, result);
+            }
+        });
+    };
+
+    Exporter.prototype.exportFile = function(callback) {
+        var options = _.extend({}, this.options);
+        
+        options.encoder = 'image/jpeg';
+        options.compression = 1;
+        options.background = '#ffffff';
+
+        exportImage(this.element, options, function(result){
+            if (result) {
+                var blob = createBlob(result);
+                callback && callback(blob);
+            } else {
+                callback && callback(false);
             }
         });
     };
@@ -244,8 +261,9 @@
     }
     
     function createDataURI(element, options) {
-        var xml = createData(element, options);
-        var uri = 'data:image/svg+xml;base64,' + window.btoa(repair(xml));
+        var xml = createData(element, options),
+            uri = 'data:image/svg+xml;base64,' + window.btoa(repair(xml));
+
         return uri;
     }
     

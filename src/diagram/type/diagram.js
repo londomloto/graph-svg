@@ -33,7 +33,9 @@
                 paper = me.paper();
             
             parser.props().each(function(v, k){
-                me.props[k] = v;
+                if (k != 'type') {
+                    me.props[k] = v;    
+                }
             });
 
             parser.shapes().each(function(item){
@@ -92,21 +94,28 @@
         },
 
         empty: function() {
-            _.forEach(this.getShapes(), function(shape){
+            var shapes = this.getShapes();
+            
+            this.paper().snapper().invalidate();
+
+            shapes.each(function(shape){
                 if ( ! shape.tree.parent) {
                     shape.remove();
                 }
             });
+
+            shapes = null;
             return this;
         },
 
         getShapes: function() {
-            var context = this.paper().guid();
-            return Graph.registry.shape.collect(context);
+            var context = this.paper().guid(),
+                shapes = Graph.registry.shape.collect(context);
+            return new Graph.collection.Shape(shapes);
         },
 
         getLinks: function() {
-            var shapes = this.getShapes(),  
+            var shapes = this.getShapes().toArray(),  
                 indexes = {},
                 links = [];
 
@@ -126,28 +135,30 @@
             }
 
             indexes = null;
-
-            return links;
+            return new Graph.collection.Link(links);
         },
         
-        arrange: function() {
-
-        },
-
         drawShape: function(namespace, options) {
 
         },
 
         findShapeBy: function(identity) {
-            return _.filter(this.getShapes(), identity);
+            var shapes = this.getShapes().toArray();
+            return _.filter(shapes, identity);
         },
 
         getShapeBy: function(identity) {
-            return _.find(this.getShapes(), identity);
+            var shapes = this.getShapes().toArray();
+            return _.find(shapes, identity);
         },
 
         getLinkBy: function(identity) {
 
+        },
+
+        remove: function() {
+            this.empty();
+            this.fire('afterdestroy');
         },
 
         toJson: function() {

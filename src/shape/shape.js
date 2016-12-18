@@ -71,7 +71,7 @@
 
                 shape.addClass(style);
                 shape.attr('data-shape', guid);
-
+                
                 style = null;
             }
 
@@ -394,7 +394,7 @@
         },
 
         center: function() {
-            var bbox = this.bbox().toJson();
+            var bbox = this.component().bboxView().toJson();
             return {
                 x: (bbox.x + bbox.x2) / 2,
                 y: (bbox.y + bbox.y2) / 2
@@ -561,7 +561,6 @@
             if (value === undefined) {
                 return this.props.fill;
             }
-            
             this.props.fill = value;
             this.component('block').elem.css('fill', value);
         },
@@ -618,6 +617,7 @@
                     id: this.props.id,
                     type: this.toString(),
                     guid: this.props.guid,
+                    pool: null,
                     parent: this.tree.parent,
                     label: this.props.label,
                     left: this.props.left,
@@ -660,8 +660,8 @@
         },
 
         onBeforeDrag: function(e) {
+            this.fire(e);
             this.paper().diagram().capture();
-            this.component().addClass('shape-dragging');
         },
 
         onAfterDrag: function(e) {
@@ -692,7 +692,6 @@
 
             // forward
             this.fire(e);
-            shapeComponent.removeClass('shape-dragging');
         },
 
         onSelect: function(e) {

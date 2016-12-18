@@ -37,10 +37,16 @@
 
         capture: function() {
             // capture to snapshoot
+            if (this.diagram) {
+                // var data = this.diagram.toJson();
+                // this.snapshoot = [data];
+            }
         },
 
         undo: function() {
-
+            if (this.snapshoot.length) {
+                this.diagram.render(this.snapshoot[0]);
+            }
         },
 
         redo: function() {
@@ -58,6 +64,7 @@
 
             pallet.on({
                 pick: function(e) {
+
                     paper.tool().activate('panzoom');
 
                     if ( ! me.diagram) {
@@ -65,8 +72,8 @@
                     }
 
                     var origin = layout.pointerLocation({
-                        clientX: e.offset.x,
-                        clientY: e.offset.y
+                        clientX: e.origin.x,
+                        clientY: e.origin.y
                     });
 
                     var options = {
@@ -79,6 +86,8 @@
                     if (result.movable) {
                         drawing = result.shape;
                         scale = paper.layout().scale();
+                        drawing.component('block').dirty(true);
+                        drawing.component().dirty(true);
                     } else {
                         drawing = null;
                         pallet.stopPicking();
@@ -114,8 +123,12 @@
         },
 
         remove: function() {
-            this.diagram = null;
-            this.paper().fire('diagram.destroy');
+            if (this.diagram) {
+                this.diagram.remove();
+                this.diagram = null;
+
+                this.paper().fire('diagram.destroy');
+            }
         },
 
         create: function(type, options, silent) {
@@ -136,7 +149,7 @@
             return this.diagram;
         },
 
-        saveAs: function(type, filename) {
+        saveAsImage: function(type, filename) {
             var exporter = new Graph.data.Exporter(this.paper());
               
             switch(type) {
@@ -152,6 +165,12 @@
                     break;
             }
 
+            exporter = null;
+        },
+
+        saveAsFile: function(callback) {
+            var exporter = new Graph.data.Exporter(this.paper());
+            exporter.exportFile(callback);
             exporter = null;
         },
 

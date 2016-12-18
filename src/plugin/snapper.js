@@ -4,7 +4,7 @@
     Graph.plugin.Snapper = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
-            enabled: false,
+            enabled: true,
             suspended: true,
             rendered: false,
             vector: null
@@ -42,6 +42,15 @@
 
             this.initComponent(vector);
             this.snapping.coords = {};
+        },
+
+        invalidate: function() {
+            for (var key in this.snapping) {
+                this.snapping[key] = null;
+            }
+
+            this.snapping.coords = {};
+            this.clients = {};
         },
 
         initComponent: function(vector) {
@@ -85,6 +94,14 @@
             this.props.rendered = true;
         },
 
+        enable: function() {
+            this.props.enabled = true;
+        },
+
+        disable: function() {
+            this.props.enabled = false;
+        },
+
         suspend: function() {
             this.props.suspended = true;
             this.component().elem.detach();
@@ -99,6 +116,40 @@
                     var block = this.component(),
                         viewport = this.vector().viewport();
                     block.elem.appendTo(viewport.elem);
+                }
+            }
+        },
+
+        refresh: function(clientId) {
+            if (this.props.enabled) {
+                var key, client, center, token;
+
+                if (clientId !== undefined) {
+                    var options = this.clients[clientId];
+
+                    if (options) {
+                        if (this.snapping.coords[options.coords]) {
+                            delete this.snapping.coords[options.coords];
+                        }
+                        client = Graph.registry.vector.get(clientId);    
+                        if (client) {
+                            center = this.getClientCenter(client);
+                            token = center.x + '_' + center.y;
+                            this.snapping.coords[token] = center;
+                            this.clients[clientId].coords = token;
+                        }
+                    }
+                } else {
+                    this.snapping.coords = {};    
+                    for (key in this.clients) {
+                        client = Graph.registry.vector.get(key);
+                        if (client) {
+                            center = this.getClientCenter(client);
+                            token = center.x + '_' + center.y;
+                            this.snapping.coords[token] = center;
+                            this.clients[key].coords = token;
+                        }
+                    }  
                 }
             }
         },
@@ -196,6 +247,11 @@
         },
 
         onClientBeforeDrag: function(e, client) {
+
+            if ( ! this.props.enabled) {
+                return;
+            }
+
             var me = this,
                 paper = me.vector(),
                 viewport = paper.viewport(),
@@ -212,11 +268,9 @@
             var left = offset.left,
                 top = offset.top,
                 ma = viewport.matrix(),
-                dx = ma.props.e,
-                dy = ma.props.f,
-                point = layout.pointerLocation({clientX: e.x, clientY: e.y}),
-                diffx = center.x - point.x,
-                diffy = center.y - point.y,
+                pt = layout.pointerLocation({clientX: e.x, clientY: e.y}),
+                diffx = center.x - pt.x,
+                diffy = center.y - pt.y,
                 snapx = [],
                 snapy = [];
 
@@ -237,7 +291,6 @@
                 if (_.indexOf(snapy, vy) === -1) {
                     snapy.push(vy);
                 }
-
             });
 
             client.draggable().snap([
@@ -278,6 +331,11 @@
         },
 
         onClientAfterDrag: function(e, client) {
+
+            if ( ! this.props.enabled) {
+                return;
+            }
+
             var snapping = this.snapping,
                 options = this.clients[client.guid()];
 
@@ -288,21 +346,21 @@
                     dragger.snap(options.osnaps);
                 }
 
-                var key, center;
+                var token, center;
 
                 if (options.coords) {
                     delete snapping.coords[options.coords];
                 }
 
                 center = this.getClientCenter(client);
-                key = center.x + '_' + center.y;
+                token = center.x + '_' + center.y;
 
-                if ( ! snapping.coords[key]) {
-                    snapping.coords[key] = center;
-                    options.coords = key;
+                if ( ! snapping.coords[token]) {
+                    snapping.coords[token] = center;
+                    options.coords = token;
                 }
 
-                key = null;
+                token = null;
                 center = null;
             }
 

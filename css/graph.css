@@ -576,16 +576,16 @@ text.graph-elem tspan {
 }
 
 
-
-/** ACTIVITY-SHAPES */
-.graph-shape.shape-dragging text {
+/** COMMON SHAPES **/
+.graph-shape .dragging ~ text {
     opacity: .3;
 }
-
-.graph-shape.shape-dragging .normal-mode ~ text {
-    display: none;
+.graph-shape.picking .dragging,
+.graph-shape.picking .dragging ~ text {
+    opacity: 0;
 }
 
+/** ACTIVITY-SHAPES */
 .graph-shape-activity-final .comp-block {
     fill: rgba(255,255,255,0);
 }

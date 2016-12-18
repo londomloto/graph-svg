@@ -29,7 +29,7 @@
 
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            pmgr.install('dragger', block, {ghost: true});
+            pmgr.install('dragger', block, {ghost: true, cls: Graph.styles.SHAPE_DRAG});
             pmgr.install('resizer', block);
             pmgr.install('snapper', block);
             pmgr.install('network', block, {

@@ -18,11 +18,10 @@
 
         picking: {
             enabled: false,
-            clientX: null,
-            clientY: null,
             target: null,
             matrix: null,
             shape: null,
+            begin: false,
             start: null
         },
         
@@ -100,13 +99,12 @@
             if (this.picking.enabled) {
                 this.picking.target.remove();
                 _.assign(this.picking, {
-                    clientX: null,
-                    clientY: null,
                     target: null,
                     matrix: null,
-                    start: null,
+                    offset: null,
                     enabled: false,
-                    shape: null
+                    shape: null,
+                    start: false
                 });
             }
         },
@@ -116,7 +114,8 @@
                 return;
             }
 
-            var me = this, pallet = this.components.pallet;
+            var me = this, 
+                pallet = this.components.pallet;
 
             this.props.rendered = true;
 
@@ -132,20 +131,20 @@
                     dragMove(e);
                 })
                 .on('up', function(e){
-                    dragStop();
+                    dragStop(e);
                 });
 
             /////////
             
             pallet.on('mouseleave', function(e){
-                dragStop();
+                dragStop(e);
             });
 
             function dragStart(e) {
                 var target = Graph.$(e.currentTarget);
 
                 if (me.picking.enabled) {
-                    dragStop();
+                    dragStop(e);
                 }
 
                 if (target.data('shape') !== undefined) {
@@ -160,14 +159,11 @@
 
                     pallet.append(me.picking.target);
 
-                    me.picking.clientX = e.clientX;
-                    me.picking.clientY = e.clientY;
-
                     me.fire('pick', {
                         shape: me.picking.shape,
-                        offset: {
-                            x: me.picking.clientX,
-                            y: me.picking.clientY
+                        origin: {
+                            x: e.clientX,
+                            y: e.clientY
                         }
                     });
 
@@ -183,20 +179,17 @@
 
                     e.preventDefault();
 
-                    me.picking.clientX = e.clientX;
-                    me.picking.clientY = e.clientY;
-
-                    var end = {
+                    var current = {
                         x: e.clientX,
                         y: e.clientY
                     };
 
-                    if ( ! me.picking.start) {
-                        me.picking.start = end;
+                    if ( ! me.picking.offset) {
+                        me.picking.offset = current;
                     }
 
-                    var dx = end.x - me.picking.start.x,
-                        dy = end.y - me.picking.start.y;
+                    var dx = current.x - me.picking.offset.x,
+                        dy = current.y - me.picking.offset.y;
 
                     me.picking.matrix.translate(dx, dy);
                     me.picking.target.attr('transform', me.picking.matrix.toValue());
@@ -204,15 +197,20 @@
                     me.fire('drag', {
                         dx: dx,
                         dy: dy
-                    });
+                    }); 
 
-                    me.picking.start = end;
+                    me.picking.offset = current;
                 }
             }
 
-            function dragStop() {
+            function dragStop(e) {
+                if (me.picking.enabled) {
+                    me.fire('drop', {
+                        clientX: e.clientX,
+                        clientY: e.clientY
+                    });
+                }
                 me.stopPicking();
-                me.fire('drop');
             }
 
         },

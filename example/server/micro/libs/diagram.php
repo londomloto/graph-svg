@@ -5,6 +5,10 @@ use Micro\App;
 
 class Diagram {
 
+    public static function db() {
+        return App::getDefault()->db();
+    }
+
     /**
      * Parse raw data into diagram hierarchy
      */
@@ -18,14 +22,12 @@ class Diagram {
             'shapes' => array(),
         );
 
-        // parse props
         $diagram['props'] = array_merge($diagram['props'], $data['props']);
-        
-        // parse shapes
-        $diagram['shapes'] = self::nonRecursiveShapeTree($data['shapes']);
 
-        // parse links
-        $diagram['links'] = array_merge($data['links']);
+        if (isset($data['shapes'], $data['links'])) {
+            $diagram['shapes'] = self::nonRecursiveShapeTree($data['shapes']);
+            $diagram['links'] = array_merge($data['links']);    
+        }
 
         return $diagram;
     }
@@ -61,6 +63,10 @@ class Diagram {
 
     public static function nonRecursiveShapeTree($shapes) {
         $tree = array();
+
+        if (empty($shapes)) {
+            return array();
+        }
 
         $offset = array_flip(
             array_map(
@@ -122,7 +128,7 @@ class Diagram {
     }
 
     public static function create($data) {
-        $db = App::getDefault()->db();
+        $db = self::db();
         $data = self::parse($data);
         
         $result = array(
@@ -144,7 +150,7 @@ class Diagram {
                 
                 self::traverseShapes(
                     $data['shapes'], 
-                    function($item) use ($db, $diagramId, &$shapes) {
+                    function($item) use ($diagramId, &$shapes) {
                         
                         $success = self::_saveShape(array(
                             'type' => 'insert',
@@ -155,7 +161,7 @@ class Diagram {
                         ));
 
                         if ($success) {
-                            $shapes[$item['props']['guid']] = $db->insertId();
+                            $shapes[$item['props']['guid']] = self::db()->insertId();
                         }
                     }
                 );
@@ -182,7 +188,7 @@ class Diagram {
     }
 
     public static function update($data, $id) {
-        $db = App::getDefault()->db();
+        $db = self::db();
         $data = self::parse($data);
 
         $result = array(
@@ -199,7 +205,7 @@ class Diagram {
                 $exists = array();
                 $shapes = array();
 
-                self::traverseShapes($data['shapes'], function($item) use ($db, $id, &$shapes, &$exists) {
+                self::traverseShapes($data['shapes'], function($item) use ($id, &$shapes, &$exists) {
                     if (empty($item['props']['id'])) {
 
                         $success = self::_saveShape(array(
@@ -211,7 +217,7 @@ class Diagram {
                         ));
 
                         if ($success) {
-                            $shapes[$item['props']['guid']] = $db->insertId();
+                            $shapes[$item['props']['guid']] = self::db()->insertId();
                             $exists[] = $shapes[$item['props']['guid']];
                         }
                     } else {
@@ -292,14 +298,42 @@ class Diagram {
         return $result;
     }
 
+    public static function delete($id) {
+        $db = self::db();
+        $ds = DIRECTORY_SEPARATOR;
+        $app = App::getDefault();
+
+        $result = array(
+            'success' => FALSE
+        );
+
+        $bind = array($id);
+        $diagram = $db->fetchOne('SELECT * FROM diagrams WHERE id = ?', $bind);
+        
+        if ($diagram) {
+            if ( ! empty($diagram['cover'])) {
+                @unlink($app->getRootPath().'uploads'.$ds.$diagram['cover']);
+            }
+            
+            $db->execute('DELETE FROM links WHERE diagram_id = ?', $bind);
+            $db->execute('DELETE FROM shapes WHERE diagram_id = ?', $bind);
+
+            $success = $db->execute('DELETE FROM diagrams WHERE id = ?', $bind);
+
+            $result['success'] = $success;
+        }
+        
+        return $result;
+    }
+
     private static function _saveShape($options) {
-        $db = App::getDefault()->db();
         $data = $options['data'];
 
         $payload = array(
             'type' => $data['type'],
             'client_id' => $data['guid'],
             'client_parent' => $data['parent'],
+            'client_pool' => $data['pool'],
             'diagram_id' => $options['diagram_id'],
             'parent_id' => $options['parent'],
             'width' => $data['width'],
@@ -319,11 +353,17 @@ class Diagram {
             $args = array('shapes', $payload, $options['keys']);
         }
 
-        return call_user_func_array(array($db, $options['type']), $args);
+        return call_user_func_array(array(self::db(), $options['type']), $args);
+    }
+
+    private static function _getCoverUrl($diagram) {
+        $ds = DIRECTORY_SEPARATOR;
+        $app = App::getDefault();
+        $cover = $app->getRootPath().'uploads'.$ds.$diagram['cover'];
+        return $app->getBaseUrl().'uploads/'. ( file_exists($cover) && is_file($cover) ? $diagram['cover'] : 'cover.jpg');
     }
 
     private static function _saveLink($options) {
-        $db = App::getDefault()->db();
         $data = $options['data'];
 
         $payload = array(
@@ -350,7 +390,7 @@ class Diagram {
             $args = array('links', $payload, $options['keys']);
         }
 
-        return call_user_func_array(array($db, $options['type']), $args);
+        return call_user_func_array(array(self::db(), $options['type']), $args);
     }
 
     public static function find($id = NULL) {
@@ -359,25 +399,29 @@ class Diagram {
     }
 
     public static function findAll() {
-        $db = App::getDefault()->db();
+        $diagrams = self::db()->fetchAll('SELECT * FROM diagrams');
+
+        foreach($diagrams as &$row) {
+            $row['cover_url'] = self::_getCoverUrl($row);
+        }
 
         return array(
             'success' => TRUE,
-            'data' => $db->fetchAll('SELECT * FROM diagrams')
+            'data' => $diagrams
         );
     }
 
     public static function findById($id) {
-        $db = App::getDefault()->db();
-
         return array(
             'success' => TRUE,
-            'data' => $db->fetchOne('SELECT * FROM diagrams WHERE id = ?', array($id))
+            'data' => self::db()->fetchOne('SELECT * FROM diagrams WHERE id = ?', array($id))
         );
     }
 
     public static function export($id) {
-        $db = App::getDefault()->db();
+        $db = self::db();
+        $ds = DIRECTORY_SEPARATOR;
+        $app = App::getDefault();
         
         $result = array(
             'success' => FALSE,
@@ -386,7 +430,8 @@ class Diagram {
 
         $diagram = $db->fetchOne('SELECT * FROM diagrams WHERE id = ?', array($id));
 
-        if ($diagram) {
+        if ($diagram) { 
+            $diagram['cover_url'] = self::_getCoverUrl($diagram);
 
             $result['success'] = TRUE;
 

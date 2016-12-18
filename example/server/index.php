@@ -1,7 +1,11 @@
 <?php
 require_once('micro/autoload.php');
 
-$app = new Micro\App(array(
+use Micro\App,
+    Micro\Libs\Diagram,
+    Micro\Libs\Uploader;
+
+$app = new App(array(
     'database' => array(
         'host' => 'localhost',
         'user' => 'root',
@@ -10,31 +14,74 @@ $app = new Micro\App(array(
     )
 ));
 
-$app->get('diagrams', function($app){
-    $result = Micro\Libs\Diagram::find();
-    $app->responseJson($result);
+/**
+ * GET /diagrams/?
+ */
+$app->get('diagrams', function($req, $res){
+    $result = Diagram::find();
+    $res->responseJson($result);
 });
 
-$app->get('diagrams/{:id}', function($app){
-    $result = Micro\Libs\Diagram::export($app->getParam('id'));
-    $app->responseJson($result);
+/**
+ * GET /diagrams/(\d+)/?
+ */
+$app->get('diagrams/{:id}', function($req, $res){
+    $result = Diagram::export($req->getParam('id'));
+    $res->responseJson($result);
 });
 
-$app->post('diagrams', function($app){
-    $post = $app->getPost();
-    $result = Micro\Libs\Diagram::create($post);
-    $app->responseJson($result);
+/**
+ * POST /diagrams/?
+ */
+$app->post('diagrams', function($req, $res){
+    $post = $req->getPost();
+
+    unset($post['props']['cover']);
+
+    $result = Diagram::create($post);
+    $res->responseJson($result);
 });
 
-$app->put('diagrams/{:id}', function($app){
-    $post = $app->getPost();
-    $result = Micro\Libs\Diagram::update($post, $app->getParam('id'));
-    $app->responseJson($result);
+/**
+ * PUT /diagrams/(\d+)/?
+ */
+$app->put('diagrams/{:id}', function($req, $res){
+    $post = $req->getPost();
+    
+    unset($post['props']['cover']);
+
+    $result = Diagram::update($post, $req->getParam('id'));
+    $res->responseJson($result);
 });
 
-$app->delete('diagrams/{:id}', function($app){
-    $result = Micro\Libs\Diagram::delete($app->getParam('id'));
-    $app->responseJson($result);
+/**
+ * DELETE /diagrams/(\d+)/?
+ */
+$app->delete('diagrams/{:id}', function($req, $res){
+    $result = Diagram::delete($req->getParam('id'));
+    $res->responseJson($result);
+});
+
+/**
+ * POST /upload/diagrams/(\d+)/?
+ */
+$app->post('upload/diagrams/{:id}', function($req, $res){
+    if ($req->hasFiles()) {
+
+        $uploader = new Uploader(array('path' => __DIR__.'/uploads/'));
+        $post = $req->getPost();
+
+        foreach($post as $key => $val) {
+            $post[$key] = json_decode($val, TRUE);
+        }
+
+        if (($upload = $uploader->upload())) {
+            @unlink(__DIR__.'/uploads/'.$post['props']['cover']);
+
+            $post['props']['cover'] = $upload['name'];
+            Diagram::update($post, $req->getParam('id'));
+        }
+    }
 });
 
 $app->start();

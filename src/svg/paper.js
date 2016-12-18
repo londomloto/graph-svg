@@ -77,7 +77,7 @@
             me.diagram.manager = new Graph.diagram.Manager(me);
 
             // subscribe topics
-            Graph.topic.subscribe('link:reload', _.bind(me.listenLinkChange, me));
+            Graph.topic.subscribe('link:change', _.bind(me.listenLinkChange, me));
             Graph.topic.subscribe('link:afterdestroy', _.bind(me.listenLinkAfterDestroy, me));
 
             if ( ! Paper.defaultInstance) {
@@ -193,6 +193,10 @@
 
         collector: function() {
             return this.plugins.collector;
+        },
+
+        snapper: function() {
+            return this.plugins.snapper;
         },
 
         viewport: function() {

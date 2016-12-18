@@ -30,7 +30,7 @@
 
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            pmgr.install('dragger', block, {dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('dragger', block, {cls: Graph.styles.SHAPE_DRAG});
             pmgr.install('editor', block, {width: 300, height: 75, align: 'left', offset: 'pointer'});
 
             block.on('edit.shape', _.bind(this.onLabelEdit, this));
@@ -147,7 +147,6 @@
             });
 
             this.fire(e);
-            shapeComponent.removeClass('shape-dragging');
         },
 
         onSelect: function(e) {

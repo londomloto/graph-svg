@@ -14,7 +14,8 @@
             source: null,
             target: null,
             connected: false,
-            removed: false
+            removed: false,
+            command: null
         },
 
         components: {
@@ -70,15 +71,14 @@
 
             var excludes = {
                 type: true,
+                params: true,
+                router_type: true,
                 client_id: true,
                 client_source: true,
                 client_target: true,
-                router_type: true,
                 diagram_id: true,
                 source_id: true,
-                target_id: true,
-                command: true,
-                params: true
+                target_id: true
             };
 
             var maps = {
@@ -814,7 +814,9 @@
         },
 
         onSourceBeforeDestroy: function() {
-            this.remove();
+            if ( ! this.props.removed) {
+                this.component('coat').remove();    
+            }
         },
 
         onTargetRotate: function() {
@@ -864,7 +866,9 @@
         },
 
         onTargetBeforeDestroy: function() {
-            this.remove();    
+            if ( ! this.props.removed) {
+                this.component('coat').remove();    
+            }
         },  
 
         onTrashToolClick: function(e) {
