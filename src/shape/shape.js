@@ -6,6 +6,7 @@
         props: {
             id: null,
             guid: null,
+            mode: null,
             width: 0,
             height: 0,
             label: '',
@@ -338,7 +339,7 @@
 
             var component = this.component();
             component && component.render(paper);
-
+            
             // save
             this.tree.paper = paperGuid;
             Graph.registry.shape.setContext(guid, paperGuid);
@@ -616,6 +617,7 @@
                 props: {
                     id: this.props.id,
                     type: this.toString(),
+                    mode: this.props.mode,
                     guid: this.props.guid,
                     pool: null,
                     parent: this.tree.parent,

@@ -77,11 +77,12 @@
                 meta = shape.metadata,
                 pad = this.components.pad;
 
-            pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
-            
             var body = '';
 
-            _.forEach(meta.tools, function(tool){
+            // pad.find('.pad-header').html('<a href="javascript:void(0);"><i class="' + meta.icon + '"></i></a>');            
+            pad.find('.pad-header').html('<a href="javascript:void(0);"><i class="ion-navicon-round"></i></a>');            
+            
+            _.forEach(meta.tools, function(tool, index){
                 if (tool.enabled) {
                     body += '<div class="splitter"></div>';
                     body += '<a data-shape-tool="' + tool.name + '" href="javascript:void(0)" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
@@ -106,14 +107,16 @@
                 meta = link.metadata,
                 pad = this.components.pad;
             
-            pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
+            // pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
+            pad.find('.pad-header').html('<a><i class="ion-navicon-round"></i></a>');
             
             var body = '';
             
-            _.forEach(meta.tools, function(tool){
+            _.forEach(meta.tools, function(tool, index){
                 if (tool.enabled) {
-                    body += '<div class="splitter"></div>';
+                    body += '<div class="splitter"></div>';    
                     body += '<a data-link-tool="' + tool.name + '" href="#" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
+                    
                 }
             });
             
@@ -131,7 +134,7 @@
         onShapeToolClick: function(e) {
             var target = Graph.$(e.currentTarget),
                 name = target.data('shapeTool');
-            
+
             var tool = _.find(this.cached.tools, function(t){
                 return t.name == name;
             });

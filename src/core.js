@@ -126,7 +126,7 @@
 
         SHAPE: 'bpmn-icon-start-event-none',
         SHAPE_LANE: 'bpmn-icon-participant',
-        SHAPE_LINK: 'ion-ios-shuffle-strong',
+        SHAPE_LINK: 'ion-android-share-alt',
         SHAPE_ACTION: 'bpmn-icon-task',
         SHAPE_ROUTER: 'bpmn-icon-gateway-none',
 
@@ -141,7 +141,12 @@
         SEND_TO_FRONT: 'font-icon-bring-front',
 
         MOVE_UP: 'ion-android-arrow-up',
-        MOVE_DOWN: 'ion-android-arrow-down'
+        MOVE_DOWN: 'ion-android-arrow-down',
+
+        ROUTER_OR: 'bpmn-icon-gateway-or',
+        ROUTER_XOR: 'bpmn-icon-gateway-xor',
+        ROUTER_NONE: 'bpmn-icon-gateway-none',
+        ROUTER_PARALLEL: 'bpmn-icon-gateway-parallel'
     };
 
     Graph.doc = function() {

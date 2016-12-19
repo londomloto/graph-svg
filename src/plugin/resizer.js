@@ -146,6 +146,14 @@
             this.cached.vertices = null;
         },
 
+        disable: function() {
+            this.props.enabled = false;
+        },
+
+        enable: function() {
+            this.props.enabled = true;
+        },
+
         render: function() {
             var me = this;
 

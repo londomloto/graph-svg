@@ -67,14 +67,10 @@ $app->delete('diagrams/{:id}', function($req, $res){
  */
 $app->post('upload/diagrams/{:id}', function($req, $res){
     if ($req->hasFiles()) {
-
+        
         $uploader = new Uploader(array('path' => __DIR__.'/uploads/'));
         $post = $req->getPost();
-
-        foreach($post as $key => $val) {
-            $post[$key] = json_decode($val, TRUE);
-        }
-
+        
         if (($upload = $uploader->upload())) {
             @unlink(__DIR__.'/uploads/'.$post['props']['cover']);
 

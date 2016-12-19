@@ -9,7 +9,7 @@
             lineHeight: 1.1
         },
         metadata: {
-            name: 'common.label',
+            type: 'common.label',
             icon: 'ion-android-create'
         },
         initComponent: function() {
@@ -31,7 +31,7 @@
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
             pmgr.install('dragger', block, {cls: Graph.styles.SHAPE_DRAG});
-            pmgr.install('editor', block, {width: 300, height: 75, align: 'left', offset: 'pointer'});
+            pmgr.install('editor',  block, {width: 300, height: 75, align: 'left', offset: 'pointer'});
 
             block.on('edit.shape', _.bind(this.onLabelEdit, this));
             block.on('afterdrag.shape', _.bind(this.onAfterDrag, this));
@@ -103,7 +103,12 @@
             
         }, 1),
 
+        toString: function() {
+            return 'Graph.shape.common.Label';
+        },
+
         onLabelRender: function() {
+
             var label = this.component('label'),
                 block = this.component('block'),
                 labelBox = label.bbox().toJson();

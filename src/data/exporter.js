@@ -285,13 +285,20 @@
                     
                     if (rule.style !== undefined) {
                         if (rule.selectorText) {
+
+                            // BUG: https://github.com/exupero/saveSvgAsPng/issues/11
                             
-                            found = element.querySelector(rule.selectorText);
-                            
-                            if (found) {
-                                result += rule.selectorText + " { " + rule.style.cssText + " }\n";
-                            } else if(rule.cssText.match(/^@font-face/)) {
-                                result += rule.cssText + '\n';
+                            try {
+                                found = element.querySelector(rule.selectorText);
+
+                                if (found) {
+                                    result += rule.selectorText + " { " + rule.style.cssText + " }\n";
+                                } else if(rule.cssText.match(/^@font-face/)) {
+                                    result += rule.cssText + '\n';
+                                }
+                            } catch(e) {
+                                // console.log(e);
+                                continue;
                             }
                         }
                     }

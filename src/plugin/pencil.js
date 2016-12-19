@@ -52,9 +52,8 @@
                 if ( ! vector.diagram().current()) {
                     vector.diagram().create();
                 }
-
+                
                 result = vector.diagram().current().drawShape(
-                    vector, 
                     'Graph.shape.common.Label', 
                     options
                 );

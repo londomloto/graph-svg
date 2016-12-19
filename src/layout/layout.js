@@ -16,7 +16,7 @@
             },
 
             link: {
-                smooth: true,
+                smooth: false,
                 smoothness: 6
             }
         },

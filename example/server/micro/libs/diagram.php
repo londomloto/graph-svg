@@ -331,6 +331,7 @@ class Diagram {
 
         $payload = array(
             'type' => $data['type'],
+            'mode' => $data['mode'],
             'client_id' => $data['guid'],
             'client_parent' => $data['parent'],
             'client_pool' => $data['pool'],

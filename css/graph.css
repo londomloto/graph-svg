@@ -603,6 +603,11 @@ text.graph-elem tspan {
     fill: #30D0C6;
 }
 
+/** ROUTER */
+.graph-shape-activity-router .graph-selected ~ .comp-inner {
+    stroke: #007DFC;
+}
+
 /** LANE */
 .graph-shape-activity-lane > .comp-block,
 .graph-shape-activity-lane > .comp-header {

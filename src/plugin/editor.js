@@ -84,7 +84,7 @@
                 this.redraw();
                 return;
             }
-
+            
             this.vector().paper().container().append(this.components.editor);
             this.props.rendered = true;
             this.redraw();
@@ -177,8 +177,10 @@
 
             vector.deselect();
 
-            if (vector.paper().tool().current() == 'linker') {
-                vector.paper().tool().activate('panzoom');
+            if (vector.paper()) {
+                if (vector.paper().tool().current() == 'linker') {
+                    vector.paper().tool().activate('panzoom');
+                }        
             }
 
             me.fire('beforeedit');

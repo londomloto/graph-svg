@@ -39,6 +39,8 @@
             options = options || {};
             movable = true;
 
+
+
             if (namespace == 'Graph.shape.activity.Lane') {
                 var shapes = this.getShapes();
                 if (shapes.size() && ! this.hasLane()) {
@@ -131,11 +133,12 @@
                 shape.one('afterdrag', this.drawing.afterDrag);
 
             } else {
+
                 me.drawing.dragging = false;
                 me.drawing.shape = null;
                 me.drawing.beforeDrag = null;
                 me.drawing.afterDrag = null;
-
+                
                 if (shape.is('activity.lane')) {
                     var children = me.getShapes().toArray();
 
@@ -144,13 +147,14 @@
                     children = null;
 
                 } else if (shape.is('common.label')) {
+
                     var lanes = me.findShapeBy(function(shape){ return shape.is('activity.lane'); }),
                         coord = {x: shape.props.left, y: shape.props.top},
                         found = false;
-                    
+
                     shape.render(paper);
 
-                    if (lanes.length) {
+                    /*if (lanes.length) {
                         var box, i, j;
 
                         for (i = 0, j = lanes.length; i < j; i++) {
@@ -170,7 +174,7 @@
                             shape = null;
                         }
 
-                    }
+                    }*/
                 }
             }
 
@@ -201,7 +205,6 @@
             });
 
             render(parser).then(function(rendered){
-
                 parser.links().each(function(item){
                     var props = item.props,
                         sourceShape = rendered[props.source_id],
@@ -231,72 +234,72 @@
                 var def = Graph.defer(),
                     rendered = {},
                     pools = {},
-                    counter = 0;
+                    count = 0,
+                    tick = 0;
 
                 parser.shapes().each(function(item, index, total){
                     var props = item.props,
                         clazz = Graph.ns(props.type);
 
-                    var shape;
+                    var shape, delay;
 
-                    if (clazz) {
-                        var delay;
+                    delay = _.delay(function(clazz, props){
+                        clearTimeout(delay);
+                        delay = null;
 
-                        delay = _.delay(function(index, clazz, props){
-                            clearTimeout(delay);
-                            delay = null;
+                        shape = Graph.factory(clazz, [props]);
+                        shape.render(paper);
 
-                            shape = Graph.factory(clazz, [props]);
-                            shape.render(paper);
-
-                            if (props.client_pool) {
-                                if (pools[props.client_pool] === undefined) {
-                                    pools[props.client_pool] = [];
-                                }
-                                pools[props.client_pool].push(shape);
+                        if (props.client_pool) {
+                            if (pools[props.client_pool] === undefined) {
+                                pools[props.client_pool] = [];
                             }
+                            pools[props.client_pool].push(shape);
+                        }
 
-                            if (rendered[props.parent_id] !== undefined) {
-                                rendered[props.parent_id].addChild(shape, false);
-                                
-                                var netcom = shape.connectable().component();
+                        if (rendered[props.parent_id] !== undefined) {
+                            rendered[props.parent_id].addChild(shape, false);
+                            
+                            var netcom = shape.connectable().component();
 
-                                if (netcom) {
-                                    netcom.dirty(true);
-                                }
+                            if (netcom) {
+                                netcom.dirty(true);
                             }
+                        }
 
-                            rendered[props.id] = shape;
-
-                            if (index === total - 1) {
-                                var lanes, master, pool;
-                                for (pool in pools) {
-                                    lanes  = pools[pool];
-                                    master = null;
-                                    
-                                    if (lanes.length > 1) {
-                                        _.forEach(lanes, function(lane, idx){
-                                            if ( ! master) {
-                                                master = lane.pool();
-                                            } else {
-                                                lane.tree.pool = master;
-                                                master.insert(lane);
-                                            }
-                                        });
-                                    }
-
-                                    if (master) {
-                                        master.invalidate();
-                                    }
-                                }
-
-                                def.resolve(rendered);
-                            }
-
-                        }, (counter * 100), index, clazz, props);
+                        rendered[props.id] = shape;
+                        count++;
                         
-                    }
-                    counter++;
+                        if (count === total) {
+                            
+                            var lanes, key, pool;
+
+                            for (key in pools) {
+                                lanes = pools[key];
+                                pool  = null;
+
+                                if (lanes.length > 1) {
+                                    _.forEach(lanes, function(lane, idx){
+                                        if ( ! pool) {
+                                            pool = lane.pool();
+                                        } else {
+                                            lane.tree.pool = pool;
+                                            pool.insert(lane);
+                                        }
+                                    });
+                                }
+
+                                if (pool) {
+                                    pool.invalidate();
+                                }
+                            }
+
+                            def.resolve(rendered);
+                        }
+
+                    }, (tick * 100), clazz, props);
+
+                    tick++;
                 });
 
                 return def.promise();
