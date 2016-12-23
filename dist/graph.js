@@ -293,7 +293,7 @@
 
         SHAPE: 'bpmn-icon-start-event-none',
         SHAPE_LANE: 'bpmn-icon-participant',
-        SHAPE_LINK: 'ion-ios-shuffle-strong',
+        SHAPE_LINK: 'ion-android-share-alt',
         SHAPE_ACTION: 'bpmn-icon-task',
         SHAPE_ROUTER: 'bpmn-icon-gateway-none',
 
@@ -308,7 +308,12 @@
         SEND_TO_FRONT: 'font-icon-bring-front',
 
         MOVE_UP: 'ion-android-arrow-up',
-        MOVE_DOWN: 'ion-android-arrow-down'
+        MOVE_DOWN: 'ion-android-arrow-down',
+
+        ROUTER_OR: 'bpmn-icon-gateway-or',
+        ROUTER_XOR: 'bpmn-icon-gateway-xor',
+        ROUTER_NONE: 'bpmn-icon-gateway-none',
+        ROUTER_PARALLEL: 'bpmn-icon-gateway-parallel'
     };
 
     Graph.doc = function() {
@@ -7700,7 +7705,7 @@
             me.diagram.manager = new Graph.diagram.Manager(me);
 
             // subscribe topics
-            Graph.topic.subscribe('link:reload', _.bind(me.listenLinkChange, me));
+            Graph.topic.subscribe('link:change', _.bind(me.listenLinkChange, me));
             Graph.topic.subscribe('link:afterdestroy', _.bind(me.listenLinkAfterDestroy, me));
 
             if ( ! Paper.defaultInstance) {
@@ -7816,6 +7821,10 @@
 
         collector: function() {
             return this.plugins.collector;
+        },
+
+        snapper: function() {
+            return this.plugins.snapper;
         },
 
         viewport: function() {
@@ -8050,7 +8059,7 @@
 
     Registry.prototype.unregister = function(link) {
         var id = link.guid();
-            
+
         if (storage[id]) {
             delete storage[id];
         }
@@ -8260,7 +8269,7 @@
             },
 
             link: {
-                smooth: true,
+                smooth: false,
                 smoothness: 6
             }
         },
@@ -10145,7 +10154,8 @@
             source: null,
             target: null,
             connected: false,
-            removed: false
+            removed: false,
+            command: null
         },
 
         components: {
@@ -10201,15 +10211,14 @@
 
             var excludes = {
                 type: true,
+                params: true,
+                router_type: true,
                 client_id: true,
                 client_source: true,
                 client_target: true,
-                router_type: true,
                 diagram_id: true,
                 source_id: true,
-                target_id: true,
-                command: true,
-                params: true
+                target_id: true
             };
 
             var maps = {
@@ -10945,7 +10954,9 @@
         },
 
         onSourceBeforeDestroy: function() {
-            this.remove();
+            if ( ! this.props.removed) {
+                this.component('coat').remove();    
+            }
         },
 
         onTargetRotate: function() {
@@ -10995,7 +11006,9 @@
         },
 
         onTargetBeforeDestroy: function() {
-            this.remove();    
+            if ( ! this.props.removed) {
+                this.component('coat').remove();    
+            }
         },  
 
         onTrashToolClick: function(e) {
@@ -13307,6 +13320,14 @@
             this.cached.vertices = null;
         },
 
+        disable: function() {
+            this.props.enabled = false;
+        },
+
+        enable: function() {
+            this.props.enabled = true;
+        },
+
         render: function() {
             var me = this;
 
@@ -14296,7 +14317,7 @@
             axis: false,
             cursor: 'move',
 
-            dragClass: '',
+            cls: '',
 
             // batching operation
             batchSync: true,
@@ -14379,17 +14400,13 @@
                     .traversable(false)
                     .selectable(false);
 
-                var style = 'graph-dragger-helper' + (me.props.dragClass ? ' ' + me.props.dragClass : '');
-
                 helper = (new Graph.svg.Rect(0, 0, 0, 0, 0))
-                    .addClass(style)
+                    .addClass('graph-dragger-helper' + ((this.props.cls ? ' ' : '') + this.props.cls ))
                     .removeClass('graph-elem graph-elem-rect')
                     .traversable(false)
                     .selectable(false)
                     .clickable(false)
                     .render(holder);
-
-                style = null;
 
                 helper.elem.data(Graph.string.ID_VECTOR, this.vector().guid());
 
@@ -14398,6 +14415,8 @@
 
                 holder = null;
                 helper = null;
+            } else {
+                this.props.cls && (this.vector().addClass(this.props.cls));
             }
         },
 
@@ -14429,10 +14448,6 @@
 
             vendor.on('down', _.bind(me.onPointerDown, me));
 
-            // if ( ! me.props.manual) {
-            //     vendor.on('move', _.bind(me.onPointerMove, me, _, vector));
-            // }
-
             var matrix = vector.matrixCurrent(),
                 rotate = matrix.rotate(),
                 scale  = matrix.scale();
@@ -14463,45 +14478,45 @@
             if (ghost === undefined) {
                 return this.props.ghost;
             }
+            
             this.props.ghost = ghost;
             return this;
         },
 
         render: function() {
-            var me = this, vector = me.vector();
-
-            if ( ! me.props.rendered) {
-                me.props.rendered = true;
-                me.holder().render(vector.parent());
+            if (this.props.ghost) {
+                if ( ! this.props.rendered) {
+                    this.props.rendered = true;
+                    this.holder().render(this.vector().parent());
+                    this.redraw();
+                }
             }
-
-            if (me.props.ghost) {
-                me.redraw();
-            }
-
         },
 
         suspend: function() {
-            this.props.suspended = true;
-            this.holder().elem.detach();
+            if (this.props.ghost) {
+                this.props.suspended = true;
+                this.holder().elem.detach();    
+            }
         },
 
         resume: function() {
-            this.props.suspended = false;
-
-            if ( ! this.props.rendered) {
-                this.render();
-            } else {
-                this.vector().parent().elem.append(this.holder().elem);
-                this.redraw();
+            if (this.props.ghost) {
+                this.props.suspended = false;
+                if ( ! this.props.rendered) {
+                    this.render();
+                } else {
+                    this.vector().parent().elem.append(this.holder().elem);
+                    this.redraw();
+                }    
             }
         },
 
         redraw: function() {
-            var vector = this.vector(),
-                helper = this.helper();
+            if (this.props.ghost) {
+                var vector = this.vector(),
+                    helper = this.helper();    
 
-            if (helper) {
                 var vbox = vector.bbox().toJson(),
                     hbox = helper.bbox().toJson();
 
@@ -14694,7 +14709,8 @@
                 layout = paper.layout(),
                 helper = this.helper();
 
-            vector.addClass('dragging' + (this.props.ghost ? ' ghost-mode' : ' normal-mode'));
+            vector.addClass('dragging');
+
             paper.cursor(this.props.cursor);
 
             this.dragging.vector = vector;
@@ -16596,9 +16612,8 @@
                 if ( ! vector.diagram().current()) {
                     vector.diagram().create();
                 }
-
+                
                 result = vector.diagram().current().drawShape(
-                    vector, 
                     'Graph.shape.common.Label', 
                     options
                 );
@@ -16708,7 +16723,7 @@
                 this.redraw();
                 return;
             }
-
+            
             this.vector().paper().container().append(this.components.editor);
             this.props.rendered = true;
             this.redraw();
@@ -16801,8 +16816,10 @@
 
             vector.deselect();
 
-            if (vector.paper().tool().current() == 'linker') {
-                vector.paper().tool().activate('panzoom');
+            if (vector.paper()) {
+                if (vector.paper().tool().current() == 'linker') {
+                    vector.paper().tool().activate('panzoom');
+                }        
             }
 
             me.fire('beforeedit');
@@ -16891,7 +16908,7 @@
     Graph.plugin.Snapper = Graph.extend(Graph.plugin.Plugin, {
 
         props: {
-            enabled: false,
+            enabled: true,
             suspended: true,
             rendered: false,
             vector: null
@@ -16929,6 +16946,15 @@
 
             this.initComponent(vector);
             this.snapping.coords = {};
+        },
+
+        invalidate: function() {
+            for (var key in this.snapping) {
+                this.snapping[key] = null;
+            }
+
+            this.snapping.coords = {};
+            this.clients = {};
         },
 
         initComponent: function(vector) {
@@ -16972,6 +16998,14 @@
             this.props.rendered = true;
         },
 
+        enable: function() {
+            this.props.enabled = true;
+        },
+
+        disable: function() {
+            this.props.enabled = false;
+        },
+
         suspend: function() {
             this.props.suspended = true;
             this.component().elem.detach();
@@ -16986,6 +17020,40 @@
                     var block = this.component(),
                         viewport = this.vector().viewport();
                     block.elem.appendTo(viewport.elem);
+                }
+            }
+        },
+
+        refresh: function(clientId) {
+            if (this.props.enabled) {
+                var key, client, center, token;
+
+                if (clientId !== undefined) {
+                    var options = this.clients[clientId];
+
+                    if (options) {
+                        if (this.snapping.coords[options.coords]) {
+                            delete this.snapping.coords[options.coords];
+                        }
+                        client = Graph.registry.vector.get(clientId);    
+                        if (client) {
+                            center = this.getClientCenter(client);
+                            token = center.x + '_' + center.y;
+                            this.snapping.coords[token] = center;
+                            this.clients[clientId].coords = token;
+                        }
+                    }
+                } else {
+                    this.snapping.coords = {};    
+                    for (key in this.clients) {
+                        client = Graph.registry.vector.get(key);
+                        if (client) {
+                            center = this.getClientCenter(client);
+                            token = center.x + '_' + center.y;
+                            this.snapping.coords[token] = center;
+                            this.clients[key].coords = token;
+                        }
+                    }  
                 }
             }
         },
@@ -17083,6 +17151,11 @@
         },
 
         onClientBeforeDrag: function(e, client) {
+
+            if ( ! this.props.enabled) {
+                return;
+            }
+
             var me = this,
                 paper = me.vector(),
                 viewport = paper.viewport(),
@@ -17099,11 +17172,9 @@
             var left = offset.left,
                 top = offset.top,
                 ma = viewport.matrix(),
-                dx = ma.props.e,
-                dy = ma.props.f,
-                point = layout.pointerLocation({clientX: e.x, clientY: e.y}),
-                diffx = center.x - point.x,
-                diffy = center.y - point.y,
+                pt = layout.pointerLocation({clientX: e.x, clientY: e.y}),
+                diffx = center.x - pt.x,
+                diffy = center.y - pt.y,
                 snapx = [],
                 snapy = [];
 
@@ -17124,7 +17195,6 @@
                 if (_.indexOf(snapy, vy) === -1) {
                     snapy.push(vy);
                 }
-
             });
 
             client.draggable().snap([
@@ -17165,6 +17235,11 @@
         },
 
         onClientAfterDrag: function(e, client) {
+
+            if ( ! this.props.enabled) {
+                return;
+            }
+
             var snapping = this.snapping,
                 options = this.clients[client.guid()];
 
@@ -17175,21 +17250,21 @@
                     dragger.snap(options.osnaps);
                 }
 
-                var key, center;
+                var token, center;
 
                 if (options.coords) {
                     delete snapping.coords[options.coords];
                 }
 
                 center = this.getClientCenter(client);
-                key = center.x + '_' + center.y;
+                token = center.x + '_' + center.y;
 
-                if ( ! snapping.coords[key]) {
-                    snapping.coords[key] = center;
-                    options.coords = key;
+                if ( ! snapping.coords[token]) {
+                    snapping.coords[token] = center;
+                    options.coords = token;
                 }
 
-                key = null;
+                token = null;
                 center = null;
             }
 
@@ -17326,11 +17401,12 @@
                 meta = shape.metadata,
                 pad = this.components.pad;
 
-            pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
-            
             var body = '';
 
-            _.forEach(meta.tools, function(tool){
+            // pad.find('.pad-header').html('<a href="javascript:void(0);"><i class="' + meta.icon + '"></i></a>');            
+            pad.find('.pad-header').html('<a href="javascript:void(0);"><i class="ion-navicon-round"></i></a>');            
+            
+            _.forEach(meta.tools, function(tool, index){
                 if (tool.enabled) {
                     body += '<div class="splitter"></div>';
                     body += '<a data-shape-tool="' + tool.name + '" href="javascript:void(0)" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
@@ -17355,14 +17431,16 @@
                 meta = link.metadata,
                 pad = this.components.pad;
             
-            pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
+            // pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
+            pad.find('.pad-header').html('<a><i class="ion-navicon-round"></i></a>');
             
             var body = '';
             
-            _.forEach(meta.tools, function(tool){
+            _.forEach(meta.tools, function(tool, index){
                 if (tool.enabled) {
-                    body += '<div class="splitter"></div>';
+                    body += '<div class="splitter"></div>';    
                     body += '<a data-link-tool="' + tool.name + '" href="#" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
+                    
                 }
             });
             
@@ -17380,7 +17458,7 @@
         onShapeToolClick: function(e) {
             var target = Graph.$(e.currentTarget),
                 name = target.data('shapeTool');
-            
+
             var tool = _.find(this.cached.tools, function(t){
                 return t.name == name;
             });
@@ -17436,6 +17514,7 @@
         props: {
             id: null,
             guid: null,
+            mode: null,
             width: 0,
             height: 0,
             label: '',
@@ -17501,7 +17580,7 @@
 
                 shape.addClass(style);
                 shape.attr('data-shape', guid);
-
+                
                 style = null;
             }
 
@@ -17768,7 +17847,7 @@
 
             var component = this.component();
             component && component.render(paper);
-
+            
             // save
             this.tree.paper = paperGuid;
             Graph.registry.shape.setContext(guid, paperGuid);
@@ -17824,7 +17903,7 @@
         },
 
         center: function() {
-            var bbox = this.bbox().toJson();
+            var bbox = this.component().bboxView().toJson();
             return {
                 x: (bbox.x + bbox.x2) / 2,
                 y: (bbox.y + bbox.y2) / 2
@@ -17991,7 +18070,6 @@
             if (value === undefined) {
                 return this.props.fill;
             }
-            
             this.props.fill = value;
             this.component('block').elem.css('fill', value);
         },
@@ -18047,7 +18125,9 @@
                 props: {
                     id: this.props.id,
                     type: this.toString(),
+                    mode: this.props.mode,
                     guid: this.props.guid,
+                    pool: null,
                     parent: this.tree.parent,
                     label: this.props.label,
                     left: this.props.left,
@@ -18090,8 +18170,8 @@
         },
 
         onBeforeDrag: function(e) {
+            this.fire(e);
             this.paper().diagram().capture();
-            this.component().addClass('shape-dragging');
         },
 
         onAfterDrag: function(e) {
@@ -18122,7 +18202,6 @@
 
             // forward
             this.fire(e);
-            shapeComponent.removeClass('shape-dragging');
         },
 
         onSelect: function(e) {
@@ -18316,12 +18395,17 @@
 
             block = (new Graph.svg.Ellipse(cx, cy, cx, cy))
                 .addClass(Graph.styles.SHAPE_BLOCK)
+                .style({
+                    fill: this.props.fill,
+                    stroke: this.props.stroke,
+                    strokeWidth: this.props.strokeWidth
+                })
                 .data('text', this.props.label)
                 .render(shape);
 
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            pmgr.install('dragger', block, {ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('dragger', block, {ghost: true, cls: Graph.styles.SHAPE_DRAG});
             pmgr.install('network', block, {wiring: 'h:v'});
             pmgr.install('resizer', block);
             pmgr.install('editor',  block);
@@ -18420,7 +18504,8 @@
             width: 60,
             height: 60,
             left: 0,
-            top: 0
+            top: 0,
+            fill: '#FF4081'
         },
 
         metadata: {
@@ -18442,12 +18527,16 @@
 
             block = (new Graph.svg.Ellipse(cx, cy, cx, cy))
                 .addClass(Graph.styles.SHAPE_BLOCK)
+                .style({
+                    stroke: this.props.stroke,
+                    strokeWidth: this.props.strokeWidth
+                })
                 .data('text', this.props.label)
                 .render(shape);
 
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            pmgr.install('dragger', block, {ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('dragger', block, {ghost: true, cls: Graph.styles.SHAPE_DRAG});
             pmgr.install('network', block, {wiring: 'h:v'});
             pmgr.install('resizer', block);
             pmgr.install('editor',  block);
@@ -18465,6 +18554,9 @@
 
             inner = (new Graph.svg.Ellipse(cx, cy, cx - 6, cy - 6))
                 .addClass('comp-inner')
+                .style({
+                    fill: this.props.fill
+                })
                 .clickable(false)
                 .selectable(false)
                 .render(shape);
@@ -18615,12 +18707,17 @@
 
             block = (new Graph.svg.Rect(0, 0, this.props.width, this.props.height))
                 .addClass(Graph.styles.SHAPE_BLOCK)
+                .style({
+                    fill: this.props.fill,
+                    stroke: this.props.stroke,
+                    strokeWidth: this.props.strokeWidth
+                })
                 .data('text', this.props.label)
                 .render(shape);
 
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            pmgr.install('dragger', block, {ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('dragger', block, {ghost: true, cls: Graph.styles.SHAPE_DRAG});
             pmgr.install('resizer', block);
             pmgr.install('editor',  block);
             pmgr.install('network', block, {wiring: 'h:v'});
@@ -18719,6 +18816,7 @@
 
         props: {
             label: 'Route',
+            mode: 'xor', // none | parallel | or | xor | complex | event
             width: 100,
             height: 100,
             left: 0,
@@ -18727,15 +18825,89 @@
 
         metadata: {
             type: 'activity.router',
-            icon: Graph.icons.SHAPE_ROUTER,
+            icon: Graph.icons.ROUTER_NONE,
             style: 'graph-shape-activity-router'
+        },
+
+        constructor: function() {
+            if (this.props.mode != 'none') {
+                this.props.width = this.props.height = 50;
+            }
+            this.superclass.prototype.constructor.apply(this, arguments);
+        },
+
+        initMetadata: function() {
+            this.metadata.tools = [
+                {
+                    name: 'mode-none',
+                    icon: Graph.icons.ROUTER_NONE,
+                    title: Graph._('Change to default mode'),
+                    enabled: true,
+                    handler: _.bind(this.onModeClick, this, _, 'none')
+                },
+                {
+                    name: 'mode-or',
+                    icon: Graph.icons.ROUTER_OR,
+                    title: Graph._('Change to OR mode'),
+                    enabled: true,
+                    handler: _.bind(this.onModeClick, this, _, 'or')
+                },
+                {
+                    name: 'mode-xor',
+                    icon: Graph.icons.ROUTER_XOR,
+                    title: Graph._('Change to XOR mode'),
+                    enabled: true,
+                    handler: _.bind(this.onModeClick, this, _, 'xor')
+                },
+                {
+                    name: 'mode-parallel',
+                    icon: Graph.icons.ROUTER_PARALLEL,
+                    title: Graph._('Change to parallel mode'),
+                    enabled: true,
+                    handler: _.bind(this.onModeClick, this, _, 'parallel')
+                },
+                {
+                    name: 'config',
+                    icon: Graph.icons.CONFIG,
+                    title: Graph._('Click to config shape'),
+                    enabled: true
+                },
+                {
+                    name: 'link',
+                    icon: Graph.icons.LINK,
+                    title: Graph._('Click to start shape linking'),
+                    enabled: true,
+                    handler: _.bind(this.onLinkToolClick, this)
+                },
+                {
+                    name: 'sendtofront',
+                    icon: Graph.icons.SEND_TO_FRONT,
+                    title: Graph._('Send to front'),
+                    enabled: true,
+                    handler: _.bind(this.onFrontToolClick, this)
+                },
+                {
+                    name: 'sendtoback',
+                    icon: Graph.icons.SEND_TO_BACK,
+                    title: Graph._('Send to back'),
+                    enabled: true,
+                    handler: _.bind(this.onBackToolClick, this)
+                },
+                {
+                    name: 'trash',
+                    icon: Graph.icons.TRASH,
+                    title: Graph._('Click to remove shape'),
+                    enabled: true,
+                    handler: _.bind(this.onTrashToolClick, this)
+                }
+            ];
         },
 
         initComponent: function() {
             var comp = this.components,
                 pmgr = this.plugins.manager;
 
-            var shape, block, label;
+            var shape, block, label, mode;
 
             var points = [
                 this.props.width / 2, 0,
@@ -18757,10 +18929,10 @@
 
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
             
-            pmgr.install('dragger', block, {ghost: true, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('dragger', block, {ghost: true, cls: Graph.styles.SHAPE_DRAG});
             pmgr.install('resizer', block);
             pmgr.install('editor',  block);
-            pmgr.install('network', block, {wiring: 'h:v'});
+            pmgr.install('network', block, {wiring: 'v:v'});
             pmgr.install('snapper', block);
 
             block.on('edit.shape',      _.bind(this.onLabelEdit, this));
@@ -18784,6 +18956,64 @@
             comp.label = label.guid();
 
             shape = block = label = null;
+
+            this.mode(this.props.mode);
+        },
+
+        mode: function(mode) {
+            if (mode === undefined) {
+                return this.props.mode;
+            }
+            
+            this.props.mode = mode;
+
+            var inner;
+
+            if (this.props.mode != 'none') {
+                
+                this.component('label').hide();
+                this.component('block').resizable().disable();
+
+                if (this.components.inner) {
+                    this.component('inner').remove();
+                }
+
+                var shape = this.component();
+
+                switch(mode) {
+                    case 'parallel':
+                        inner = (new Graph.svg.Path('M 10 25 L 25 25 L 25 40 L 25 25 L 40 25 L 25 25 L 25 10'));
+                        break;
+                    case 'or':
+                        inner = (new Graph.svg.Circle(25, 25, 10));
+                        break;
+                    case 'xor':
+                        inner = (new Graph.svg.Path('M 15 15 L 25 25 L 15 35 L 25 25 L 35 35 L 25 25 L 35 15'));
+                        break;
+                }
+
+                if (inner) {
+                    inner.addClass('comp-inner');
+                    inner.selectable(false);
+                    inner.clickable(false);
+                    inner.render(shape);
+
+                    this.components.inner = inner.guid();
+                }
+            } else {
+                this.component('label').show();
+                this.component('block').resizable().enable();
+
+                inner = this.component('inner');
+
+                if (inner) {
+                    inner.remove();
+                    this.components.inner = null;
+                }
+
+            }
+
+            return this;
         },
 
         width: function(value) {
@@ -18882,6 +19112,10 @@
 
         toString: function() {
             return 'Graph.shape.activity.Router';
+        },
+
+        onModeClick: function(e, mode) {
+            this.mode(mode);
         }
 
     });
@@ -18921,7 +19155,7 @@
 
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            pmgr.install('dragger', block, {ghost: true});
+            pmgr.install('dragger', block, {ghost: true, cls: Graph.styles.SHAPE_DRAG});
             pmgr.install('resizer', block);
             pmgr.install('snapper', block);
             pmgr.install('network', block, {
@@ -19029,7 +19263,7 @@
 
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            pmgr.install('dragger', block, {ghost: true});
+            pmgr.install('dragger', block, {ghost: true, cls: Graph.styles.SHAPE_DRAG});
             pmgr.install('resizer', block);
             pmgr.install('snapper', block);
             pmgr.install('network', block, {
@@ -19220,7 +19454,7 @@
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
             pmgr.install('resizer', block, {restriction: { width: 200, height: 100 }});
-            pmgr.install('dragger', block, {ghost: true, batchSync: false, dragClass: Graph.styles.SHAPE_DRAG});
+            pmgr.install('dragger', block, {ghost: true, batchSync: false, cls: Graph.styles.SHAPE_DRAG});
 
             block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
             block.on('afterdrag.shape',   _.bind(this.onAfterDrag, this));
@@ -19619,6 +19853,7 @@
             });
 
             pool.invalidate();
+            this.refreshSnapper();
             
         },
 
@@ -19647,6 +19882,7 @@
             if (result !== undefined) {
                 sibling.render(paper, 'before', this.component());
                 pool.invalidate();
+                this.refreshSnapper();
             }
 
             return sibling;
@@ -19677,9 +19913,14 @@
             if (result !== undefined) {
                 sibling.render(paper, 'after', this.component());
                 pool.invalidate();
+                this.refreshSnapper();
             }
 
             return sibling;
+        },
+
+        refreshSnapper: function() {
+            this.paper().snapper().refresh();
         },
 
         autoResize: function() {
@@ -19765,6 +20006,12 @@
 
         toString: function() {
             return 'Graph.shape.activity.Lane';
+        },
+
+        toJson: function() {
+            var result = this.superclass.prototype.toJson.call(this);
+            result.props.pool = this.pool().guid;
+            return result;
         },
 
         onAfterDestroy: function() {
@@ -19856,10 +20103,9 @@
         },
 
         onBeforeDrag: function(e) {
-            this.component().addClass('shape-dragging');
-
             if (e.master) {
 
+                this.fire(e);
                 this.paper().diagram().capture();
 
                 var links = this.pool().populateLinks();
@@ -19905,7 +20151,6 @@
 
                 // forward
                 this.fire(e);
-                shapeComponent.removeClass('shape-dragging');
 
                 // sync other
                 pool.relocateSiblings(this, e.dx, e.dy);
@@ -19914,6 +20159,8 @@
                 // sync links
                 pool.relocateLinks(e.dx, e.dy);
                 pool.refreshChildren();
+
+                this.refreshSnapper();
             }
 
         },
@@ -20054,10 +20301,12 @@
 
         onUpToolClick: function(e) {
             this.pool().moveUp(this);
+            this.refreshSnapper();
         },
 
         onDownToolClick: function(e) {
             this.pool().moveDown(this);
+            this.refreshSnapper();
         }
 
     });
@@ -20600,7 +20849,7 @@
             lineHeight: 1.1
         },
         metadata: {
-            name: 'common.label',
+            type: 'common.label',
             icon: 'ion-android-create'
         },
         initComponent: function() {
@@ -20621,8 +20870,8 @@
 
             block.elem.data(Graph.string.ID_SHAPE, this.guid());
 
-            pmgr.install('dragger', block, {dragClass: Graph.styles.SHAPE_DRAG});
-            pmgr.install('editor', block, {width: 300, height: 75, align: 'left', offset: 'pointer'});
+            pmgr.install('dragger', block, {cls: Graph.styles.SHAPE_DRAG});
+            pmgr.install('editor',  block, {width: 300, height: 75, align: 'left', offset: 'pointer'});
 
             block.on('edit.shape', _.bind(this.onLabelEdit, this));
             block.on('afterdrag.shape', _.bind(this.onAfterDrag, this));
@@ -20694,7 +20943,12 @@
             
         }, 1),
 
+        toString: function() {
+            return 'Graph.shape.common.Label';
+        },
+
         onLabelRender: function() {
+
             var label = this.component('label'),
                 block = this.component('block'),
                 labelBox = label.bbox().toJson();
@@ -20738,7 +20992,6 @@
             });
 
             this.fire(e);
-            shapeComponent.removeClass('shape-dragging');
         },
 
         onSelect: function(e) {
@@ -20767,15 +21020,15 @@
         this.options = _.extend({}, Exporter.defaults, options || {});
         this.element = vector.node();
         
-        var width, height, scale;
+        var bounds, width, height, scale;
         
         if (vector.isPaper()) {
-            width  = vector.elem.width();
-            height = vector.elem.height();
+            bounds = vector.viewport().bbox().toJson();
+            height = Math.max((bounds.y + bounds.height + 100), vector.elem.height());
+            width  = Math.max((bounds.x + bounds.width), vector.elem.width());
             scale  = vector.layout().scale();
         } else {
-            var bounds = vector.bbox().toJson();
-            
+            bounds = vector.bbox().toJson();
             width  = bounds.width;
             height = bounds.height;
             scale  = vector.matrixCurrent().scale();
@@ -20853,6 +21106,23 @@
         exportImage(this.element, options, function(result){
             if (result) {
                 download(filename, result);
+            }
+        });
+    };
+
+    Exporter.prototype.exportFile = function(callback) {
+        var options = _.extend({}, this.options);
+        
+        options.encoder = 'image/jpeg';
+        options.compression = 1;
+        options.background = '#ffffff';
+
+        exportImage(this.element, options, function(result){
+            if (result) {
+                var blob = createBlob(result);
+                callback && callback(blob);
+            } else {
+                callback && callback(false);
             }
         });
     };
@@ -21003,8 +21273,9 @@
     }
     
     function createDataURI(element, options) {
-        var xml = createData(element, options);
-        var uri = 'data:image/svg+xml;base64,' + window.btoa(repair(xml));
+        var xml = createData(element, options),
+            uri = 'data:image/svg+xml;base64,' + window.btoa(repair(xml));
+
         return uri;
     }
     
@@ -21026,13 +21297,20 @@
                     
                     if (rule.style !== undefined) {
                         if (rule.selectorText) {
+
+                            // BUG: https://github.com/exupero/saveSvgAsPng/issues/11
                             
-                            found = element.querySelector(rule.selectorText);
-                            
-                            if (found) {
-                                result += rule.selectorText + " { " + rule.style.cssText + " }\n";
-                            } else if(rule.cssText.match(/^@font-face/)) {
-                                result += rule.cssText + '\n';
+                            try {
+                                found = element.querySelector(rule.selectorText);
+
+                                if (found) {
+                                    result += rule.selectorText + " { " + rule.style.cssText + " }\n";
+                                } else if(rule.cssText.match(/^@font-face/)) {
+                                    result += rule.cssText + '\n';
+                                }
+                            } catch(e) {
+                                // console.log(e);
+                                continue;
                             }
                         }
                     }
@@ -21084,10 +21362,16 @@
 
         capture: function() {
             // capture to snapshoot
+            if (this.diagram) {
+                // var data = this.diagram.toJson();
+                // this.snapshoot = [data];
+            }
         },
 
         undo: function() {
-
+            if (this.snapshoot.length) {
+                this.diagram.render(this.snapshoot[0]);
+            }
         },
 
         redo: function() {
@@ -21105,6 +21389,7 @@
 
             pallet.on({
                 pick: function(e) {
+
                     paper.tool().activate('panzoom');
 
                     if ( ! me.diagram) {
@@ -21112,8 +21397,8 @@
                     }
 
                     var origin = layout.pointerLocation({
-                        clientX: e.offset.x,
-                        clientY: e.offset.y
+                        clientX: e.origin.x,
+                        clientY: e.origin.y
                     });
 
                     var options = {
@@ -21126,6 +21411,8 @@
                     if (result.movable) {
                         drawing = result.shape;
                         scale = paper.layout().scale();
+                        drawing.component('block').dirty(true);
+                        drawing.component().dirty(true);
                     } else {
                         drawing = null;
                         pallet.stopPicking();
@@ -21161,8 +21448,12 @@
         },
 
         remove: function() {
-            this.diagram = null;
-            this.paper().fire('diagram.destroy');
+            if (this.diagram) {
+                this.diagram.remove();
+                this.diagram = null;
+
+                this.paper().fire('diagram.destroy');
+            }
         },
 
         create: function(type, options, silent) {
@@ -21183,7 +21474,7 @@
             return this.diagram;
         },
 
-        saveAs: function(type, filename) {
+        saveAsImage: function(type, filename) {
             var exporter = new Graph.data.Exporter(this.paper());
               
             switch(type) {
@@ -21199,6 +21490,12 @@
                     break;
             }
 
+            exporter = null;
+        },
+
+        saveAsFile: function(callback) {
+            var exporter = new Graph.data.Exporter(this.paper());
+            exporter.exportFile(callback);
             exporter = null;
         },
 
@@ -21337,11 +21634,10 @@
 
         picking: {
             enabled: false,
-            clientX: null,
-            clientY: null,
             target: null,
             matrix: null,
             shape: null,
+            begin: false,
             start: null
         },
         
@@ -21419,13 +21715,12 @@
             if (this.picking.enabled) {
                 this.picking.target.remove();
                 _.assign(this.picking, {
-                    clientX: null,
-                    clientY: null,
                     target: null,
                     matrix: null,
-                    start: null,
+                    offset: null,
                     enabled: false,
-                    shape: null
+                    shape: null,
+                    start: false
                 });
             }
         },
@@ -21435,7 +21730,8 @@
                 return;
             }
 
-            var me = this, pallet = this.components.pallet;
+            var me = this, 
+                pallet = this.components.pallet;
 
             this.props.rendered = true;
 
@@ -21451,20 +21747,20 @@
                     dragMove(e);
                 })
                 .on('up', function(e){
-                    dragStop();
+                    dragStop(e);
                 });
 
             /////////
             
             pallet.on('mouseleave', function(e){
-                dragStop();
+                dragStop(e);
             });
 
             function dragStart(e) {
                 var target = Graph.$(e.currentTarget);
 
                 if (me.picking.enabled) {
-                    dragStop();
+                    dragStop(e);
                 }
 
                 if (target.data('shape') !== undefined) {
@@ -21479,14 +21775,11 @@
 
                     pallet.append(me.picking.target);
 
-                    me.picking.clientX = e.clientX;
-                    me.picking.clientY = e.clientY;
-
                     me.fire('pick', {
                         shape: me.picking.shape,
-                        offset: {
-                            x: me.picking.clientX,
-                            y: me.picking.clientY
+                        origin: {
+                            x: e.clientX,
+                            y: e.clientY
                         }
                     });
 
@@ -21502,20 +21795,17 @@
 
                     e.preventDefault();
 
-                    me.picking.clientX = e.clientX;
-                    me.picking.clientY = e.clientY;
-
-                    var end = {
+                    var current = {
                         x: e.clientX,
                         y: e.clientY
                     };
 
-                    if ( ! me.picking.start) {
-                        me.picking.start = end;
+                    if ( ! me.picking.offset) {
+                        me.picking.offset = current;
                     }
 
-                    var dx = end.x - me.picking.start.x,
-                        dy = end.y - me.picking.start.y;
+                    var dx = current.x - me.picking.offset.x,
+                        dy = current.y - me.picking.offset.y;
 
                     me.picking.matrix.translate(dx, dy);
                     me.picking.target.attr('transform', me.picking.matrix.toValue());
@@ -21523,15 +21813,20 @@
                     me.fire('drag', {
                         dx: dx,
                         dy: dy
-                    });
+                    }); 
 
-                    me.picking.start = end;
+                    me.picking.offset = current;
                 }
             }
 
-            function dragStop() {
+            function dragStop(e) {
+                if (me.picking.enabled) {
+                    me.fire('drop', {
+                        clientX: e.clientX,
+                        clientY: e.clientY
+                    });
+                }
                 me.stopPicking();
-                me.fire('drop');
             }
 
         },
@@ -21580,7 +21875,9 @@
                 paper = me.paper();
             
             parser.props().each(function(v, k){
-                me.props[k] = v;
+                if (k != 'type') {
+                    me.props[k] = v;    
+                }
             });
 
             parser.shapes().each(function(item){
@@ -21639,21 +21936,28 @@
         },
 
         empty: function() {
-            _.forEach(this.getShapes(), function(shape){
+            var shapes = this.getShapes();
+            
+            this.paper().snapper().invalidate();
+
+            shapes.each(function(shape){
                 if ( ! shape.tree.parent) {
                     shape.remove();
                 }
             });
+
+            shapes = null;
             return this;
         },
 
         getShapes: function() {
-            var context = this.paper().guid();
-            return Graph.registry.shape.collect(context);
+            var context = this.paper().guid(),
+                shapes = Graph.registry.shape.collect(context);
+            return new Graph.collection.Shape(shapes);
         },
 
         getLinks: function() {
-            var shapes = this.getShapes(),  
+            var shapes = this.getShapes().toArray(),  
                 indexes = {},
                 links = [];
 
@@ -21673,28 +21977,30 @@
             }
 
             indexes = null;
-
-            return links;
+            return new Graph.collection.Link(links);
         },
         
-        arrange: function() {
-
-        },
-
         drawShape: function(namespace, options) {
 
         },
 
         findShapeBy: function(identity) {
-            return _.filter(this.getShapes(), identity);
+            var shapes = this.getShapes().toArray();
+            return _.filter(shapes, identity);
         },
 
         getShapeBy: function(identity) {
-            return _.find(this.getShapes(), identity);
+            var shapes = this.getShapes().toArray();
+            return _.find(shapes, identity);
         },
 
         getLinkBy: function(identity) {
 
+        },
+
+        remove: function() {
+            this.empty();
+            this.fire('afterdestroy');
         },
 
         toJson: function() {
@@ -21711,7 +22017,8 @@
 
         props: {
             name: 'Activity Diagram',
-            description: 'Example of activity diagram'
+            description: 'No diagram description',
+            cover: null
         },
 
         rendering: {
@@ -21726,11 +22033,14 @@
             var paper = this.paper();
 
             // already drawing
-            if (this.drawing.enabled) {
-                
-                this.drawing.enabled = false;
-                this.drawing.shape.off('afterdrag', this.drawing.dropHandler);
-                this.drawing.dropHandler = null;
+            if (this.drawing.dragging) {
+                this.drawing.dragging = false;
+
+                this.drawing.shape.off('beforedrag', this.drawing.beforeDrag);
+                this.drawing.shape.off('aferdrag', this.drawing.afterDrag);
+
+                this.drawing.beforeDrag = null;
+                this.drawing.afterDrag = null;
 
                 // mark as invalid
                 this.drawing.shape.remove();
@@ -21742,9 +22052,12 @@
             options = options || {};
             movable = true;
 
+
+
             if (namespace == 'Graph.shape.activity.Lane') {
-                if ( ! this.hasLane() && this.getShapes().length) {
-                    var bbox = this.shapes.bbox().toJson();
+                var shapes = this.getShapes();
+                if (shapes.size() && ! this.hasLane()) {
+                    var bbox = shapes.bbox().toJson();
                     
                     options.left = bbox.x - 40;
                     options.top = bbox.y - 20;
@@ -21752,6 +22065,7 @@
                     movable = false;
                     bbox = null;
                 }
+                shapes = null;
             } else if (namespace == 'Graph.shape.common.Label') {
                 movable = false;
             }
@@ -21766,7 +22080,11 @@
 
             var me = this;
 
-            this.drawing.dropHandler = function() {
+            this.drawing.beforeDrag = function(e) {
+                shape.component().addClass('picking');
+            };
+
+            this.drawing.afterDrag = function() {
                 var timer;
 
                 timer = _.delay(function(shape){
@@ -21791,54 +22109,65 @@
                         shape.remove();
                         shape = null;
                     }
-
                 }, 0, me.drawing.shape);
 
-                me.drawing.dropHandler = null;
-                me.drawing.enabled = false;
+                shape.component().removeClass('picking');
+
+                me.drawing.beforeDrag = null;
+                me.drawing.afterDrag = null;
+                me.drawing.dragging = false;
                 me.drawing.shape = null;
 
             };
 
             if (movable) {
-                this.drawing.enabled = true;
+                this.drawing.dragging = true;
                 this.drawing.shape = shape;
+
+                shape.render(paper);
+
+                var draggable = shape.draggable().plugin(),
+                    snappcomp = shape.snappable().component();
+
+                draggable.start();
 
                 if (options.left !== undefined && options.top !== undefined) {
                     var center = shape.center(),
                         dx = options.left - center.x,
                         dy = options.top - center.y;
-
                     shape.translate(dx, dy);    
-                }
-                
-                shape.render(paper);
-                
-                var draggable = shape.draggable().plugin();
-                draggable.start();
 
-                shape.one('afterdrag', this.drawing.dropHandler);
+                    if (snappcomp) {
+                        snappcomp.dirty(true);
+                    }
+                }
+
+                shape.one('beforedrag', this.drawing.beforeDrag);
+                shape.one('afterdrag', this.drawing.afterDrag);
 
             } else {
-                me.drawing.enabled = false;
+
+                me.drawing.dragging = false;
                 me.drawing.shape = null;
-                me.drawing.dropHandler = null;
-
+                me.drawing.beforeDrag = null;
+                me.drawing.afterDrag = null;
+                
                 if (shape.is('activity.lane')) {
-                    shape.render(paper);
+                    var children = me.getShapes().toArray();
 
-                    var children = me.shapes.toArray().slice();    
+                    shape.render(paper);
                     shape.addChild(children);
                     children = null;
 
                 } else if (shape.is('common.label')) {
+
                     var lanes = me.findShapeBy(function(shape){ return shape.is('activity.lane'); }),
                         coord = {x: shape.props.left, y: shape.props.top},
                         found = false;
-                    
+
                     shape.render(paper);
 
-                    if (lanes.length) {
+                    /*if (lanes.length) {
                         var box, i, j;
 
                         for (i = 0, j = lanes.length; i < j; i++) {
@@ -21858,7 +22187,7 @@
                             shape = null;
                         }
 
-                    }
+                    }*/
                 }
             }
 
@@ -21908,6 +22237,8 @@
 
                 parser.destroy();
                 parser = null;
+
+                me.paper().snapper().refresh();
             }); 
 
             ///////// RENDERER /////////
@@ -21915,38 +22246,73 @@
             function render(parser) {
                 var def = Graph.defer(),
                     rendered = {},
-                    counter = 0;
+                    pools = {},
+                    count = 0,
+                    tick = 0;
 
                 parser.shapes().each(function(item, index, total){
                     var props = item.props,
                         clazz = Graph.ns(props.type);
 
-                    var shape;
+                    var shape, delay;
 
-                    if (clazz) {
-                        var delay;
+                    delay = _.delay(function(clazz, props){
+                        clearTimeout(delay);
+                        delay = null;
 
-                        delay = _.delay(function(index, clazz, props){
-                            clearTimeout(delay);
-                            delay = null;
+                        shape = Graph.factory(clazz, [props]);
+                        shape.render(paper);
 
-                            shape = Graph.factory(clazz, [props]);
-                            shape.render(paper);
-
-                            if (rendered[props.parent_id] !== undefined) {
-                                rendered[props.parent_id].addChild(shape, false);
+                        if (props.client_pool) {
+                            if (pools[props.client_pool] === undefined) {
+                                pools[props.client_pool] = [];
                             }
+                            pools[props.client_pool].push(shape);
+                        }
 
-                            rendered[props.id] = shape;
+                        if (rendered[props.parent_id] !== undefined) {
+                            rendered[props.parent_id].addChild(shape, false);
+                            
+                            var netcom = shape.connectable().component();
 
-                            if (index === total - 1) {
-                                def.resolve(rendered);
+                            if (netcom) {
+                                netcom.dirty(true);
                             }
+                        }
 
-                        }, (counter * 100), index, clazz, props);
+                        rendered[props.id] = shape;
+                        count++;
                         
-                    }
-                    counter++;
+                        if (count === total) {
+                            
+                            var lanes, key, pool;
+
+                            for (key in pools) {
+                                lanes = pools[key];
+                                pool  = null;
+
+                                if (lanes.length > 1) {
+                                    _.forEach(lanes, function(lane, idx){
+                                        if ( ! pool) {
+                                            pool = lane.pool();
+                                        } else {
+                                            lane.tree.pool = pool;
+                                            pool.insert(lane);
+                                        }
+                                    });
+                                }
+
+                                if (pool) {
+                                    pool.invalidate();
+                                }
+                            }
+
+                            def.resolve(rendered);
+                        }
+
+                    }, (tick * 100), clazz, props);
+
+                    tick++;
                 });
 
                 return def.promise();
@@ -21963,13 +22329,17 @@
                     id: this.props.id,
                     name: this.props.name,
                     type: this.toString(),
-                    description: this.props.description
+                    description: this.props.description,
+                    cover: this.props.cover
                 },
                 shapes: [],
                 links: []
             };
 
-            _.forEach(this.getShapes(), function(shape){
+            var shapes = this.getShapes(),
+                links = this.getLinks();
+
+            shapes.each(function(shape){
                 var data = shape.toJson();
                 diagram.shapes.push({
                     props: data.props,
@@ -21977,7 +22347,7 @@
                 });
             });
 
-            _.forEach(this.getLinks(), function(link){
+            links.each(function(link){
                 var data = link.toJson();
                 diagram.links.push({
                     props: data.props,
@@ -21985,6 +22355,7 @@
                 });
             });
 
+            shapes = links = null;
             return diagram;
         }
     });
