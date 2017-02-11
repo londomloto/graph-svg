@@ -60,7 +60,7 @@
                         '<rect x="2" y="2" width="60" height="60" rx="7" ry="7"/>' + 
                         '<text x="32" y="34">Action</text>' + 
                     '</g>' + 
-                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Router" transform="matrix(1,0,0,1,40,250)">' + 
+                    /*'<g class="graph-pallet-item" data-shape="Graph.shape.activity.Router" transform="matrix(1,0,0,1,40,250)">' + 
                         '<rect x="4" y="4" width="54" height="54" transform="rotate(45,32,32)"/>' + 
                         '<text x="30" y="34">Route</text>' + 
                     '</g>' + 
@@ -79,8 +79,8 @@
                         '<path d="M 54 34 L 54 60" marker-end="url(#marker-arrow-pallet)" pointer-events="none" ></path>' + 
                         '<path d="M 32  0 L 32 28" pointer-events="none" ></path>' + 
                         '<text x="32" y="50">Fork</text>' + 
-                    '</g>' + 
-                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Lane" transform="matrix(1,0,0,1,40,500)">' + 
+                    '</g>' + */
+                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Lane" transform="matrix(1,0,0,1,40,250)">' + 
                         '<rect x="2" y="2" width="60" height="60" rx="0" ry="0"/>' + 
                         '<rect x="2" y="2" width="10" height="60" rx="0" ry="0"/>' + 
                         '<text x="32" y="34">Role</text>' + 
@@ -176,9 +176,8 @@
                 var i = e.interaction;
 
                 if (i.pointerIsDown && me.picking.target) {
-
                     e.preventDefault();
-
+                    
                     var current = {
                         x: e.clientX,
                         y: e.clientY

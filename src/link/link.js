@@ -18,6 +18,8 @@
             command: null
         },
 
+        params: [],
+
         components: {
             block: null,
             coat: null,
@@ -71,7 +73,6 @@
 
             var excludes = {
                 type: true,
-                params: true,
                 router_type: true,
                 client_id: true,
                 client_source: true,
@@ -91,7 +92,11 @@
                 for (var key in name) {
                     if ( ! excludes[key]) { 
                         map = maps[key] || key;
-                        this.props[map] = name[key];    
+                        if (key == 'params') {
+                            this.params = name[key];
+                        } else {
+                            this.props[map] = name[key];        
+                        }
                     }
                 }
                 return this;
@@ -103,7 +108,11 @@
 
             if ( ! excludes[name]) {
                 map = maps[name] || name;
-                this.props[map] = value;    
+                if (name == 'params') {
+                    this.params = value;
+                } else {
+                    this.props[map] = value;        
+                }
             }
 
             return this;
@@ -252,7 +261,7 @@
 
             handlers.afterresize = _.bind(getHandler(this, type, 'AfterResize'), this);
             handlers.select = _.bind(getHandler(this, type, 'Select'), this);
-            handlers.rotate = _.bind(getHandler(this, type, 'Rotate'), this);
+            handlers.afterrotate = _.bind(getHandler(this, type, 'AfterRotate'), this);
             handlers.beforedrag = _.bind(getHandler(this, type, 'BeforeDrag'), this, _, resource);
             handlers.drag = _.bind(getHandler(this, type, 'Drag'), this);
             handlers.afterdrag = _.bind(getHandler(this, type, 'AfterDrag'), this);
@@ -262,9 +271,9 @@
             this.props[type] = resource.guid();
 
             resource.on('afterresize.link', handlers.afterresize);
-            resource.on('rotate.link', handlers.rotate);
+            resource.on('afterrotate.link', handlers.afterrotate);
+            resource.on('beforedestroy.link', handlers.beforedestroy);
             resource.on('select.link', handlers.select);
-            resource.on('beforedestroy', handlers.beforedestroy);
 
             // VERY EXPENSIVE!!!
             if (resource.isDraggable()) {
@@ -638,14 +647,12 @@
                     sourceType: sourceShape ? 'shape' : 'vector',
                     target: targetShape ? targetShape.guid() : target.guid(),
                     targetType: targetShape ? 'shape' : 'vector',
-                    convex: true,
-                    smooth: true,
+                    convex: 1,
+                    smooth: this.props.smooth ? 1 : 0,
                     smoothness: this.props.smoothness
                 },
 
-                params: [
-                    {key: 'Data source', value: 'db.example'}
-                ]
+                params: this.params
             };
 
             return link;
@@ -767,8 +774,17 @@
 
         ///////// OBSERVERS /////////
 
-        onSourceRotate: function() {
+        onSourceAfterRotate: function(e) {
+            var matrix = this.router.source().matrix(),
+                oport = this.router.tail(),
+                nport = {
+                    x: matrix.x(oport.x, oport.y),
+                    y: matrix.y(oport.x, oport.y)
+                },
+                dx = nport.x - oport.x,
+                dy = nport.y - oport.y;
 
+            this.relocateTail(dx, dy);
         },
 
         onSourceSelect: function(e) {
@@ -798,14 +814,16 @@
 
         onSourceAfterDrag: function(e) {
             var source = this.router.source(),
-                target = this.router.target();
+                target = this.router.target(),
+                dx = e.tx,
+                dy = e.ty;
 
             if (source.isSelected()) {
                 if ( ! target.isSelected()) {
-                    this.relocateTail(e.dx, e.dy);
+                    this.relocateTail(dx, dy);
                 }
             } else {
-                this.relocateTail(e.dx, e.dy);
+                this.relocateTail(dx, dy);
             }
         },
 
@@ -819,8 +837,17 @@
             }
         },
 
-        onTargetRotate: function() {
+        onTargetAfterRotate: function(e) {
+            var matrix = this.router.target().matrix(),
+                oport = this.router.head(),
+                nport = {
+                    x: matrix.x(oport.x, oport.y),
+                    y: matrix.y(oport.x, oport.y)
+                },
+                dx = nport.x - oport.x,
+                dy = nport.y - oport.y;
 
+            this.relocateHead(dx, dy);
         },
 
         onTargetSelect: function(e) {
@@ -850,14 +877,16 @@
 
         onTargetAfterDrag: function(e) {
             var target = this.router.target(),
-                source = this.router.source();
+                source = this.router.source(),
+                dx = e.tx,
+                dy = e.ty;
 
             if (target.isSelected()) {
                 if ( ! source.isSelected()) {
-                    this.relocateHead(e.dx, e.dy);
+                    this.relocateHead(dx, dy);
                 }
             } else {
-                this.relocateHead(e.dx, e.dy);
+                this.relocateHead(dx, dy);
             }
         },
 

@@ -163,19 +163,20 @@
             vector.graph.matrix = mat;
             vector.attr('transform', mat.toValue());
 
+
             if (events.translate) {
                 events.translate = {
                     dx: mat.e,
                     dy: mat.f
                 };
-                this.fire('translate', events.translate);
+                this.fire('aftertranslate', events.translate);
             }
 
             if (events.rotate) {
                 events.rotate = {
                     deg: deg
                 };
-                this.fire('rotate', events.rotate);
+                this.fire('afterrotate', events.rotate);
             }
 
             if (events.scale) {
@@ -183,7 +184,7 @@
                     sx: sx,
                     sy: sy
                 };
-                this.fire('scale', events.scale);
+                this.fire('afterscale', events.scale);
             }
 
             this.actions = [];

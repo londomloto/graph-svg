@@ -46,6 +46,7 @@
             pmgr.install('editor',  block);
             pmgr.install('network', block, {wiring: 'h:v'});
             pmgr.install('snapper', block);
+            pmgr.install('rotator', block);
 
             block.on('edit.shape', _.bind(this.onLabelEdit, this));
             block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
@@ -56,6 +57,7 @@
             block.on('select.shape', _.bind(this.onSelect, this));
             block.on('deselect.shape', _.bind(this.onDeselect, this));
             block.on('connect.shape', _.bind(this.onConnect, this));
+            block.on('afterrotate.shape', _.bind(this.onAfterRotate, this));
 
             label = (new Graph.svg.Text(cx, cy, this.props.label))
                 .addClass(Graph.styles.SHAPE_LABEL)
@@ -66,6 +68,10 @@
             comp.shape = shape.guid();
             comp.block = block.guid();
             comp.label = label.guid();
+
+            if (this.props.rotate) {
+                this.rotate(this.props.rotate);
+            }
 
             shape = block = label = null;
         },

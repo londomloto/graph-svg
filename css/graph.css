@@ -305,6 +305,28 @@ text.graph-elem tspan {
     cursor: ew-resize;
 }
 
+.graph-rotator rect {
+    fill: none;
+    stroke: #3E7CF7;
+    stroke-width: 1;
+    pointer-events: none;
+    stroke-dasharray: 5 2;
+}
+
+.graph-rotator circle,
+.graph-rotator line {
+    stroke-width: 1;
+    stroke: #555;
+}
+
+.graph-rotator circle {
+    fill: #fff;
+}
+
+.graph-rotator line {
+    stroke-dasharray: 2 2;
+}
+
 
 .graph-dragger {
     
@@ -314,7 +336,7 @@ text.graph-elem tspan {
     fill: rgba(255, 255, 255, 0);
     stroke: #FFA500;
     stroke-width: 2;
-    stroke-dasharray: 5 3;
+    stroke-dasharray: 5 2;
 }
 
 .graph-elem.dragging {
@@ -408,12 +430,12 @@ text.graph-elem tspan {
 
 .linking .graph-elem:not(.graph-link-coat).connect-invalid.connect-hover,
 .linking .graph-elem:not(.graph-link-coat).connect-invalid:hover {
-    fill: #FFF4F8;
+    fill: #FFF4F8 !important;
 }
 
 .linking .connect-valid.connect-hover,
 .linking .connect-valid:hover {
-    fill: #F2FFEA;
+    fill: #F2FFEA !important;
 }
 
 /** link */

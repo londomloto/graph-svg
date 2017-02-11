@@ -155,7 +155,7 @@
                 height: height
             };
         },
-
+        
         pointAlign: function(a, b, treshold) {
             if ( ! a || ! b) {
                 return false;
@@ -686,6 +686,7 @@
         },
         
         curveInterval: function(x1, y1, x2, y2, x3, y3, x4, y4, length) {
+
             if (length < 0 || Graph.util.curveLength(x1, y1, x2, y2, x3, y3, x4, y4) < length) {
                 return;
             }
@@ -752,7 +753,7 @@
 
             var box1 = {x: bon1.min.x, y: bon1.min.y, x2: bon1.max.x, y2: bon1.max.y},
                 box2 = {x: bon2.min.x, y: bon2.min.y, x2: bon2.max.x, y2: bon2.max.y};
-
+                
             if ( ! Graph.util.isBoxIntersect(box1, box2)) {
                 return count ? 0 : [];
             }

@@ -39,8 +39,6 @@
             options = options || {};
             movable = true;
 
-
-
             if (namespace == 'Graph.shape.activity.Lane') {
                 var shapes = this.getShapes();
                 if (shapes.size() && ! this.hasLane()) {
@@ -207,6 +205,7 @@
             render(parser).then(function(rendered){
                 parser.links().each(function(item){
                     var props = item.props,
+                        params = JSON.parse(item.params),
                         sourceShape = rendered[props.source_id],
                         targetShape = rendered[props.target_id];
 
@@ -215,7 +214,8 @@
                             targetNetwork = targetShape.connectable().plugin();
 
                         if (sourceNetwork && targetNetwork) {
-                            sourceNetwork.connect(targetNetwork, null, null, item.props);
+                            var link = sourceNetwork.connect(targetNetwork, null, null, item.props);
+                            link.params = params;
                         }
                     }
                 })
@@ -239,15 +239,17 @@
 
                 parser.shapes().each(function(item, index, total){
                     var props = item.props,
+                        params = JSON.parse(item.params),
                         clazz = Graph.ns(props.type);
 
                     var shape, delay;
 
-                    delay = _.delay(function(clazz, props){
+                    delay = _.delay(function(clazz, props, params){
                         clearTimeout(delay);
                         delay = null;
 
                         shape = Graph.factory(clazz, [props]);
+                        shape.params = params;
                         shape.render(paper);
 
                         if (props.client_pool) {
@@ -297,7 +299,7 @@
                             def.resolve(rendered);
                         }
 
-                    }, (tick * 100), clazz, props);
+                    }, (tick * 100), clazz, props, params);
 
                     tick++;
                 });

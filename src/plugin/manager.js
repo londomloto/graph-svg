@@ -57,7 +57,8 @@
             'resizer': 'resizable',
             'snapper': 'snappable',
             'dragger': 'draggable',
-            'editor': 'editable'
+            'editor': 'editable',
+            'rotator': 'rotatable'
         };
 
         return maps[plugin];

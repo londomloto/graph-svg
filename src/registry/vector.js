@@ -12,27 +12,6 @@
 
     Registry.prototype.register = function(vector) {
         var id = vector.guid(), found = this.get(id);
-        
-        if (found !== vector) {
-            // vector.on('afterresize', function(){
-            //     if (vector.isConnectable()) {
-            //         var delay = _.delay(function(){
-            //             clearTimeout(delay);
-            //             Graph.registry.link.synchronize(vector);
-            //         }, 1);
-            //     }
-            // });
-
-            // vector.on('translate', function(){
-            //     if (vector.isConnectable()) {
-            //         var delay = _.delay(function(){
-            //             clearTimeout(delay);
-            //             Graph.registry.link.synchronize(vector);
-            //         }, 1);
-            //     }
-            // });
-        }
-
         storage[id] = vector;
     };
 

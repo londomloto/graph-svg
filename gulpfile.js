@@ -70,6 +70,7 @@ gulp.task('build', function(cb){
             "src/plugin/transformer.js",
             "src/plugin/animator.js",
             "src/plugin/resizer.js",
+            "src/plugin/rotator.js",
             "src/plugin/collector.js",
             "src/plugin/dragger.js",
             "src/plugin/dropper.js",
@@ -82,6 +83,7 @@ gulp.task('build', function(cb){
             "src/plugin/editor.js",
             "src/plugin/snapper.js",
             "src/plugin/toolpad.js",
+            "src/plugin/clipper.js",
             
             "src/shape/shape.js",
             "src/shape/activity/start.js",

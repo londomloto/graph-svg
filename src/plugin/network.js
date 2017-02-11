@@ -209,8 +209,8 @@
         },
 
         orientation: function(network) {
-            var sourceBox = this.vector().bboxView().toJson(),
-                targetBox = network.vector().bboxView().toJson(),
+            var sourceBox = this.vector().bboxOriginal().toJson(),
+                targetBox = network.vector().bboxOriginal().toJson(),
                 orientation = Graph.util.boxOrientation(sourceBox, targetBox, this.treshold());
 
             sourceBox = targetBox = null;

@@ -202,6 +202,13 @@
                     this.suspend();
                 }
                 return;
+            } else {
+                if (source.isPaper()) {
+                    this.invalidate();
+                    this.suspend();
+                    paper.tool().activate('panzoom');
+                    return;
+                }
             }
             
             this.linking.visits = [];
@@ -226,7 +233,7 @@
                 if (source.isConnectable()) {
                     
                     if ( ! this.linking.source) {
-                        sbox = source.bboxView();
+                        sbox = source.bboxOriginal();
                         port = sbox.center(true);
 
                         this.linking.source = source;
@@ -338,11 +345,11 @@
 
                         if (source.connectable().canConnect(target.connectable())) {
                             valid  = true;
-                            
+
                             target.removeClass(CLS_CONNECT_INVALID);
                             target.addClass(CLS_CONNECT_VALID);
                             
-                            tbox = target.bboxView();
+                            tbox = target.bboxOriginal();
                             port = tbox.center(true);
 
                             this.linking.target = target;

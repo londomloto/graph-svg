@@ -143,20 +143,37 @@
     };
 
     Point.prototype.rotate = function(angle, origin) {
-        var rd = Graph.util.rad(angle),
-            dx = this.props.x - (origin ? origin.props.x : 0),
-            dy = this.props.y - (origin ? origin.props.y : 0),
-            si = Math.sin(rd),
-            co = Math.cos(rd);
+        if (origin instanceof Graph.lang.Point) {
+            origin = origin.toJson();
+        }
 
-        var rx = dx *  co + dy * si,
-            ry = dx * -si + dy * co;
+        var rad = Math.PI / 180 * angle,
+            sin = Math.sin(rad),
+            cos = Math.cos(rad),
+            x = this.props.x,
+            y = this.props.y,
+            cx = origin.x,
+            cy = origin.y;
 
-        this.props.x = this.props.x + rx;
-        this.props.y = this.props.y + ry;
-
-        return this;
+        this.props.x = (cos * (x - cx)) + (sin * (y - cy)) + cx;
+        this.props.y = (cos * (y - cy)) - (sin * (x - cx)) + cy;
     };
+
+    // Point.prototype.rotate = function(angle, origin) {
+    //     var rd = Graph.util.rad(angle),
+    //         dx = this.props.x - (origin ? origin.props.x : 0),
+    //         dy = this.props.y - (origin ? origin.props.y : 0),
+    //         si = Math.sin(rd),
+    //         co = Math.cos(rd);
+
+    //     var rx = dx *  co + dy * si,
+    //         ry = dx * -si + dy * co;
+
+    //     this.props.x = this.props.x + rx;
+    //     this.props.y = this.props.y + ry;
+
+    //     return this;
+    // };
 
     Point.prototype.transform = function(matrix) {
         var x = this.props.x,

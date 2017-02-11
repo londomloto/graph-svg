@@ -7,14 +7,19 @@
             id: null,
             guid: null,
             mode: null,
+            left: 0,
+            top: 0,
             width: 0,
             height: 0,
+            rotate: 0,
             label: '',
             alias: '',
             fill: 'rgb(255, 255, 255)',
             stroke: 'rgb(0, 0, 0)',
             strokeWidth: 2
         },
+
+        params: [],
 
         components: {
             shape: null,
@@ -37,7 +42,8 @@
             type: null,
             icon: Graph.icons.SHAPE,
             style: 'graph-shape',
-            tools: null
+            tools: null,
+            params: []
         },
 
         cached: {
@@ -92,8 +98,7 @@
                 client_parent: true,
                 client_pool: true,
                 diagram_id: true,
-                parent_id: true,
-                params: true
+                parent_id: true
             };
 
             var maps = {
@@ -106,7 +111,11 @@
                 for (key in name) {
                     if ( ! excludes[key]) {
                         map = maps[key] || key;
-                        this.props[map] = name[key];    
+                        if (key == 'params') {
+                            this.params = name[key];
+                        } else {
+                            this.props[map] = name[key];
+                        }
                     }
                 }
                 return this;
@@ -118,7 +127,11 @@
 
             if ( ! excludes[name]) {
                 map = maps[name] || name;
-                this.props[map] = value;    
+                if (name == 'params') {
+                    this.params = value;
+                } else {
+                    this.props[map] = value;        
+                }
             }
 
             return this;
@@ -429,12 +442,21 @@
         },
 
         sendToBack: function() {
-            var paper = this.paper();
+            var parent = this.parent(),
+                container = parent 
+                    ? parent.component('child').elem
+                    : this.paper().viewport().elem;
+
+            container && container.prepend(this.component().elem);
         },
 
         sendToFront: function() {
-            var paper = this.paper();
-            paper.viewport().elem.append(this.component().elem);
+            var parent = this.parent(),
+                container = parent 
+                    ? parent.component('child').elem
+                    : this.paper().viewport().elem;
+
+            container && container.append(this.component().elem);
         },
 
         suspendLayout: function() {
@@ -485,7 +507,6 @@
             block.fire('afterresize', resize);
             
             this.props.height = value;
-
             return this;
         },
 
@@ -507,7 +528,6 @@
             block.fire('afterresize', resize);
 
             this.props.width = value;
-
             return this;
         },
 
@@ -541,6 +561,14 @@
             this.props.top = value;
 
             return this;
+        },
+
+        rotate: function(value) {
+            var block = this.component('block');
+            if (block && block.isRotatable()) {
+                var center = block.bbox().toJson();
+                block.rotate(value, center.x, center.y).commit();
+            }
         },
 
         label: function(label) {
@@ -626,15 +654,14 @@
                     top: this.props.top,
                     width: this.props.width,
                     height: this.props.height,
+                    rotate: this.props.rotate,
                     fill: this.props.fill,
                     strokeWidth: this.props.strokeWidth,
                     stroke: this.props.stroke
                 },
-                params: [
-                    {key: 'Source', value: 'db.employee'}
-                ],
+                params: this.params,
                 links: [
-
+                    
                 ]
             };
 
@@ -656,6 +683,8 @@
 
             return shape;
         },
+
+        ///////// PRIVATE OBSERVERS /////////
 
         onLabelEdit: function(e) {
             this.label(e.text);
@@ -694,6 +723,32 @@
 
             // forward
             this.fire(e);
+        },
+
+        onAfterRotate: function(e) {
+            var shapeComponent = this.component('shape'),
+                blockComponent = this.component('block'),
+                childComponent = this.component('child');
+
+            var shapeMatrix = shapeComponent.matrix();
+
+            shapeMatrix.multiply(blockComponent.matrix());
+            shapeComponent.attr('transform', shapeMatrix.toValue());
+            shapeComponent.dirty(true);
+
+            if (childComponent) {
+                childComponent.dirty(true);
+            }
+
+            blockComponent.reset();
+            blockComponent.rotatable().redraw();
+
+            if (blockComponent.isResizable() && blockComponent.resizable().props.suspended === false) {
+                blockComponent.resizable().redraw();    
+            }
+
+            var shapeRotate = shapeMatrix.rotate();
+            this.props.rotate = shapeRotate.deg;
         },
 
         onSelect: function(e) {

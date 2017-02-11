@@ -47,7 +47,7 @@
                         point.space = 0;
 
                         points.push(point);
-
+                        
                         if (i === maxlen) {
                             point = curve.pointAt(curve.t(length), true);
                             point.index = i;
@@ -71,9 +71,9 @@
                 target = this.target(),
                 sourceNetwork = source.connectable(),
                 targetNetwork = target.connectable(),
-                sourceBBox = source.bboxView(),
+                sourceBBox = source.bboxOriginal(),
                 sourceBox = sourceBBox.toJson(),
-                targetBBox = target.bboxView(),
+                targetBBox = target.bboxOriginal(),
                 targetBox = targetBBox.toJson(),
                 orient = sourceNetwork.orientation(targetNetwork),
                 direct = sourceNetwork.direction(targetNetwork),
@@ -273,9 +273,9 @@
             }
 
             var target = this.target(),
-                targetBBox = target.bboxView(),
+                targetBBox = target.bboxOriginal(),
                 source = this.source(),
-                sourceBBox = source.bboxView();
+                sourceBBox = source.bboxOriginal();
 
             var bound1, bound2, center, points, axis, repaired;
 

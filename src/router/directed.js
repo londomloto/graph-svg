@@ -66,11 +66,11 @@
         route: function(start, end) {
             var source = this.source(),
                 sourceNetwork = source.connectable(),
-                sourceBBox = source.bboxView(),
+                sourceBBox = source.bboxOriginal(),
                 sourceBox = sourceBBox.toJson(),
                 target = this.target(),
                 targetNetwork = target.connectable(),
-                targetBBox = target.bboxView(),
+                targetBBox = target.bboxOriginal(),
                 targetBox = targetBBox.toJson(),
                 orient = sourceNetwork.orientation(targetNetwork),
                 direct = sourceNetwork.direction(targetNetwork),
@@ -84,7 +84,7 @@
             if ( ! end) {
                 end = targetBBox.center(true);
             }
-            
+
             var sdot, edot;
             
             if (direct) {
@@ -154,13 +154,13 @@
                     tuneup = true;
                 }
             }
-            
+
             if (tuneup) {
                 routes = [sdot, edot];
             } else {
                 routes = [start, end];
             }
-            
+
             var cable = Graph.path(Graph.util.points2path(routes));
             var inter;
             
@@ -169,7 +169,7 @@
             if (inter.length) {
                 routes[0] = inter[0];
             }
-            
+
             inter = target.shapeView().intersection(cable, true);
             
             if (inter.length) {
@@ -188,9 +188,9 @@
         
         repair: function(component, port) {
             var source = this.source(),
-                sourceBBox = source.bboxView(),
+                sourceBBox = source.bboxOriginal(),
                 target = this.target(),
-                targetBBox = target.bboxView(),
+                targetBBox = target.bboxOriginal(),
                 routes = this.values.waypoints,
                 maxlen = routes.length - 1;
             
@@ -199,11 +199,11 @@
             } else if (component === target) {
                 routes[maxlen] = port;
             }
-            
+
             var closest;
-            
+
             closest = Router.getClosestIntersect(routes, source.shapeView(), targetBBox.center(true));
-            
+
             if (closest) {
                 routes[0] = closest;
             }

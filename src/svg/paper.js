@@ -71,6 +71,7 @@
 
             me.plugins.snapper = new Graph.plugin.Snapper(me);
             me.plugins.toolpad = new Graph.plugin.Toolpad(me);
+            me.plugins.clipper = new Graph.plugin.Clipper(me);
 
             // diagram feature
             me.diagram.enabled = true;

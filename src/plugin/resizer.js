@@ -178,11 +178,13 @@
 
             if ( ! vertices) {
                 // get original bounding
-                var path = vector.shape(),
-                    bbox = path.bbox().toJson(),
-                    rotate = vector.matrixCurrent().rotate();
-
+                var path, bbox, rotate;
                 var ro, cx, cy, ox, oy, hs, hw, hh;
+
+                path = vector.shape();
+                bbox = path.bbox().toJson();
+                // rotate = vector.matrixCurrent().rotate();
+                rotate = vector.matrix().rotate();
 
                 ro = rotate.deg;
                 cx = 0;
@@ -190,7 +192,7 @@
                 ox = bbox.x;
                 oy = bbox.y;
                 hs = me.props.handleSize / 2;
-
+                
                 if (ro) {
                     var rmatrix = Graph.matrix(),
                         path = vector.shapeRelative();
@@ -202,7 +204,12 @@
 
                     path = path.transform(rmatrix);
                     bbox = path.bbox().toJson();
+                } else {
+                    var vmatrix = vector.matrix();
+                    path = path.transform(vmatrix);
+                    bbox = path.bbox().toJson();
                 }
+                
 
                 hw = bbox.width / 2;
                 hh = bbox.height / 2;
@@ -411,12 +418,18 @@
         },
 
         onHandleBeforeDrag: function(e) {
-            var me = this, handle = e.publisher;
+            var me = this, 
+                vector = me.vector(), 
+                handle = e.publisher;
 
             me.fire('beforeresize', {
                 resizer: this,
                 direction: handle.props.dir
             });
+
+            if (vector.isRotatable()) {
+                vector.rotatable().suspend();
+            }
 
             _.forOwn(me.components.handle, function(id, dir){
                 var h = me.handle(dir);
@@ -576,6 +589,10 @@
             
             me.redraw();
             me.fire('afterresize', resize);
+
+            if (vector.isRotatable()) {
+                vector.rotatable().resume();
+            }
         },
 
         toString: function() {

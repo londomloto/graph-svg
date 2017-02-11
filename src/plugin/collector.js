@@ -210,7 +210,11 @@
 
                 if (vector) {
                     if ( ! vector.isSelectable()) {
-                        if ( ! vector.elem.belong('graph-resizer') && ! vector.elem.belong('graph-link')) {
+                        if ( 
+                            ! vector.elem.belong('graph-resizer') && 
+                            ! vector.elem.belong('graph-link') && 
+                            ! vector.elem.belong('graph-rotator')
+                        ) {
                             if (single) {
                                 me.clearCollection();
                             }
@@ -332,12 +336,21 @@
             me.collection.each(function(v){
                 if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(){
-                        var mat = v.graph.matrix.data(),
-                            sin = mat.sin,
-                            cos = mat.cos;
+                        // var mat = v.graph.matrix.data(),
+                        //     sin = mat.sin,
+                        //     cos = mat.cos;
 
-                        if (v.plugins.resizer && ! v.plugins.resizer.suspended) {
+                        var rotate = v.matrixCurrent().rotate(),
+                            rad = rotate.rad,
+                            sin = Math.sin(rad),
+                            cos = Math.cos(rad);
+
+                        if (v.plugins.resizer && ! v.plugins.resizer.props.suspended) {
                             v.plugins.resizer.suspend();
+                        }
+
+                        if (v.plugins.rotator && ! v.plugins.rotator.props.suspended) {
+                            v.plugins.rotator.suspend();
                         }
 
                         if (v.plugins.dragger.props.ghost) {
@@ -367,17 +380,16 @@
         },
 
         syncDrag: function(master, e) {
-            var me = this, dx, dy;
+            var me = this;
 
             me.collection.each(function(v){
                 if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(v, e){
-
-                        var dx = e.ox *  v.syncdrag.cos + e.oy * v.syncdrag.sin,
-                            dy = e.ox * -v.syncdrag.sin + e.oy * v.syncdrag.cos;
+                        var dx = e.tx *  v.syncdrag.cos + e.ty * v.syncdrag.sin,
+                            dy = e.tx * -v.syncdrag.sin + e.ty * v.syncdrag.cos;
 
                         if (v.plugins.dragger.props.ghost) {
-                            v.plugins.dragger.helper().translate(e.ox, e.oy).commit();
+                            v.plugins.dragger.helper().translate(dx, dy).commit();
                         } else {
                             v.translate(dx, dy).commit();
                         }

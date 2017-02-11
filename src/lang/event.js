@@ -64,6 +64,11 @@
     Graph.event.ENTER = 13;
     Graph.event.DELETE = 46;
     Graph.event.SHIFT = 16;
+    Graph.event.CTRL = 17;
+    Graph.event.CMD = 91;
+
+    Graph.event.C = 67;
+    Graph.event.V = 86;
 
     Graph.event.fix = function(event) {
         return $.event.fix(event);
@@ -91,6 +96,20 @@
         matrix = null;
 
         return relative;
+    };
+
+    Graph.event.isNavigation = function(e) {
+        var navs = [
+            Graph.event.ENTER,
+            Graph.event.DELETE,
+            Graph.event.SHIFT,
+            Graph.event.CTRL,
+            Graph.event.CMD,
+            Graph.event.ESC
+        ];
+
+        var code = e.keyCode;
+        return _.indexOf(navs, code) !== -1;
     };
 
     Graph.event.isPrimaryButton = function(event) {

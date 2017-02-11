@@ -118,30 +118,39 @@
         return this;
     };
 
+    // http://stackoverflow.com/questions/16359246/how-to-extract-position-rotation-and-scale-from-matrix-svg
     Matrix.prototype.rotate = function(angle, cx, cy) {
-        if (angle === undefined) {
-
+        var args = arguments;
+        if ( ! args.length) {
             var px = this.delta(0, 1),
-                py = this.delta(1, 0),
-                deg = 180 / Math.PI * Math.atan2(px.y, px.x) - 90,
-                rad = Graph.util.rad(deg);
+                py = this.delta(1, 0);
+
+            var deg, rad;
+
+            deg = 180 / Math.PI * Math.atan2(px.y, px.x) - 90;
+            rad = Graph.util.rad(deg);
 
             return {
                 deg: deg,
-                rad: rad
+                rad: rad,
+                sin: Math.sin(rad),
+                cos: Math.cos(rad)
             };
         }
 
-        angle = Graph.util.rad(angle);
+        var radian;
+
+        radian = Graph.util.rad(angle);
+
         cx = _.defaultTo(cx, 0);
         cy = _.defaultTo(cy, 0);
-
-        var cos = +Math.cos(angle).toFixed(9),
-            sin = +Math.sin(angle).toFixed(9);
-
+        
+        var cos = +Math.cos(radian).toFixed(9),
+            sin = +Math.sin(radian).toFixed(9);
+            
         this.multiply(cos, sin, -sin, cos, cx, cy);
         this.multiply(1, 0, 0, 1, -cx, -cy);
-
+        
         return this;
     };
 
@@ -210,7 +219,8 @@
             skewY: 180 / Math.PI * Math.atan2(py.y, py.x),
             scaleX: scaleX,
             scaleY: scaleY,
-            rotate: skewX,
+            // rotate: skewX,
+            rotate: this.rotate().deg,
             rad: radian,
             sin: Math.sin(radian),
             cos: Math.cos(radian),

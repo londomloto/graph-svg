@@ -48,7 +48,7 @@
 
                 command = Graph.util.segments2path(segments);
             }
-
+            
             if (smooth) {
                 radius = this.props.smoothness || 6;
                 segments = segments || Graph.util.path2segments(command).slice();

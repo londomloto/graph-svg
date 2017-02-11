@@ -238,6 +238,10 @@
         resizer: {
             image: 'resize-control.png',
             size: 17
+        },
+        rotator: {
+            image: 'rotator.png',
+            size: 21
         }
     };
 
@@ -715,11 +719,47 @@
                 vector = Graph.registry.vector.get(vector);
                 paper = vector.paper();
                 Graph.cached.paper = paper ? paper.guid() : null;
-            } else {
-                Graph.cached.paper = null;
             }
 
             vector = paper = null;
+        });
+
+        doc.on('keydown', function(e){
+            var paper;
+
+            if (Graph.event.isNavigation(e)) {
+                paper = Graph.cached.paper;
+
+                if (paper) {
+                    paper = Graph.registry.vector.get(paper);
+                    e.originalType = 'keynavdown';
+                    paper.fire(e);
+                }
+            } else if (e.ctrlKey || e.cmdKey) {
+                paper = Graph.cached.paper;
+                
+                if (paper) {
+                    paper = Graph.registry.vector.get(paper);
+                    if (e.keyCode === Graph.event.C) {
+                        e.originalType = 'keycopy';
+                        paper.fire(e);
+                    } else if (e.keyCode === Graph.event.V) {
+                        e.originalType = 'keypaste';
+                        paper.fire(e);
+                    }
+                }   
+            }
+        });
+
+        doc.on('keyup', function(e){
+            if (Graph.event.isNavigation(e)) {
+                var paper = Graph.cached.paper;
+                if (paper) {
+                    paper = Graph.registry.vector.get(paper);
+                    e.originalType = 'keynavup';
+                    paper.fire(e);
+                }
+            }
         });
 
         doc = null;
@@ -923,7 +963,7 @@
                 height: height
             };
         },
-
+        
         pointAlign: function(a, b, treshold) {
             if ( ! a || ! b) {
                 return false;
@@ -1454,6 +1494,7 @@
         },
         
         curveInterval: function(x1, y1, x2, y2, x3, y3, x4, y4, length) {
+
             if (length < 0 || Graph.util.curveLength(x1, y1, x2, y2, x3, y3, x4, y4) < length) {
                 return;
             }
@@ -1520,7 +1561,7 @@
 
             var box1 = {x: bon1.min.x, y: bon1.min.y, x2: bon1.max.x, y2: bon1.max.y},
                 box2 = {x: bon2.min.x, y: bon2.min.y, x2: bon2.max.x, y2: bon2.max.y};
-
+                
             if ( ! Graph.util.isBoxIntersect(box1, box2)) {
                 return count ? 0 : [];
             }
@@ -2004,6 +2045,11 @@
     Graph.event.ENTER = 13;
     Graph.event.DELETE = 46;
     Graph.event.SHIFT = 16;
+    Graph.event.CTRL = 17;
+    Graph.event.CMD = 91;
+
+    Graph.event.C = 67;
+    Graph.event.V = 86;
 
     Graph.event.fix = function(event) {
         return $.event.fix(event);
@@ -2031,6 +2077,20 @@
         matrix = null;
 
         return relative;
+    };
+
+    Graph.event.isNavigation = function(e) {
+        var navs = [
+            Graph.event.ENTER,
+            Graph.event.DELETE,
+            Graph.event.SHIFT,
+            Graph.event.CTRL,
+            Graph.event.CMD,
+            Graph.event.ESC
+        ];
+
+        var code = e.keyCode;
+        return _.indexOf(navs, code) !== -1;
     };
 
     Graph.event.isPrimaryButton = function(event) {
@@ -2198,20 +2258,37 @@
     };
 
     Point.prototype.rotate = function(angle, origin) {
-        var rd = Graph.util.rad(angle),
-            dx = this.props.x - (origin ? origin.props.x : 0),
-            dy = this.props.y - (origin ? origin.props.y : 0),
-            si = Math.sin(rd),
-            co = Math.cos(rd);
+        if (origin instanceof Graph.lang.Point) {
+            origin = origin.toJson();
+        }
 
-        var rx = dx *  co + dy * si,
-            ry = dx * -si + dy * co;
+        var rad = Math.PI / 180 * angle,
+            sin = Math.sin(rad),
+            cos = Math.cos(rad),
+            x = this.props.x,
+            y = this.props.y,
+            cx = origin.x,
+            cy = origin.y;
 
-        this.props.x = this.props.x + rx;
-        this.props.y = this.props.y + ry;
-
-        return this;
+        this.props.x = (cos * (x - cx)) + (sin * (y - cy)) + cx;
+        this.props.y = (cos * (y - cy)) - (sin * (x - cx)) + cy;
     };
+
+    // Point.prototype.rotate = function(angle, origin) {
+    //     var rd = Graph.util.rad(angle),
+    //         dx = this.props.x - (origin ? origin.props.x : 0),
+    //         dy = this.props.y - (origin ? origin.props.y : 0),
+    //         si = Math.sin(rd),
+    //         co = Math.cos(rd);
+
+    //     var rx = dx *  co + dy * si,
+    //         ry = dx * -si + dy * co;
+
+    //     this.props.x = this.props.x + rx;
+    //     this.props.y = this.props.y + ry;
+
+    //     return this;
+    // };
 
     Point.prototype.transform = function(matrix) {
         var x = this.props.x,
@@ -4054,30 +4131,39 @@
         return this;
     };
 
+    // http://stackoverflow.com/questions/16359246/how-to-extract-position-rotation-and-scale-from-matrix-svg
     Matrix.prototype.rotate = function(angle, cx, cy) {
-        if (angle === undefined) {
-
+        var args = arguments;
+        if ( ! args.length) {
             var px = this.delta(0, 1),
-                py = this.delta(1, 0),
-                deg = 180 / Math.PI * Math.atan2(px.y, px.x) - 90,
-                rad = Graph.util.rad(deg);
+                py = this.delta(1, 0);
+
+            var deg, rad;
+
+            deg = 180 / Math.PI * Math.atan2(px.y, px.x) - 90;
+            rad = Graph.util.rad(deg);
 
             return {
                 deg: deg,
-                rad: rad
+                rad: rad,
+                sin: Math.sin(rad),
+                cos: Math.cos(rad)
             };
         }
 
-        angle = Graph.util.rad(angle);
+        var radian;
+
+        radian = Graph.util.rad(angle);
+
         cx = _.defaultTo(cx, 0);
         cy = _.defaultTo(cy, 0);
-
-        var cos = +Math.cos(angle).toFixed(9),
-            sin = +Math.sin(angle).toFixed(9);
-
+        
+        var cos = +Math.cos(radian).toFixed(9),
+            sin = +Math.sin(radian).toFixed(9);
+            
         this.multiply(cos, sin, -sin, cos, cx, cy);
         this.multiply(1, 0, 0, 1, -cx, -cy);
-
+        
         return this;
     };
 
@@ -4146,7 +4232,8 @@
             skewY: 180 / Math.PI * Math.atan2(py.y, py.x),
             scaleX: scaleX,
             scaleY: scaleY,
-            rotate: skewX,
+            // rotate: skewX,
+            rotate: this.rotate().deg,
             rad: radian,
             sin: Math.sin(radian),
             cos: Math.cos(radian),
@@ -5193,6 +5280,7 @@
             definer: null,
             animator: null,
             resizer: null,
+            rotator: null,
             reactor: null,
             dragger: null,
             dropper: null,
@@ -5214,8 +5302,10 @@
             bbox: null,
             bboxView: null,
             bboxPristine: null,
+            bboxOriginal: null,
             matrixCurrent: null,
             matrixView: null,
+            shapeOriginal: null,
             shapeView: null,
             position: null,
             offset: null
@@ -5253,9 +5343,9 @@
 
             // me.plugins.history = new Graph.plugin.History(me);
             me.plugins.transformer = (new Graph.plugin.Transformer(me))
-                .on('translate', _.bind(me.onTransformTranslate, me))
-                .on('rotate', _.bind(me.onTransformRotate, me))
-                .on('scale', _.bind(me.onTransformScale, me));
+                .on('aftertranslate', _.bind(me.onTransformerAfterTranslate, me))
+                .on('afterrotate', _.bind(me.onTransformerAfterRotate, me))
+                .on('afterscale', _.bind(me.onTransformerAfterScale, me));
 
             if (me.isPaper()) {
                 me.plugins.toolmgr = (new Graph.plugin.ToolManager(me))
@@ -5366,11 +5456,6 @@
 
             this.dirty(true);
             this.fire('reset', this.props);
-
-            // invoke core plugins
-            if (this.dragger) {
-                this.dragger.rotate(0);
-            }
         },
 
         invalidate: function(cache) {
@@ -5405,7 +5490,7 @@
                 }
 
                 // update core plugins
-                var plugins = ['resizer', 'network'];
+                var plugins = ['resizer', 'rotator', 'network'];
 
                 _.forEach(plugins, function(name){
                     if (me.plugins[name]) {
@@ -5466,6 +5551,16 @@
             }
 
             return this.plugins.resizer;
+        },
+
+        rotatable: function(options) {
+            if ( ! this.plugins.rotator) {
+                this.plugins.rotator = new Graph.plugin.Rotator(this, options);
+                this.plugins.rotator.on({
+                    afterrotate: _.bind(this.onRotatorAfterRotate, this)
+                });
+            }
+            return this.plugins.rotator;
         },
 
         /**
@@ -5751,6 +5846,32 @@
             return shape;
         },
 
+        shapeOriginal: function() {
+            var shape = this.cached.shapeOriginal;
+
+            if ( ! shape) {
+                var vmatrix = this.matrixView(),
+                    vrotate = vmatrix.rotate().deg;
+
+                shape = this.shape();
+
+                if (vrotate) {
+                    var rmatrix = vmatrix.clone(),
+                        rcenter = this.bboxPristine().center().toJson();
+
+                    rmatrix.rotate(-vrotate, rcenter.x, rcenter.y);
+                    shape = shape.transform(rmatrix);
+
+                } else {
+                    shape = shape.transform(vmatrix);
+                }
+
+                this.cached.shapeOriginal = shape;
+            }
+
+            return shape;
+        },
+
         /**
          * Get shape relative to viewport
          */
@@ -5869,9 +5990,15 @@
         bbox: function() {
             var bbox = this.cached.bbox;
             if ( ! bbox) {
-                var path = this.shape().transform(this.matrix());
+                var path = this.shape(),
+                    matrix = this.matrix();
+
+                path = path.transform(matrix);
                 bbox = path.bbox();
+
                 this.cached.bbox = bbox;
+
+                path = matrix = null;
             }
             return bbox;
         },
@@ -5897,12 +6024,28 @@
 
             if ( ! bbox) {
                 var matrix = this.matrixView(),
-                    shape = this.shape().transform(matrix);
+                    shape = this.shape();
 
+                shape = shape.transform(matrix);
                 bbox = shape.bbox();
+                
                 this.cached.bboxView = bbox;
             }
 
+            return bbox;
+        },
+
+        bboxOriginal: function() {
+            var bbox = this.cached.bboxOriginal;
+            if ( ! bbox) {
+                var shape = this.shapeOriginal(),
+                    rotate = this.matrixView().rotate();
+
+                bbox = shape.bbox();
+                bbox.rotate = rotate;
+                
+                this.cached.bboxOriginal = bbox;
+            }
             return bbox;
         },
 
@@ -6224,8 +6367,14 @@
             this.addClass('graph-selected');
             this.props.selected = true;
 
-            if (initial && this.isResizable()) {
-                this.resizable().resume();
+            if (initial) {
+                if (this.isResizable()) {
+                    this.resizable().resume();
+                }
+
+                if (this.isRotatable()) {
+                    this.rotatable().resume();
+                }
             }
 
             this.fire('select', {
@@ -6250,6 +6399,10 @@
 
             if (this.isResizable()) {
                 this.resizable().suspend();
+            }
+
+            if (this.isRotatable()) {
+                this.rotatable().suspend();
             }
 
             this.fire('deselect', {
@@ -6347,6 +6500,10 @@
             return this.plugins.resizer !== null;
         },
 
+        isRotatable: function() {
+            return this.plugins.rotator !== null;
+        },
+
         isConnectable: function() {
             return this.plugins.network ? true : false;
         },
@@ -6403,6 +6560,10 @@
                 this.plugins.resizer.suspend();
             }
 
+            if (this.plugins.rotator) {
+                this.plugins.rotator.suspend();
+            }
+
             if (this.plugins.editor) {
                 this.plugins.editor.suspend();
             }
@@ -6426,7 +6587,7 @@
 
             e.master = true;
             this.fire(e);
-            
+
             var collector = this.collector();
 
             if (collector) {
@@ -6444,36 +6605,36 @@
             this.fire(e);
         },
 
-        onTransformRotate: function(e) {
+        onTransformerAfterRotate: function(e) {
             this.dirty(true);
-
             this.props.rotate = e.deg;
-            this.fire('rotate', {deg: e.deg});
 
-            // invoke core plugins
-            if (this.plugins.dragger) {
-                var rotate = this.matrixCurrent().rotate();
-                this.plugins.dragger.rotate(rotate.deg);
-            }
+            this.fire('afterrotate', {
+                deg: e.deg
+            });
         },
 
-        onTransformTranslate: function(e) {
+        onTransformerAfterTranslate: function(e) {
             this.dirty(true);
-            this.fire('translate', {dx: e.dx, dy: e.dy});
+            this.fire('aftertranslate', {dx: e.dx, dy: e.dy});
         },
 
-        onTransformScale: function(e) {
+        onTransformerAfterScale: function(e) {
             this.dirty(true);
             this.props.scaleX = e.sx;
             this.props.scaleY = e.sy;
 
-            this.fire('scale', {sx: e.sx, sy: e.sy});
+            this.fire('afterscale', {sx: e.sx, sy: e.sy});
 
             if (this.plugins.dragger) {
                 var scale = this.matrixCurrent().scale();
                 this.plugins.dragger.scale(scale.x, scale.y);
             }
         },
+
+        onRotatorAfterRotate: function(e) {
+            this.fire(e);
+        },  
 
         onActivateTool: function(e) {
             var data = e.originalData;
@@ -7699,6 +7860,7 @@
 
             me.plugins.snapper = new Graph.plugin.Snapper(me);
             me.plugins.toolpad = new Graph.plugin.Toolpad(me);
+            me.plugins.clipper = new Graph.plugin.Clipper(me);
 
             // diagram feature
             me.diagram.enabled = true;
@@ -7937,27 +8099,6 @@
 
     Registry.prototype.register = function(vector) {
         var id = vector.guid(), found = this.get(id);
-        
-        if (found !== vector) {
-            // vector.on('afterresize', function(){
-            //     if (vector.isConnectable()) {
-            //         var delay = _.delay(function(){
-            //             clearTimeout(delay);
-            //             Graph.registry.link.synchronize(vector);
-            //         }, 1);
-            //     }
-            // });
-
-            // vector.on('translate', function(){
-            //     if (vector.isConnectable()) {
-            //         var delay = _.delay(function(){
-            //             clearTimeout(delay);
-            //             Graph.registry.link.synchronize(vector);
-            //         }, 1);
-            //     }
-            // });
-        }
-
         storage[id] = vector;
     };
 
@@ -8958,11 +9099,11 @@
         route: function(start, end) {
             var source = this.source(),
                 sourceNetwork = source.connectable(),
-                sourceBBox = source.bboxView(),
+                sourceBBox = source.bboxOriginal(),
                 sourceBox = sourceBBox.toJson(),
                 target = this.target(),
                 targetNetwork = target.connectable(),
-                targetBBox = target.bboxView(),
+                targetBBox = target.bboxOriginal(),
                 targetBox = targetBBox.toJson(),
                 orient = sourceNetwork.orientation(targetNetwork),
                 direct = sourceNetwork.direction(targetNetwork),
@@ -8976,7 +9117,7 @@
             if ( ! end) {
                 end = targetBBox.center(true);
             }
-            
+
             var sdot, edot;
             
             if (direct) {
@@ -9046,13 +9187,13 @@
                     tuneup = true;
                 }
             }
-            
+
             if (tuneup) {
                 routes = [sdot, edot];
             } else {
                 routes = [start, end];
             }
-            
+
             var cable = Graph.path(Graph.util.points2path(routes));
             var inter;
             
@@ -9061,7 +9202,7 @@
             if (inter.length) {
                 routes[0] = inter[0];
             }
-            
+
             inter = target.shapeView().intersection(cable, true);
             
             if (inter.length) {
@@ -9080,9 +9221,9 @@
         
         repair: function(component, port) {
             var source = this.source(),
-                sourceBBox = source.bboxView(),
+                sourceBBox = source.bboxOriginal(),
                 target = this.target(),
-                targetBBox = target.bboxView(),
+                targetBBox = target.bboxOriginal(),
                 routes = this.values.waypoints,
                 maxlen = routes.length - 1;
             
@@ -9091,11 +9232,11 @@
             } else if (component === target) {
                 routes[maxlen] = port;
             }
-            
+
             var closest;
-            
+
             closest = Router.getClosestIntersect(routes, source.shapeView(), targetBBox.center(true));
-            
+
             if (closest) {
                 routes[0] = closest;
             }
@@ -9408,7 +9549,7 @@
                         point.space = 0;
 
                         points.push(point);
-
+                        
                         if (i === maxlen) {
                             point = curve.pointAt(curve.t(length), true);
                             point.index = i;
@@ -9432,9 +9573,9 @@
                 target = this.target(),
                 sourceNetwork = source.connectable(),
                 targetNetwork = target.connectable(),
-                sourceBBox = source.bboxView(),
+                sourceBBox = source.bboxOriginal(),
                 sourceBox = sourceBBox.toJson(),
-                targetBBox = target.bboxView(),
+                targetBBox = target.bboxOriginal(),
                 targetBox = targetBBox.toJson(),
                 orient = sourceNetwork.orientation(targetNetwork),
                 direct = sourceNetwork.direction(targetNetwork),
@@ -9634,9 +9775,9 @@
             }
 
             var target = this.target(),
-                targetBBox = target.bboxView(),
+                targetBBox = target.bboxOriginal(),
                 source = this.source(),
-                sourceBBox = source.bboxView();
+                sourceBBox = source.bboxOriginal();
 
             var bound1, bound2, center, points, axis, repaired;
 
@@ -10158,6 +10299,8 @@
             command: null
         },
 
+        params: [],
+
         components: {
             block: null,
             coat: null,
@@ -10211,7 +10354,6 @@
 
             var excludes = {
                 type: true,
-                params: true,
                 router_type: true,
                 client_id: true,
                 client_source: true,
@@ -10231,7 +10373,11 @@
                 for (var key in name) {
                     if ( ! excludes[key]) { 
                         map = maps[key] || key;
-                        this.props[map] = name[key];    
+                        if (key == 'params') {
+                            this.params = name[key];
+                        } else {
+                            this.props[map] = name[key];        
+                        }
                     }
                 }
                 return this;
@@ -10243,7 +10389,11 @@
 
             if ( ! excludes[name]) {
                 map = maps[name] || name;
-                this.props[map] = value;    
+                if (name == 'params') {
+                    this.params = value;
+                } else {
+                    this.props[map] = value;        
+                }
             }
 
             return this;
@@ -10392,7 +10542,7 @@
 
             handlers.afterresize = _.bind(getHandler(this, type, 'AfterResize'), this);
             handlers.select = _.bind(getHandler(this, type, 'Select'), this);
-            handlers.rotate = _.bind(getHandler(this, type, 'Rotate'), this);
+            handlers.afterrotate = _.bind(getHandler(this, type, 'AfterRotate'), this);
             handlers.beforedrag = _.bind(getHandler(this, type, 'BeforeDrag'), this, _, resource);
             handlers.drag = _.bind(getHandler(this, type, 'Drag'), this);
             handlers.afterdrag = _.bind(getHandler(this, type, 'AfterDrag'), this);
@@ -10402,9 +10552,9 @@
             this.props[type] = resource.guid();
 
             resource.on('afterresize.link', handlers.afterresize);
-            resource.on('rotate.link', handlers.rotate);
+            resource.on('afterrotate.link', handlers.afterrotate);
+            resource.on('beforedestroy.link', handlers.beforedestroy);
             resource.on('select.link', handlers.select);
-            resource.on('beforedestroy', handlers.beforedestroy);
 
             // VERY EXPENSIVE!!!
             if (resource.isDraggable()) {
@@ -10778,14 +10928,12 @@
                     sourceType: sourceShape ? 'shape' : 'vector',
                     target: targetShape ? targetShape.guid() : target.guid(),
                     targetType: targetShape ? 'shape' : 'vector',
-                    convex: true,
-                    smooth: true,
+                    convex: 1,
+                    smooth: this.props.smooth ? 1 : 0,
                     smoothness: this.props.smoothness
                 },
 
-                params: [
-                    {key: 'Data source', value: 'db.example'}
-                ]
+                params: this.params
             };
 
             return link;
@@ -10907,8 +11055,17 @@
 
         ///////// OBSERVERS /////////
 
-        onSourceRotate: function() {
+        onSourceAfterRotate: function(e) {
+            var matrix = this.router.source().matrix(),
+                oport = this.router.tail(),
+                nport = {
+                    x: matrix.x(oport.x, oport.y),
+                    y: matrix.y(oport.x, oport.y)
+                },
+                dx = nport.x - oport.x,
+                dy = nport.y - oport.y;
 
+            this.relocateTail(dx, dy);
         },
 
         onSourceSelect: function(e) {
@@ -10938,14 +11095,16 @@
 
         onSourceAfterDrag: function(e) {
             var source = this.router.source(),
-                target = this.router.target();
+                target = this.router.target(),
+                dx = e.tx,
+                dy = e.ty;
 
             if (source.isSelected()) {
                 if ( ! target.isSelected()) {
-                    this.relocateTail(e.dx, e.dy);
+                    this.relocateTail(dx, dy);
                 }
             } else {
-                this.relocateTail(e.dx, e.dy);
+                this.relocateTail(dx, dy);
             }
         },
 
@@ -10959,8 +11118,17 @@
             }
         },
 
-        onTargetRotate: function() {
+        onTargetAfterRotate: function(e) {
+            var matrix = this.router.target().matrix(),
+                oport = this.router.head(),
+                nport = {
+                    x: matrix.x(oport.x, oport.y),
+                    y: matrix.y(oport.x, oport.y)
+                },
+                dx = nport.x - oport.x,
+                dy = nport.y - oport.y;
 
+            this.relocateHead(dx, dy);
         },
 
         onTargetSelect: function(e) {
@@ -10990,14 +11158,16 @@
 
         onTargetAfterDrag: function(e) {
             var target = this.router.target(),
-                source = this.router.source();
+                source = this.router.source(),
+                dx = e.tx,
+                dy = e.ty;
 
             if (target.isSelected()) {
                 if ( ! source.isSelected()) {
-                    this.relocateHead(e.dx, e.dy);
+                    this.relocateHead(dx, dy);
                 }
             } else {
-                this.relocateHead(e.dx, e.dy);
+                this.relocateHead(dx, dy);
             }
         },
 
@@ -11274,7 +11444,7 @@
 
                 command = Graph.util.segments2path(segments);
             }
-
+            
             if (smooth) {
                 radius = this.props.smoothness || 6;
                 segments = segments || Graph.util.path2segments(command).slice();
@@ -11905,7 +12075,8 @@
             'resizer': 'resizable',
             'snapper': 'snappable',
             'dragger': 'draggable',
-            'editor': 'editable'
+            'editor': 'editable',
+            'rotator': 'rotatable'
         };
 
         return maps[plugin];
@@ -12001,15 +12172,7 @@
         me.props = {
             vector: guid
         };
-
-        me.navigationKeys = [
-            Graph.event.ENTER,
-            Graph.event.DELETE,
-            Graph.event.SHIFT,
-            Graph.event.CTRL,
-            Graph.event.ESC
-        ];
-
+        
         me.listeners = listeners || {};
 
         var vendor = vendors[guid] = interact(node);
@@ -12030,26 +12193,6 @@
                 }
             }
         });
-
-        if (vector.isPaper()) {
-            var doc = Graph.$(document);
-
-            doc.on('keydown', function(e){
-                if (me.isNavigation(e) && Graph.cached.paper == guid) {
-                    e.originalType = 'keynavdown';
-                    vector.fire(e); 
-                }
-            });
-
-            doc.on('keyup', function(e){
-                if (me.isNavigation(e) && Graph.cached.paper == guid) {
-                    e.originalType = 'keynavup';
-                    vector.fire(e);
-                }
-            });
-
-            doc = null;
-        }
 
         vendor = null;
 
@@ -12075,11 +12218,6 @@
         }
     };
 
-    Reactor.prototype.isNavigation = function(e) {
-        var key = e.keyCode;
-        return _.indexOf(this.navigationKeys, key) > -1;
-    };
-    
     Reactor.prototype.vendor = function() {
         return vendors[this.props.vector];
     };
@@ -12110,123 +12248,6 @@
     Reactor.prototype.toString = function() {
         return 'Graph.plugin.Reactor';
     };
-
-    /*var Reactor = Graph.plugin.Reactor = Graph.extend(Graph.plugin.Plugin, {
-
-        props: {
-            vector: null
-        },
-
-        navigationKeys: [
-            Graph.event.ENTER,
-            Graph.event.DELETE,
-            Graph.event.SHIFT,
-            Graph.event.CTRL,
-            Graph.event.ESC
-        ],
-
-        constructor: function(vector, listeners) {
-            var me = this, 
-                node = vector.node(),
-                guid = vector.guid();
-
-            var vendor;
-
-            me.props.vector = guid;
-            me.listeners = listeners || {};
-
-
-            vendor = vendors[guid] = interact(node);
-
-            vendor.on('down', function reactorDown(e){
-                if (e.target === node) {
-                    e.originalType = 'pointerdown';
-                    Graph.topic.publish('vector:pointerdown', {vector: vector});
-                    vector.fire(e);
-                }
-            }, true);
-
-            vector.elem.on({
-                contextmenu: function(e) {
-                    if (e.currentTarget === node) {
-                        vector.fire(e);
-                        // e.preventDefault();
-                    }
-                }
-            });
-
-            if (vector.isPaper()) {
-                var doc = Graph.$(document);
-
-                doc.on('keydown', function(e){
-                    if (me.isNavigation(e) && Graph.cached.paper == guid) {
-                        e.originalType = 'keynavdown';
-                        vector.fire(e); 
-                    }
-                });
-
-                doc.on('keyup', function(e){
-                    if (me.isNavigation(e) && Graph.cached.paper == guid) {
-                        e.originalType = 'keynavup';
-                        vector.fire(e);
-                    }
-                });
-
-                doc = null;
-            }
-
-            vendor = null;
-        },
-
-        isNavigation: function(e) {
-            var key = e.keyCode;
-            return _.indexOf(this.navigationKeys, key) > -1;
-        },
-        
-        vendor: function() {
-            return vendors[this.props.vector];
-        },
-
-        draggable: function(options) {
-            return this.vendor().draggable(options);
-        },
-
-        dropzone: function(options) {
-            return this.vendor().dropzone(options);
-        },
-
-        gesturable: function(options) {
-            return this.vendor().gesturable(options);
-        },
-
-        destroy: function() {
-            var guid = this.props.vector,
-                vendor = vendors[guid];
-
-            if (vendor) {
-                vendor.unset();
-            }
-
-            delete vendors[guid];
-        },
-
-        toString: function() {
-            return 'Graph.plugin.Reactor';
-        }
-    });
-
-    var on  = Reactor.prototype.on,
-        off = Reactor.prototype.off;
-
-    Reactor.prototype.on = function(event, handler) {
-        var vector = this.vector();
-        return on.apply(vector, [event, handler]);
-    };
-
-    Reactor.prototype.off = function(event, handler) {
-        var vector = this.vector();
-        return off.apply(vector, [event, handler]);
-    };*/
 
 }());
 
@@ -12394,19 +12415,20 @@
             vector.graph.matrix = mat;
             vector.attr('transform', mat.toValue());
 
+
             if (events.translate) {
                 events.translate = {
                     dx: mat.e,
                     dy: mat.f
                 };
-                this.fire('translate', events.translate);
+                this.fire('aftertranslate', events.translate);
             }
 
             if (events.rotate) {
                 events.rotate = {
                     deg: deg
                 };
-                this.fire('rotate', events.rotate);
+                this.fire('afterrotate', events.rotate);
             }
 
             if (events.scale) {
@@ -12414,7 +12436,7 @@
                     sx: sx,
                     sy: sy
                 };
-                this.fire('scale', events.scale);
+                this.fire('afterscale', events.scale);
             }
 
             this.actions = [];
@@ -13352,11 +13374,13 @@
 
             if ( ! vertices) {
                 // get original bounding
-                var path = vector.shape(),
-                    bbox = path.bbox().toJson(),
-                    rotate = vector.matrixCurrent().rotate();
-
+                var path, bbox, rotate;
                 var ro, cx, cy, ox, oy, hs, hw, hh;
+
+                path = vector.shape();
+                bbox = path.bbox().toJson();
+                // rotate = vector.matrixCurrent().rotate();
+                rotate = vector.matrix().rotate();
 
                 ro = rotate.deg;
                 cx = 0;
@@ -13364,7 +13388,7 @@
                 ox = bbox.x;
                 oy = bbox.y;
                 hs = me.props.handleSize / 2;
-
+                
                 if (ro) {
                     var rmatrix = Graph.matrix(),
                         path = vector.shapeRelative();
@@ -13376,7 +13400,12 @@
 
                     path = path.transform(rmatrix);
                     bbox = path.bbox().toJson();
+                } else {
+                    var vmatrix = vector.matrix();
+                    path = path.transform(vmatrix);
+                    bbox = path.bbox().toJson();
                 }
+                
 
                 hw = bbox.width / 2;
                 hh = bbox.height / 2;
@@ -13585,12 +13614,18 @@
         },
 
         onHandleBeforeDrag: function(e) {
-            var me = this, handle = e.publisher;
+            var me = this, 
+                vector = me.vector(), 
+                handle = e.publisher;
 
             me.fire('beforeresize', {
                 resizer: this,
                 direction: handle.props.dir
             });
+
+            if (vector.isRotatable()) {
+                vector.rotatable().suspend();
+            }
 
             _.forOwn(me.components.handle, function(id, dir){
                 var h = me.handle(dir);
@@ -13750,6 +13785,10 @@
             
             me.redraw();
             me.fire('afterresize', resize);
+
+            if (vector.isRotatable()) {
+                vector.rotatable().resume();
+            }
         },
 
         toString: function() {
@@ -13826,6 +13865,410 @@
 
         return origin;
     }
+
+}());
+
+(function(){
+
+    Graph.plugin.Rotator = Graph.extend(Graph.plugin.Plugin, {
+
+        props: {
+            vector: null,
+            enabled: true,
+            suspended: true,
+            handleImage: null,
+            handleSize: null,
+            rendered: false
+        },
+
+        components: {
+            helper: null,
+            handle: null,
+            holder: null,
+            circle: null,
+            radius: null
+        },
+
+        constructor: function(vector, options) {
+            var guid = vector.guid();
+
+            options = options || {};
+
+            _.assign(this.props, options);
+
+            this.props.vector = guid;
+            this.props.handleImage = Graph.config.base + 'img/' + Graph.config.rotator.image;
+            this.props.handleSize = Graph.config.rotator.size;
+
+            this.initComponent();
+        },
+
+        invalidate: function()  {
+            this.superclass.prototype.invalidate.call(this);
+        },
+
+        initComponent: function() {
+            var holder, helper, handle, circle, radius;
+
+            holder = (new Graph.svg.Group())    
+                .removeClass(Graph.styles.VECTOR)
+                .addClass('graph-rotator');
+
+            holder.elem.group('graph-rotator');
+            holder.on('render.rotator', _.bind(this.setup, this));
+
+            helper = (new Graph.svg.Rect(0, 0, 0, 0, 0))
+                .removeClass(Graph.styles.VECTOR)
+                .addClass('graph-rotator-helper')
+                .selectable(false)
+                .clickable(false)
+                .render(holder);
+
+            handle = (new Graph.svg.Image(
+                this.props.handleImage, 
+                0, 
+                0, 
+                this.props.handleSize - 2, 
+                this.props.handleSize
+            ))
+            .selectable(false)
+            .removeClass(Graph.styles.VECTOR)
+            .addClass('graph-rotator-handle')
+            .render(holder);
+
+            handle.elem.group('graph-rotator');
+
+            radius = (new Graph.svg.Line())
+                .selectable(false)
+                .clickable(false)
+                .removeClass(Graph.styles.VECTOR)
+                .render(holder);
+
+            circle = (new Graph.svg.Circle(0, 0, 5))
+                .selectable(false)
+                .clickable(false)
+                .removeClass(Graph.styles.VECTOR)
+                .render(holder);
+
+            this.components.helper = helper.guid();
+            this.components.handle = handle.guid();
+            this.components.holder = holder.guid();
+            this.components.circle = circle.guid();
+            this.components.radius = radius.guid();
+            this.suspendHelper();
+
+            holder = handle = helper = circle = radius = null;
+        },
+
+        setup: function() {
+
+            var me = this,
+                vector = this.vector(),
+                layout = vector.paper().layout(),
+                helper = this.helper(),
+                handle = this.handle(),
+                holder = this.holder(),
+                radius = this.radius(),
+                handleNode = handle.node();
+
+            var trans = {
+                scale: null,
+                center: null,
+                translate: null,
+                move: null,
+                rotate: null,
+                snaps: null,
+                resizing: null
+            };
+
+            handle.interactable().draggable({
+                manualStart: true,
+                onstart: function(e) {
+
+                    var matrix = vector.matrix();
+                    var center, radian;
+
+                    trans.scale = layout.scale();
+                    trans.origin = handle.bbox().center().toJson();
+                    trans.target = {x: trans.origin.x, y: trans.origin.y};
+                    trans.move = {x: 0, y: 0};
+                    trans.rotate = matrix.rotate().deg;
+                    trans.snaps = [0, 45, 90, -135, -180, -225, -90, -45];
+                    trans.resizing = vector.isResizable() && vector.resizable().props.suspended === false;
+                    
+                    center = helper.bbox().center().toJson();
+                    trans.center = center;
+
+                    radian = holder.matrixCurrent().rotate().rad;
+                    trans.radian = {
+                        sin: Math.sin(radian),
+                        cos: Math.cos(radian)
+                    };
+
+                    if (trans.resizing) {
+                        vector.resizable().suspend();
+                    }
+
+                    me.resumeHelper();
+                },
+                onmove: function(e) {
+                    var edx = e.dx,
+                        edy = e.dy;
+
+                    var transform, rad, deg, dx, dy, tx, ty;
+
+                    trans.matrix = new Graph.lang.Matrix();
+
+                    // scaling
+                    edx /= trans.scale.x;
+                    edy /= trans.scale.y;
+
+                    // radian
+                    dx = edx *  trans.radian.cos + edy * trans.radian.sin;
+                    dy = edx * -trans.radian.sin + edy * trans.radian.cos;
+
+                    trans.move.x += dx;
+                    trans.move.y += dy;
+
+                    tx = trans.move.x + trans.origin.x;
+                    ty = trans.move.y + trans.origin.y;
+
+                    trans.target = {x: tx, y: ty};
+
+                    // rad = Math.atan2((ty - trans.center.y), (tx - trans.center.x));
+                    rad = Math.atan2((trans.center.y - ty), (trans.center.x - tx));
+                    deg = Math.round(rad * 180 / Math.PI - 90);
+
+                    // snapping
+                    deg = Graph.util.snapValue(deg, trans.snaps, 5);
+                    
+                    trans.matrix.rotate(deg, trans.center.x, trans.center.y);
+                    trans.rotate = deg;
+
+                    transform = trans.matrix.toValue();
+
+                    handle.attr('transform', transform);
+                    helper.attr('transform', transform);
+                    radius.attr('transform', transform);
+                },
+
+                onend: function() {
+                    var vmatrix = vector.matrix(),
+                        vcenter = vector.bboxPristine().center().toJson(),
+                        vrotate = vmatrix.rotate().deg,
+                        drotate = trans.rotate - vrotate;
+
+                    var cx, cy;
+
+                    cx = vcenter.x;
+                    cy = vcenter.y;
+
+                    vmatrix.rotate(drotate, cx, cy);
+                    vector.attr('transform', vmatrix.toValue());
+                    vector.dirty(true);
+
+                    me.redraw();
+
+                    if (trans.resizing) {
+                        vector.resizable().resume();
+                    }
+
+                    me.fire('afterrotate', {
+                        deg: trans.rotate - 90,
+                        cx: cx,
+                        cy: cy
+                    });
+
+                }
+            })
+            .on('down', function(e){
+                e.preventDefault();
+                e.stopPropagation();
+            })
+            .on('move', function(e){
+                if (me.props.enabled) {
+                    var i = e.interaction;
+                    if (i.pointerIsDown && ! i.interacting()) {
+                        var a = {name: 'drag'};
+                        i.prepared.name = a.name;
+                        i.setEventXY(i.startCoords, i.pointers);
+
+                        if (e.currentTarget === handleNode) {
+                            i.start(a, e.interactable, handleNode);    
+                        }
+                    }    
+                }
+            });
+        },
+
+        holder: function() {
+            return Graph.registry.vector.get(this.components.holder);
+        },
+
+        helper: function() {
+            return Graph.registry.vector.get(this.components.helper);
+        },
+
+        circle: function() {
+            return Graph.registry.vector.get(this.components.circle);
+        },
+
+        radius: function() {
+            return Graph.registry.vector.get(this.components.radius);
+        },
+
+        handle: function() {
+            return Graph.registry.vector.get(this.components.handle);
+        },
+
+        resume: function() {
+            if ( ! this.props.enabled) {
+                return;
+            }
+
+            if (this.props.suspended) {
+                this.props.suspended = false;
+
+                if ( ! this.props.rendered) {
+                    this.render();
+                } else {
+                    this.vector().parent().elem.append(this.holder().elem);
+                    this.redraw();
+                }
+            }
+        },
+
+        resumeHelper: function() {
+            var vector, key;
+            for (key in this.components) {
+                if (['holder', 'handle'].indexOf(key) === -1) {
+                    vector = this[key]();
+                    vector && vector.show();
+                }
+            }
+        },
+
+        suspend: function() {
+            this.props.suspended = true;
+            this.holder().elem.detach();
+        },
+
+        suspendHelper: function() {
+            var vector, key;
+            for (key in this.components) {
+                if (['holder', 'handle'].indexOf(key) === -1) {
+                    vector = this[key]();
+                    vector && vector.hide();
+                }
+            }
+        },
+
+        render: function() {
+            if (this.props.rendered) {
+                this.redraw();
+                return;
+            }
+
+            this.props.rendered = true;
+            this.holder().render(this.vector().parent());
+            this.redraw();
+        },
+
+        redraw: function() {
+            
+            var vector = this.vector(),
+                holder = this.holder(),
+                helper = this.helper(),
+                handle = this.handle(),
+                circle = this.circle(),
+                radius = this.radius(),
+                rotate = vector.matrix().rotate().deg;
+
+            var bound = vector.bbox().toJson(),
+                edge = 30;
+
+            var cx, cy;
+
+            if (rotate) {
+                var rmatrix = Graph.matrix(),
+                    rpath = vector.shapeRelative();
+
+                cx = bound.x + bound.width / 2,
+                cy = bound.y + bound.height / 2;
+
+                rmatrix.rotate(-rotate, cx, cy);
+
+                rpath = rpath.transform(rmatrix);
+                bound = rpath.bbox().toJson();
+
+            } else {
+                var vmatrix = vector.matrix(),
+                    vpath = vector.shape();
+
+                vpath = vpath.transform(vmatrix);
+                bound = vpath.bbox().toJson();
+
+                cx = bound.x + bound.width / 2;
+                cy = bound.y + bound.height / 2;
+            }
+
+            
+
+            // reset first
+            helper.reset();
+            handle.reset();
+            radius.reset();
+
+            helper.attr({
+                x: bound.x,
+                y: bound.y,
+                width: bound.width,
+                height: bound.height
+            });
+
+            var hw = (this.props.handleSize - 2) / 2,
+                hh = (this.props.handleSize) / 2,
+                hx = cx - hw,
+                hy = bound.y - edge - hh;
+
+            circle.attr({
+                cx: cx, 
+                cy: cy
+            });
+
+            handle.attr({
+                x: hx, 
+                y: hy
+            });
+
+            radius.attr({
+                x1: cx,
+                y1: cy,
+                x2: cx,
+                y2:  bound.y - edge + hh
+            });
+
+            handle.rotate(rotate, cx, cy).commit();
+            helper.rotate(rotate, cx, cy).commit();
+            radius.rotate(rotate, cx, cy).commit();
+
+            holder = helper = bound = handle = radius = circle = null;
+        },
+
+        destroy: function() {
+            var key, cmp;
+
+            for (key in this.components) {
+                cmp = this[key]();
+                if (cmp) {
+                    cmp.remove();
+                    this.components[key] = cmp = null;
+                }
+            }
+
+        }
+
+    });
 
 }());
 
@@ -14040,7 +14483,11 @@
 
                 if (vector) {
                     if ( ! vector.isSelectable()) {
-                        if ( ! vector.elem.belong('graph-resizer') && ! vector.elem.belong('graph-link')) {
+                        if ( 
+                            ! vector.elem.belong('graph-resizer') && 
+                            ! vector.elem.belong('graph-link') && 
+                            ! vector.elem.belong('graph-rotator')
+                        ) {
                             if (single) {
                                 me.clearCollection();
                             }
@@ -14162,12 +14609,21 @@
             me.collection.each(function(v){
                 if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(){
-                        var mat = v.graph.matrix.data(),
-                            sin = mat.sin,
-                            cos = mat.cos;
+                        // var mat = v.graph.matrix.data(),
+                        //     sin = mat.sin,
+                        //     cos = mat.cos;
 
-                        if (v.plugins.resizer && ! v.plugins.resizer.suspended) {
+                        var rotate = v.matrixCurrent().rotate(),
+                            rad = rotate.rad,
+                            sin = Math.sin(rad),
+                            cos = Math.cos(rad);
+
+                        if (v.plugins.resizer && ! v.plugins.resizer.props.suspended) {
                             v.plugins.resizer.suspend();
+                        }
+
+                        if (v.plugins.rotator && ! v.plugins.rotator.props.suspended) {
+                            v.plugins.rotator.suspend();
                         }
 
                         if (v.plugins.dragger.props.ghost) {
@@ -14197,17 +14653,16 @@
         },
 
         syncDrag: function(master, e) {
-            var me = this, dx, dy;
+            var me = this;
 
             me.collection.each(function(v){
                 if (v.plugins.dragger && v.plugins.dragger.props.enabled && v !== master) {
                     (function(v, e){
-
-                        var dx = e.ox *  v.syncdrag.cos + e.oy * v.syncdrag.sin,
-                            dy = e.ox * -v.syncdrag.sin + e.oy * v.syncdrag.cos;
+                        var dx = e.tx *  v.syncdrag.cos + e.ty * v.syncdrag.sin,
+                            dy = e.tx * -v.syncdrag.sin + e.ty * v.syncdrag.cos;
 
                         if (v.plugins.dragger.props.ghost) {
-                            v.plugins.dragger.helper().translate(e.ox, e.oy).commit();
+                            v.plugins.dragger.helper().translate(dx, dy).commit();
                         } else {
                             v.translate(dx, dy).commit();
                         }
@@ -14373,7 +14828,7 @@
             me.cached.origin = null;
 
             me.initComponent();
-
+            
             vector.on('render.dragger', _.bind(me.onVectorRender, me));
 
             if (vector.props.rendered) {
@@ -14448,13 +14903,6 @@
 
             vendor.on('down', _.bind(me.onPointerDown, me));
 
-            var matrix = vector.matrixCurrent(),
-                rotate = matrix.rotate(),
-                scale  = matrix.scale();
-
-            me.rotate(rotate.deg);
-            me.scale(scale.x, scale.y);
-
             if (me.props.grid) {
                 me.snap({
                     mode: 'grid',
@@ -14515,35 +14963,39 @@
         redraw: function() {
             if (this.props.ghost) {
                 var vector = this.vector(),
-                    helper = this.helper();    
+                    helper = this.helper(),
+                    matrix = vector.matrix(),
+                    rotate = matrix.rotate().deg,
+                    bound = vector.bbox().toJson();
 
-                var vbox = vector.bbox().toJson(),
-                    hbox = helper.bbox().toJson();
+                var cx, cy;
 
-                var dx = vbox.x - hbox.x,
-                    dy = vbox.y - hbox.y;
+                if (rotate) {
+                    var rmatrix = Graph.matrix(),
+                        rpath = vector.shapeRelative();
 
-                helper.translate(dx, dy).commit();
+                    cx = bound.x + bound.width / 2,
+                    cy = bound.y + bound.height /2;
+
+                    rmatrix.rotate(-rotate, cx, cy);
+
+                    rpath = rpath.transform(rmatrix);
+                    bound = rpath.bbox().toJson();
+                }
+
+                helper.reset();
 
                 helper.attr({
-                    width: vbox.width,
-                    height: vbox.height
+                    x: bound.x,
+                    y: bound.y,
+                    width: bound.width,
+                    height: bound.height
                 });
+
+                if (rotate) {
+                    helper.rotate(rotate, cx, cy).commit();
+                }
             }
-        },
-
-        rotate: function(deg) {
-            var rad = Graph.util.rad(deg);
-            this.rotation.deg = deg;
-            this.rotation.rad = rad;
-            this.rotation.sin = Math.sin(rad);
-            this.rotation.cos = Math.cos(rad);
-        },
-
-        scale: function(sx, sy) {
-            sy = _.defaultTo(sy, sx);
-            this.scaling.x = sx;
-            this.scaling.y = sy;
         },
 
         origin: function(origin) {
@@ -14719,8 +15171,19 @@
 
             this.dragging.dx = 0;
             this.dragging.dy = 0;
-            this.dragging.hx = 0;
-            this.dragging.hy = 0;
+            this.dragging.tx = 0;
+            this.dragging.ty = 0;
+
+            var matrix = vector.matrixCurrent(),
+                rotate = matrix.rotate(),
+                scale  = matrix.scale();
+
+            this.dragging.deg = rotate.deg;
+            this.dragging.rad = rotate.rad;
+            this.dragging.sin = Math.sin(rotate.rad);
+            this.dragging.cos = Math.cos(rotate.rad);
+            this.dragging.sx = scale.x;
+            this.dragging.sy = scale.y;
 
             var edata = {
                 x: e.clientX,
@@ -14744,49 +15207,37 @@
                 helper = dragging.helper,
                 ghost = this.props.ghost,
                 axs = this.props.axis,
-                deg = this.rotation.deg,
-                sin = this.rotation.sin,
-                cos = this.rotation.cos,
-                scaleX = this.scaling.x,
-                scaleY = this.scaling.y;
+                deg = dragging.deg,
+                sin = dragging.sin,
+                cos = dragging.cos,
+                scaleX = dragging.sx,
+                scaleY = dragging.sy;
 
-            // check current scaling
-            var scaling = vector.matrixCurrent().scale();
+            var tx = _.defaultTo(e.dx, 0),
+                ty = _.defaultTo(e.dy, 0);
 
-            if (scaling.x !== scaleX || scaling.y !== scaleY) {
-                this.scale(scaling.x, scaling.y);
-                scaleX = scaling.x;
-                scaleY = scaling.y;
-            }
+            var dx, dy, mx, my;
 
-            var edx = _.defaultTo(e.dx, 0),
-                edy = _.defaultTo(e.dy, 0);
+            dx = dy = mx = my = 0;
 
-            var dx, dy, hx, hy, tx, ty;
-
-            dx = dy = hx = hy = tx = ty = 0;
-
-            edx /= scaleX;
-            edy /= scaleY;
+            tx /= scaleX;
+            ty /= scaleY;
             
             if (axs == 'x') {
-                dx = hx = edx;
-                dy = hy = 0;
+                dx = tx;
+                dy = 0;
 
-                tx = edx *  cos + 0 * sin;
-                ty = edx * -sin + 0 * cos;
+                mx = tx *  cos + 0 * sin;
+                my = tx * -sin + 0 * cos;
             } else if (axs == 'y') {
-                dx = hx = 0;
-                dy = hy = edy;
+                dx = 0;
+                dy = ty;
 
-                tx = 0 *  cos + edy * sin;
-                ty = 0 * -sin + edy * cos;
+                mx = 0 *  cos + ty * sin;
+                my = 0 * -sin + ty * cos;
             } else {
-                hx = edx;
-                hy = edy;
-
-                dx = tx = edx *  cos + edy * sin;
-                dy = ty = edx * -sin + edy * cos;
+                dx = mx = tx *  cos + ty * sin;
+                dy = my = tx * -sin + ty * cos;
             }
 
             // check restriction
@@ -14795,28 +15246,22 @@
             if (restriction) {
                 var coord = this.dragging.coord;
 
-                if (helper) {
-                    coord.x += hx;
-                    coord.y += hy;
-                } else {
-                    coord.x += dx;
-                    coord.y += dy;
-                }
+                coord.x += dx;
+                coord.y += dy;
 
                 if (coord.x < restriction.left || coord.x > restriction.right) {
-                    hx = dx = tx = edx = 0;
+                    dx = mx = tx = 0;
                 }
                 
                 if (coord.y < restriction.top || coord.y > restriction.bottom) {
-                    hy = dy = ty = edy = 0;
+                    dy = my = ty = 0;
                 }
             }
 
-            this.dragging.dx += tx;
-            this.dragging.dy += ty;
-
-            this.dragging.hx += hx;
-            this.dragging.hy += hy;
+            this.dragging.dx += mx;
+            this.dragging.dy += my;
+            this.dragging.tx += tx;
+            this.dragging.ty += ty;
 
             var pageX = _.defaultTo(e.pageX, e.x0),
                 pageX = _.defaultTo(e.pageY, e.y0);
@@ -14828,17 +15273,11 @@
                 pageX: pageX,
                 pageY: pageX,
 
-                ex: edx,
-                ey: edy,
+                tx: tx,
+                ty: ty,
 
                 dx: dx,
                 dy: dy,
-
-                hx: hx,
-                hy: hy,
-
-                ox: hx,
-                oy: hy,
 
                 ghost: this.props.ghost
             };
@@ -14846,7 +15285,7 @@
             this.fire('drag', event);
 
             if (ghost) {
-                helper.translate(event.hx, event.hy).commit();
+                helper.translate(event.dx, event.dy).commit();
             } else {
                 vector.translate(event.dx, event.dy).commit();
             }
@@ -14860,11 +15299,12 @@
                 ghost = this.props.ghost,
                 dx = dragging.dx,
                 dy = dragging.dy,
-                hx = dragging.hx,
-                hy = dragging.hy;
+                tx = dragging.tx,
+                ty = dragging.ty;
 
             if (ghost) {
                 vector.translate(dx, dy).commit();
+
                 this.redraw();
                 this.suspend();
             }
@@ -14875,6 +15315,8 @@
             var edata = {
                 dx: dx,
                 dy: dy,
+                tx: tx,
+                ty: ty,
                 ghost: this.props.ghost
             };
 
@@ -14886,17 +15328,10 @@
 
             this.fire('afterdrag', edata);
 
-            this.dragging.vector = null;
-            this.dragging.paper = null;
-            this.dragging.helper = null;
+            for (var key in this.dragging) {
+                this.dragging[key] = null;
+            }
 
-            this.dragging.dx = 0;
-            this.dragging.dy = 0;
-            this.dragging.hx = 0;
-            this.dragging.hy = 0;
-            this.dragging.coord = null;
-
-            
         },
 
         destroy: function() {
@@ -15223,8 +15658,8 @@
         },
 
         orientation: function(network) {
-            var sourceBox = this.vector().bboxView().toJson(),
-                targetBox = network.vector().bboxView().toJson(),
+            var sourceBox = this.vector().bboxOriginal().toJson(),
+                targetBox = network.vector().bboxOriginal().toJson(),
                 orientation = Graph.util.boxOrientation(sourceBox, targetBox, this.treshold());
 
             sourceBox = targetBox = null;
@@ -16218,6 +16653,13 @@
                     this.suspend();
                 }
                 return;
+            } else {
+                if (source.isPaper()) {
+                    this.invalidate();
+                    this.suspend();
+                    paper.tool().activate('panzoom');
+                    return;
+                }
             }
             
             this.linking.visits = [];
@@ -16242,7 +16684,7 @@
                 if (source.isConnectable()) {
                     
                     if ( ! this.linking.source) {
-                        sbox = source.bboxView();
+                        sbox = source.bboxOriginal();
                         port = sbox.center(true);
 
                         this.linking.source = source;
@@ -16354,11 +16796,11 @@
 
                         if (source.connectable().canConnect(target.connectable())) {
                             valid  = true;
-                            
+
                             target.removeClass(CLS_CONNECT_INVALID);
                             target.addClass(CLS_CONNECT_VALID);
                             
-                            tbox = target.bboxView();
+                            tbox = target.bboxOriginal();
                             port = tbox.center(true);
 
                             this.linking.target = target;
@@ -17509,20 +17951,136 @@
 
 (function(){
 
+    Graph.plugin.Clipper = Graph.extend(Graph.plugin.Plugin, {
+
+        props: {
+            vector: null
+        },
+
+        constructor: function(vector) {
+            var me = this,
+                guid = vector.guid();
+
+            me.props.vector = guid;
+
+            if (vector.isPaper()) {
+                vector.on('keycopy', function(e){
+                    me.copy();
+                });
+
+                vector.on('keypaste', function(e){
+                    me.paste();
+                });
+            }
+
+            me.cached.clips = null;
+            me.cached.paste = 1;
+        },
+
+        vector: function() {
+            return Graph.registry.vector.get(this.props.vector);
+        },
+
+        invalidate: function() {
+            this.cached.clips = null;
+        },
+
+        cut: function() {
+
+        },
+
+        copy: function() {
+            var me = this,
+                paper = this.vector(),
+                selection = paper.collector().collection.toArray().slice();
+
+            me.cached.paste = 1;
+
+            if (selection.length) {
+                var clips = [],
+                    excludes = { 
+                        guid: true,
+                        id: true
+                    };
+
+                _.forEach(selection, function(vector){
+                    var shape = Graph.registry.shape.get(vector);
+                    if (shape) {
+                        var data = shape.toJson(),
+                            clip = {};
+                        var key, val;
+
+                        for (key in data.props) {
+                            val = data.props[key];
+                            if ( ! excludes[key]) {
+                                clip[key] = val;
+                            }
+                        }
+                        clips.push(clip);
+                    }
+                });
+                this.cached.clips = clips;
+            } else {
+                this.cached.clips = null;
+            }
+        },
+
+        paste: function() {
+            var me = this,
+                clips = this.cached.clips,
+                paper = this.vector(),
+                scale = paper.layout().scale(),
+                collector = paper.collector();
+
+            if (clips && clips.length) {
+
+                collector.clearCollection();
+
+                _.forEach(clips, function(clip){
+                    var prop = _.cloneDeep(clip);  
+
+                    if (prop.left !== undefined) {
+                        prop.left += me.cached.paste * 20 / scale.x;
+                    }
+
+                    if (prop.top !== undefined) {
+                        prop.top += me.cached.paste * 20 / scale.y;
+                    }
+
+                    var shape = Graph.factory(Graph.ns(clip.type), [prop]);
+                    shape.render(paper);
+                    shape.select();
+                });
+
+                me.cached.paste++;
+            }
+        }
+
+    });
+
+}());
+
+(function(){
+
     var Shape = Graph.shape.Shape = Graph.extend({
 
         props: {
             id: null,
             guid: null,
             mode: null,
+            left: 0,
+            top: 0,
             width: 0,
             height: 0,
+            rotate: 0,
             label: '',
             alias: '',
             fill: 'rgb(255, 255, 255)',
             stroke: 'rgb(0, 0, 0)',
             strokeWidth: 2
         },
+
+        params: [],
 
         components: {
             shape: null,
@@ -17545,7 +18103,8 @@
             type: null,
             icon: Graph.icons.SHAPE,
             style: 'graph-shape',
-            tools: null
+            tools: null,
+            params: []
         },
 
         cached: {
@@ -17600,8 +18159,7 @@
                 client_parent: true,
                 client_pool: true,
                 diagram_id: true,
-                parent_id: true,
-                params: true
+                parent_id: true
             };
 
             var maps = {
@@ -17614,7 +18172,11 @@
                 for (key in name) {
                     if ( ! excludes[key]) {
                         map = maps[key] || key;
-                        this.props[map] = name[key];    
+                        if (key == 'params') {
+                            this.params = name[key];
+                        } else {
+                            this.props[map] = name[key];
+                        }
                     }
                 }
                 return this;
@@ -17626,7 +18188,11 @@
 
             if ( ! excludes[name]) {
                 map = maps[name] || name;
-                this.props[map] = value;    
+                if (name == 'params') {
+                    this.params = value;
+                } else {
+                    this.props[map] = value;        
+                }
             }
 
             return this;
@@ -17937,12 +18503,21 @@
         },
 
         sendToBack: function() {
-            var paper = this.paper();
+            var parent = this.parent(),
+                container = parent 
+                    ? parent.component('child').elem
+                    : this.paper().viewport().elem;
+
+            container && container.prepend(this.component().elem);
         },
 
         sendToFront: function() {
-            var paper = this.paper();
-            paper.viewport().elem.append(this.component().elem);
+            var parent = this.parent(),
+                container = parent 
+                    ? parent.component('child').elem
+                    : this.paper().viewport().elem;
+
+            container && container.append(this.component().elem);
         },
 
         suspendLayout: function() {
@@ -17993,7 +18568,6 @@
             block.fire('afterresize', resize);
             
             this.props.height = value;
-
             return this;
         },
 
@@ -18015,7 +18589,6 @@
             block.fire('afterresize', resize);
 
             this.props.width = value;
-
             return this;
         },
 
@@ -18049,6 +18622,14 @@
             this.props.top = value;
 
             return this;
+        },
+
+        rotate: function(value) {
+            var block = this.component('block');
+            if (block && block.isRotatable()) {
+                var center = block.bbox().toJson();
+                block.rotate(value, center.x, center.y).commit();
+            }
         },
 
         label: function(label) {
@@ -18134,15 +18715,14 @@
                     top: this.props.top,
                     width: this.props.width,
                     height: this.props.height,
+                    rotate: this.props.rotate,
                     fill: this.props.fill,
                     strokeWidth: this.props.strokeWidth,
                     stroke: this.props.stroke
                 },
-                params: [
-                    {key: 'Source', value: 'db.employee'}
-                ],
+                params: this.params,
                 links: [
-
+                    
                 ]
             };
 
@@ -18164,6 +18744,8 @@
 
             return shape;
         },
+
+        ///////// PRIVATE OBSERVERS /////////
 
         onLabelEdit: function(e) {
             this.label(e.text);
@@ -18202,6 +18784,32 @@
 
             // forward
             this.fire(e);
+        },
+
+        onAfterRotate: function(e) {
+            var shapeComponent = this.component('shape'),
+                blockComponent = this.component('block'),
+                childComponent = this.component('child');
+
+            var shapeMatrix = shapeComponent.matrix();
+
+            shapeMatrix.multiply(blockComponent.matrix());
+            shapeComponent.attr('transform', shapeMatrix.toValue());
+            shapeComponent.dirty(true);
+
+            if (childComponent) {
+                childComponent.dirty(true);
+            }
+
+            blockComponent.reset();
+            blockComponent.rotatable().redraw();
+
+            if (blockComponent.isResizable() && blockComponent.resizable().props.suspended === false) {
+                blockComponent.resizable().redraw();    
+            }
+
+            var shapeRotate = shapeMatrix.rotate();
+            this.props.rotate = shapeRotate.deg;
         },
 
         onSelect: function(e) {
@@ -18722,6 +19330,7 @@
             pmgr.install('editor',  block);
             pmgr.install('network', block, {wiring: 'h:v'});
             pmgr.install('snapper', block);
+            pmgr.install('rotator', block);
 
             block.on('edit.shape', _.bind(this.onLabelEdit, this));
             block.on('beforedrag.shape', _.bind(this.onBeforeDrag, this));
@@ -18732,6 +19341,7 @@
             block.on('select.shape', _.bind(this.onSelect, this));
             block.on('deselect.shape', _.bind(this.onDeselect, this));
             block.on('connect.shape', _.bind(this.onConnect, this));
+            block.on('afterrotate.shape', _.bind(this.onAfterRotate, this));
 
             label = (new Graph.svg.Text(cx, cy, this.props.label))
                 .addClass(Graph.styles.SHAPE_LABEL)
@@ -18742,6 +19352,10 @@
             comp.shape = shape.guid();
             comp.block = block.guid();
             comp.label = label.guid();
+
+            if (this.props.rotate) {
+                this.rotate(this.props.rotate);
+            }
 
             shape = block = label = null;
         },
@@ -21676,7 +22290,7 @@
                         '<rect x="2" y="2" width="60" height="60" rx="7" ry="7"/>' + 
                         '<text x="32" y="34">Action</text>' + 
                     '</g>' + 
-                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Router" transform="matrix(1,0,0,1,40,250)">' + 
+                    /*'<g class="graph-pallet-item" data-shape="Graph.shape.activity.Router" transform="matrix(1,0,0,1,40,250)">' + 
                         '<rect x="4" y="4" width="54" height="54" transform="rotate(45,32,32)"/>' + 
                         '<text x="30" y="34">Route</text>' + 
                     '</g>' + 
@@ -21695,8 +22309,8 @@
                         '<path d="M 54 34 L 54 60" marker-end="url(#marker-arrow-pallet)" pointer-events="none" ></path>' + 
                         '<path d="M 32  0 L 32 28" pointer-events="none" ></path>' + 
                         '<text x="32" y="50">Fork</text>' + 
-                    '</g>' + 
-                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Lane" transform="matrix(1,0,0,1,40,500)">' + 
+                    '</g>' + */
+                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Lane" transform="matrix(1,0,0,1,40,250)">' + 
                         '<rect x="2" y="2" width="60" height="60" rx="0" ry="0"/>' + 
                         '<rect x="2" y="2" width="10" height="60" rx="0" ry="0"/>' + 
                         '<text x="32" y="34">Role</text>' + 
@@ -21792,9 +22406,8 @@
                 var i = e.interaction;
 
                 if (i.pointerIsDown && me.picking.target) {
-
                     e.preventDefault();
-
+                    
                     var current = {
                         x: e.clientX,
                         y: e.clientY
@@ -21995,7 +22608,8 @@
         },
 
         getLinkBy: function(identity) {
-
+            var links = this.getLinks().toArray();
+            return _.find(links, identity);
         },
 
         remove: function() {
@@ -22051,8 +22665,6 @@
 
             options = options || {};
             movable = true;
-
-
 
             if (namespace == 'Graph.shape.activity.Lane') {
                 var shapes = this.getShapes();
@@ -22220,6 +22832,7 @@
             render(parser).then(function(rendered){
                 parser.links().each(function(item){
                     var props = item.props,
+                        params = JSON.parse(item.params),
                         sourceShape = rendered[props.source_id],
                         targetShape = rendered[props.target_id];
 
@@ -22228,7 +22841,8 @@
                             targetNetwork = targetShape.connectable().plugin();
 
                         if (sourceNetwork && targetNetwork) {
-                            sourceNetwork.connect(targetNetwork, null, null, item.props);
+                            var link = sourceNetwork.connect(targetNetwork, null, null, item.props);
+                            link.params = params;
                         }
                     }
                 })
@@ -22252,15 +22866,17 @@
 
                 parser.shapes().each(function(item, index, total){
                     var props = item.props,
+                        params = JSON.parse(item.params),
                         clazz = Graph.ns(props.type);
 
                     var shape, delay;
 
-                    delay = _.delay(function(clazz, props){
+                    delay = _.delay(function(clazz, props, params){
                         clearTimeout(delay);
                         delay = null;
 
                         shape = Graph.factory(clazz, [props]);
+                        shape.params = params;
                         shape.render(paper);
 
                         if (props.client_pool) {
@@ -22310,7 +22926,7 @@
                             def.resolve(rendered);
                         }
 
-                    }, (tick * 100), clazz, props);
+                    }, (tick * 100), clazz, props, params);
 
                     tick++;
                 });

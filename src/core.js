@@ -71,6 +71,10 @@
         resizer: {
             image: 'resize-control.png',
             size: 17
+        },
+        rotator: {
+            image: 'rotator.png',
+            size: 21
         }
     };
 
@@ -548,11 +552,47 @@
                 vector = Graph.registry.vector.get(vector);
                 paper = vector.paper();
                 Graph.cached.paper = paper ? paper.guid() : null;
-            } else {
-                Graph.cached.paper = null;
             }
 
             vector = paper = null;
+        });
+
+        doc.on('keydown', function(e){
+            var paper;
+
+            if (Graph.event.isNavigation(e)) {
+                paper = Graph.cached.paper;
+
+                if (paper) {
+                    paper = Graph.registry.vector.get(paper);
+                    e.originalType = 'keynavdown';
+                    paper.fire(e);
+                }
+            } else if (e.ctrlKey || e.cmdKey) {
+                paper = Graph.cached.paper;
+                
+                if (paper) {
+                    paper = Graph.registry.vector.get(paper);
+                    if (e.keyCode === Graph.event.C) {
+                        e.originalType = 'keycopy';
+                        paper.fire(e);
+                    } else if (e.keyCode === Graph.event.V) {
+                        e.originalType = 'keypaste';
+                        paper.fire(e);
+                    }
+                }   
+            }
+        });
+
+        doc.on('keyup', function(e){
+            if (Graph.event.isNavigation(e)) {
+                var paper = Graph.cached.paper;
+                if (paper) {
+                    paper = Graph.registry.vector.get(paper);
+                    e.originalType = 'keynavup';
+                    paper.fire(e);
+                }
+            }
         });
 
         doc = null;

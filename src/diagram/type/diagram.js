@@ -153,7 +153,8 @@
         },
 
         getLinkBy: function(identity) {
-
+            var links = this.getLinks().toArray();
+            return _.find(links, identity);
         },
 
         remove: function() {

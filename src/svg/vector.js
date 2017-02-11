@@ -40,6 +40,7 @@
             definer: null,
             animator: null,
             resizer: null,
+            rotator: null,
             reactor: null,
             dragger: null,
             dropper: null,
@@ -61,8 +62,10 @@
             bbox: null,
             bboxView: null,
             bboxPristine: null,
+            bboxOriginal: null,
             matrixCurrent: null,
             matrixView: null,
+            shapeOriginal: null,
             shapeView: null,
             position: null,
             offset: null
@@ -100,9 +103,9 @@
 
             // me.plugins.history = new Graph.plugin.History(me);
             me.plugins.transformer = (new Graph.plugin.Transformer(me))
-                .on('translate', _.bind(me.onTransformTranslate, me))
-                .on('rotate', _.bind(me.onTransformRotate, me))
-                .on('scale', _.bind(me.onTransformScale, me));
+                .on('aftertranslate', _.bind(me.onTransformerAfterTranslate, me))
+                .on('afterrotate', _.bind(me.onTransformerAfterRotate, me))
+                .on('afterscale', _.bind(me.onTransformerAfterScale, me));
 
             if (me.isPaper()) {
                 me.plugins.toolmgr = (new Graph.plugin.ToolManager(me))
@@ -213,11 +216,6 @@
 
             this.dirty(true);
             this.fire('reset', this.props);
-
-            // invoke core plugins
-            if (this.dragger) {
-                this.dragger.rotate(0);
-            }
         },
 
         invalidate: function(cache) {
@@ -252,7 +250,7 @@
                 }
 
                 // update core plugins
-                var plugins = ['resizer', 'network'];
+                var plugins = ['resizer', 'rotator', 'network'];
 
                 _.forEach(plugins, function(name){
                     if (me.plugins[name]) {
@@ -313,6 +311,16 @@
             }
 
             return this.plugins.resizer;
+        },
+
+        rotatable: function(options) {
+            if ( ! this.plugins.rotator) {
+                this.plugins.rotator = new Graph.plugin.Rotator(this, options);
+                this.plugins.rotator.on({
+                    afterrotate: _.bind(this.onRotatorAfterRotate, this)
+                });
+            }
+            return this.plugins.rotator;
         },
 
         /**
@@ -598,6 +606,32 @@
             return shape;
         },
 
+        shapeOriginal: function() {
+            var shape = this.cached.shapeOriginal;
+
+            if ( ! shape) {
+                var vmatrix = this.matrixView(),
+                    vrotate = vmatrix.rotate().deg;
+
+                shape = this.shape();
+
+                if (vrotate) {
+                    var rmatrix = vmatrix.clone(),
+                        rcenter = this.bboxPristine().center().toJson();
+
+                    rmatrix.rotate(-vrotate, rcenter.x, rcenter.y);
+                    shape = shape.transform(rmatrix);
+
+                } else {
+                    shape = shape.transform(vmatrix);
+                }
+
+                this.cached.shapeOriginal = shape;
+            }
+
+            return shape;
+        },
+
         /**
          * Get shape relative to viewport
          */
@@ -716,9 +750,15 @@
         bbox: function() {
             var bbox = this.cached.bbox;
             if ( ! bbox) {
-                var path = this.shape().transform(this.matrix());
+                var path = this.shape(),
+                    matrix = this.matrix();
+
+                path = path.transform(matrix);
                 bbox = path.bbox();
+
                 this.cached.bbox = bbox;
+
+                path = matrix = null;
             }
             return bbox;
         },
@@ -744,12 +784,28 @@
 
             if ( ! bbox) {
                 var matrix = this.matrixView(),
-                    shape = this.shape().transform(matrix);
+                    shape = this.shape();
 
+                shape = shape.transform(matrix);
                 bbox = shape.bbox();
+                
                 this.cached.bboxView = bbox;
             }
 
+            return bbox;
+        },
+
+        bboxOriginal: function() {
+            var bbox = this.cached.bboxOriginal;
+            if ( ! bbox) {
+                var shape = this.shapeOriginal(),
+                    rotate = this.matrixView().rotate();
+
+                bbox = shape.bbox();
+                bbox.rotate = rotate;
+                
+                this.cached.bboxOriginal = bbox;
+            }
             return bbox;
         },
 
@@ -1071,8 +1127,14 @@
             this.addClass('graph-selected');
             this.props.selected = true;
 
-            if (initial && this.isResizable()) {
-                this.resizable().resume();
+            if (initial) {
+                if (this.isResizable()) {
+                    this.resizable().resume();
+                }
+
+                if (this.isRotatable()) {
+                    this.rotatable().resume();
+                }
             }
 
             this.fire('select', {
@@ -1097,6 +1159,10 @@
 
             if (this.isResizable()) {
                 this.resizable().suspend();
+            }
+
+            if (this.isRotatable()) {
+                this.rotatable().suspend();
             }
 
             this.fire('deselect', {
@@ -1194,6 +1260,10 @@
             return this.plugins.resizer !== null;
         },
 
+        isRotatable: function() {
+            return this.plugins.rotator !== null;
+        },
+
         isConnectable: function() {
             return this.plugins.network ? true : false;
         },
@@ -1250,6 +1320,10 @@
                 this.plugins.resizer.suspend();
             }
 
+            if (this.plugins.rotator) {
+                this.plugins.rotator.suspend();
+            }
+
             if (this.plugins.editor) {
                 this.plugins.editor.suspend();
             }
@@ -1273,7 +1347,7 @@
 
             e.master = true;
             this.fire(e);
-            
+
             var collector = this.collector();
 
             if (collector) {
@@ -1291,36 +1365,36 @@
             this.fire(e);
         },
 
-        onTransformRotate: function(e) {
+        onTransformerAfterRotate: function(e) {
             this.dirty(true);
-
             this.props.rotate = e.deg;
-            this.fire('rotate', {deg: e.deg});
 
-            // invoke core plugins
-            if (this.plugins.dragger) {
-                var rotate = this.matrixCurrent().rotate();
-                this.plugins.dragger.rotate(rotate.deg);
-            }
+            this.fire('afterrotate', {
+                deg: e.deg
+            });
         },
 
-        onTransformTranslate: function(e) {
+        onTransformerAfterTranslate: function(e) {
             this.dirty(true);
-            this.fire('translate', {dx: e.dx, dy: e.dy});
+            this.fire('aftertranslate', {dx: e.dx, dy: e.dy});
         },
 
-        onTransformScale: function(e) {
+        onTransformerAfterScale: function(e) {
             this.dirty(true);
             this.props.scaleX = e.sx;
             this.props.scaleY = e.sy;
 
-            this.fire('scale', {sx: e.sx, sy: e.sy});
+            this.fire('afterscale', {sx: e.sx, sy: e.sy});
 
             if (this.plugins.dragger) {
                 var scale = this.matrixCurrent().scale();
                 this.plugins.dragger.scale(scale.x, scale.y);
             }
         },
+
+        onRotatorAfterRotate: function(e) {
+            this.fire(e);
+        },  
 
         onActivateTool: function(e) {
             var data = e.originalData;

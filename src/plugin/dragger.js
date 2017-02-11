@@ -74,7 +74,7 @@
             me.cached.origin = null;
 
             me.initComponent();
-
+            
             vector.on('render.dragger', _.bind(me.onVectorRender, me));
 
             if (vector.props.rendered) {
@@ -149,13 +149,6 @@
 
             vendor.on('down', _.bind(me.onPointerDown, me));
 
-            var matrix = vector.matrixCurrent(),
-                rotate = matrix.rotate(),
-                scale  = matrix.scale();
-
-            me.rotate(rotate.deg);
-            me.scale(scale.x, scale.y);
-
             if (me.props.grid) {
                 me.snap({
                     mode: 'grid',
@@ -216,35 +209,39 @@
         redraw: function() {
             if (this.props.ghost) {
                 var vector = this.vector(),
-                    helper = this.helper();    
+                    helper = this.helper(),
+                    matrix = vector.matrix(),
+                    rotate = matrix.rotate().deg,
+                    bound = vector.bbox().toJson();
 
-                var vbox = vector.bbox().toJson(),
-                    hbox = helper.bbox().toJson();
+                var cx, cy;
 
-                var dx = vbox.x - hbox.x,
-                    dy = vbox.y - hbox.y;
+                if (rotate) {
+                    var rmatrix = Graph.matrix(),
+                        rpath = vector.shapeRelative();
 
-                helper.translate(dx, dy).commit();
+                    cx = bound.x + bound.width / 2,
+                    cy = bound.y + bound.height /2;
+
+                    rmatrix.rotate(-rotate, cx, cy);
+
+                    rpath = rpath.transform(rmatrix);
+                    bound = rpath.bbox().toJson();
+                }
+
+                helper.reset();
 
                 helper.attr({
-                    width: vbox.width,
-                    height: vbox.height
+                    x: bound.x,
+                    y: bound.y,
+                    width: bound.width,
+                    height: bound.height
                 });
+
+                if (rotate) {
+                    helper.rotate(rotate, cx, cy).commit();
+                }
             }
-        },
-
-        rotate: function(deg) {
-            var rad = Graph.util.rad(deg);
-            this.rotation.deg = deg;
-            this.rotation.rad = rad;
-            this.rotation.sin = Math.sin(rad);
-            this.rotation.cos = Math.cos(rad);
-        },
-
-        scale: function(sx, sy) {
-            sy = _.defaultTo(sy, sx);
-            this.scaling.x = sx;
-            this.scaling.y = sy;
         },
 
         origin: function(origin) {
@@ -420,8 +417,19 @@
 
             this.dragging.dx = 0;
             this.dragging.dy = 0;
-            this.dragging.hx = 0;
-            this.dragging.hy = 0;
+            this.dragging.tx = 0;
+            this.dragging.ty = 0;
+
+            var matrix = vector.matrixCurrent(),
+                rotate = matrix.rotate(),
+                scale  = matrix.scale();
+
+            this.dragging.deg = rotate.deg;
+            this.dragging.rad = rotate.rad;
+            this.dragging.sin = Math.sin(rotate.rad);
+            this.dragging.cos = Math.cos(rotate.rad);
+            this.dragging.sx = scale.x;
+            this.dragging.sy = scale.y;
 
             var edata = {
                 x: e.clientX,
@@ -445,49 +453,37 @@
                 helper = dragging.helper,
                 ghost = this.props.ghost,
                 axs = this.props.axis,
-                deg = this.rotation.deg,
-                sin = this.rotation.sin,
-                cos = this.rotation.cos,
-                scaleX = this.scaling.x,
-                scaleY = this.scaling.y;
+                deg = dragging.deg,
+                sin = dragging.sin,
+                cos = dragging.cos,
+                scaleX = dragging.sx,
+                scaleY = dragging.sy;
 
-            // check current scaling
-            var scaling = vector.matrixCurrent().scale();
+            var tx = _.defaultTo(e.dx, 0),
+                ty = _.defaultTo(e.dy, 0);
 
-            if (scaling.x !== scaleX || scaling.y !== scaleY) {
-                this.scale(scaling.x, scaling.y);
-                scaleX = scaling.x;
-                scaleY = scaling.y;
-            }
+            var dx, dy, mx, my;
 
-            var edx = _.defaultTo(e.dx, 0),
-                edy = _.defaultTo(e.dy, 0);
+            dx = dy = mx = my = 0;
 
-            var dx, dy, hx, hy, tx, ty;
-
-            dx = dy = hx = hy = tx = ty = 0;
-
-            edx /= scaleX;
-            edy /= scaleY;
+            tx /= scaleX;
+            ty /= scaleY;
             
             if (axs == 'x') {
-                dx = hx = edx;
-                dy = hy = 0;
+                dx = tx;
+                dy = 0;
 
-                tx = edx *  cos + 0 * sin;
-                ty = edx * -sin + 0 * cos;
+                mx = tx *  cos + 0 * sin;
+                my = tx * -sin + 0 * cos;
             } else if (axs == 'y') {
-                dx = hx = 0;
-                dy = hy = edy;
+                dx = 0;
+                dy = ty;
 
-                tx = 0 *  cos + edy * sin;
-                ty = 0 * -sin + edy * cos;
+                mx = 0 *  cos + ty * sin;
+                my = 0 * -sin + ty * cos;
             } else {
-                hx = edx;
-                hy = edy;
-
-                dx = tx = edx *  cos + edy * sin;
-                dy = ty = edx * -sin + edy * cos;
+                dx = mx = tx *  cos + ty * sin;
+                dy = my = tx * -sin + ty * cos;
             }
 
             // check restriction
@@ -496,28 +492,22 @@
             if (restriction) {
                 var coord = this.dragging.coord;
 
-                if (helper) {
-                    coord.x += hx;
-                    coord.y += hy;
-                } else {
-                    coord.x += dx;
-                    coord.y += dy;
-                }
+                coord.x += dx;
+                coord.y += dy;
 
                 if (coord.x < restriction.left || coord.x > restriction.right) {
-                    hx = dx = tx = edx = 0;
+                    dx = mx = tx = 0;
                 }
                 
                 if (coord.y < restriction.top || coord.y > restriction.bottom) {
-                    hy = dy = ty = edy = 0;
+                    dy = my = ty = 0;
                 }
             }
 
-            this.dragging.dx += tx;
-            this.dragging.dy += ty;
-
-            this.dragging.hx += hx;
-            this.dragging.hy += hy;
+            this.dragging.dx += mx;
+            this.dragging.dy += my;
+            this.dragging.tx += tx;
+            this.dragging.ty += ty;
 
             var pageX = _.defaultTo(e.pageX, e.x0),
                 pageX = _.defaultTo(e.pageY, e.y0);
@@ -529,17 +519,11 @@
                 pageX: pageX,
                 pageY: pageX,
 
-                ex: edx,
-                ey: edy,
+                tx: tx,
+                ty: ty,
 
                 dx: dx,
                 dy: dy,
-
-                hx: hx,
-                hy: hy,
-
-                ox: hx,
-                oy: hy,
 
                 ghost: this.props.ghost
             };
@@ -547,7 +531,7 @@
             this.fire('drag', event);
 
             if (ghost) {
-                helper.translate(event.hx, event.hy).commit();
+                helper.translate(event.dx, event.dy).commit();
             } else {
                 vector.translate(event.dx, event.dy).commit();
             }
@@ -561,11 +545,12 @@
                 ghost = this.props.ghost,
                 dx = dragging.dx,
                 dy = dragging.dy,
-                hx = dragging.hx,
-                hy = dragging.hy;
+                tx = dragging.tx,
+                ty = dragging.ty;
 
             if (ghost) {
                 vector.translate(dx, dy).commit();
+
                 this.redraw();
                 this.suspend();
             }
@@ -576,6 +561,8 @@
             var edata = {
                 dx: dx,
                 dy: dy,
+                tx: tx,
+                ty: ty,
                 ghost: this.props.ghost
             };
 
@@ -587,17 +574,10 @@
 
             this.fire('afterdrag', edata);
 
-            this.dragging.vector = null;
-            this.dragging.paper = null;
-            this.dragging.helper = null;
+            for (var key in this.dragging) {
+                this.dragging[key] = null;
+            }
 
-            this.dragging.dx = 0;
-            this.dragging.dy = 0;
-            this.dragging.hx = 0;
-            this.dragging.hy = 0;
-            this.dragging.coord = null;
-
-            
         },
 
         destroy: function() {
