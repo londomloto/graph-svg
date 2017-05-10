@@ -26,6 +26,7 @@
   },
   "homepage": "https://github.com/londomloto/graph#readme",
   "dependencies": {
+    "graph-fonts": "^1.0.0",
     "jquery": "^2.1.4"
   }
 }
