@@ -24,5 +24,8 @@
   "bugs": {
     "url": "https://github.com/londomloto/graph/issues"
   },
-  "homepage": "https://github.com/londomloto/graph#readme"
+  "homepage": "https://github.com/londomloto/graph#readme",
+  "dependencies": {
+    "jquery": "^2.1.4"
+  }
 }
