@@ -1,5 +1,5 @@
 {
-  "name": "@londomloto/graph",
+  "name": "graph-svg",
   "version": "1.0.0",
   "description": "Scalable Graphic Vector (SVG) library",
   "main": "index.js",
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/londomloto/graph.git"
+    "url": "git+https://github.com/londomloto/graph-svg.git"
   },
   "keywords": [
     "interactive",
@@ -22,9 +22,9 @@
   "author": "londomloto",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/londomloto/graph/issues"
+    "url": "https://github.com/londomloto/graph-svg/issues"
   },
-  "homepage": "https://github.com/londomloto/graph#readme",
+  "homepage": "https://github.com/londomloto/graph-svg#readme",
   "dependencies": {
     "graph-fonts": "^1.0.2",
     "interactjs": "^1.2.8",
