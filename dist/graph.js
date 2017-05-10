@@ -10296,8 +10296,7 @@
             target: null,
             connected: false,
             removed: false,
-            command: null,
-            stroke: '#000' 
+            command: null
         },
 
         params: [],
@@ -10444,7 +10443,6 @@
                 .selectable(false)
                 .clickable(false)
                 .attr('marker-end', 'url(#marker-link-end)')
-                .attr('stroke', this.props.stroke || '#000000')
                 .render(block);
 
             if (this.props.type == 'message') {
@@ -10932,8 +10930,7 @@
                     targetType: targetShape ? 'shape' : 'vector',
                     convex: 1,
                     smooth: this.props.smooth ? 1 : 0,
-                    smoothness: this.props.smoothness,
-                    stroke: this.props.stroke
+                    smoothness: this.props.smoothness
                 },
 
                 params: this.params
