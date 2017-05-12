@@ -1,0 +1,559 @@
+
+polyline,
+polygon,
+ellipse,
+circle,
+tspan,
+image,
+path,
+rect,
+text,
+svg,
+g {
+   -webkit-user-select: none;
+      -moz-user-select: none;
+       -ms-user-select: none;
+           user-select: none;
+    
+    -webkit-user-drag: none;
+            user-drag: none;  
+
+}
+
+text, tspan {
+    font-family: Roboto, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+       -moz-font-smoothing: grayscale;
+}
+
+polyline,
+polygon,
+ellipse,
+circle,
+path,
+rect {
+    stroke-width: 2;
+    stroke: #000000;
+}
+
+polyline,
+polygon,
+ellipse,
+circle,
+rect {
+    fill: #ffffff;
+}
+
+.graph-paper {
+    
+}
+
+/** ================= VECTOR ================= **/
+
+.graph-origin .x,
+.graph-origin .y,
+.graph-origin .t {
+    fill: #cccccc;
+    stroke-width: 0;
+    pointer-events: none;
+}
+
+line.graph-elem,
+path.graph-elem {
+    fill: none;
+    stroke-linecap: butt;
+}
+
+text.graph-elem tspan {
+    stroke-width: .05;
+    fill: #000000;
+}
+
+/** ================= PLUGINS ================= **/
+
+.graph-resizer {
+    
+}
+
+.graph-resizer .graph-resizer-helper {
+    fill: none;
+    stroke: #3E7CF7;
+    stroke-width: 1;
+    pointer-events: none;
+    stroke-dasharray: 5 2;
+}
+
+.graph-resizer .handle-nw,
+.graph-resizer .handle-se { 
+    cursor: nwse-resize; 
+}
+
+.graph-resizer .handle-s,
+.graph-resizer .handle-n { 
+    cursor: ns-resize;
+}
+
+.graph-resizer .handle-ne,
+.graph-resizer .handle-sw { 
+    cursor: nesw-resize; 
+}
+
+.graph-resizer .handle-w,
+.graph-resizer .handle-e { 
+    cursor: ew-resize;
+}
+
+.graph-rotator rect {
+    fill: none;
+    stroke: #3E7CF7;
+    stroke-width: 1;
+    pointer-events: none;
+    stroke-dasharray: 5 2;
+}
+
+.graph-rotator circle,
+.graph-rotator line {
+    stroke-width: 1;
+    stroke: #555;
+}
+
+.graph-rotator circle {
+    fill: #fff;
+}
+
+.graph-rotator line {
+    stroke-dasharray: 2 2;
+}
+
+
+.graph-dragger {
+    
+}
+
+.graph-dragger .graph-dragger-helper {
+    fill: rgba(255, 255, 255, 0);
+    stroke: #FFA500;
+    stroke-width: 2;
+    stroke-dasharray: 5 2;
+}
+
+.graph-elem.dragging {
+    opacity: .3;
+}
+
+/** collector */
+.graph-rubberband {
+    width: 1px;
+    height: 1px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1024;
+    background: #99ccff;
+    border: #0077ff solid 1px;
+    opacity: .3;
+}
+.graph-selected {
+    stroke: #007DFC !important;
+}
+
+/** zoombox */
+.graph-zoom-toolbox {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 38px;
+    background: #fff none repeat scroll 0 0;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.graph-zoom-toolbox a {
+    display: block;
+    width: 36px;
+    height: 36px;
+    color: #555555;
+    font-size: 24px;
+    text-align: center;
+    line-height: 36px;
+}
+
+.graph-zoom-toolbox a:hover {
+    color: orange;
+}
+
+.graph-zoom-toolbox .splitter {
+    height: 1px;
+    /*margin-left: 5px;
+    margin-right: 5px;*/
+    background: #ddd;
+    margin: 0 4px;
+}
+
+
+/** dropzone */
+.graph-dropzone {
+
+}
+
+.graph-dropzone.activate {
+    stroke: #30BFBF;
+    stroke-dasharray: 10,5;
+}
+
+.graph-dropzone.enter {
+    stroke: #FF4081;
+    stroke-dasharray: 10,5;
+}
+
+/** sorter */
+.graph-sorter-helper {
+    fill: none;
+    display: none;
+}
+
+.graph-sorter-helper.visible {
+    display: inline;
+}
+
+/** network */
+.linking .graph-elem {
+    cursor: not-allowed;
+}
+
+.linking .graph-connectable {
+    cursor: pointer;    
+}
+
+.linking .graph-elem:not(.graph-link-coat).connect-invalid.connect-hover,
+.linking .graph-elem:not(.graph-link-coat).connect-invalid:hover {
+    fill: #FFF4F8 !important;
+}
+
+.linking .connect-valid.connect-hover,
+.linking .connect-valid:hover {
+    fill: #F2FFEA !important;
+}
+
+/** link */
+.graph-link {
+
+}
+
+.graph-link-path {
+    fill: none;
+    stroke-width: 2;
+    stroke: #000000;
+    cursor: pointer;
+}
+
+.graph-link.link-message .graph-link-path {
+    stroke-dasharray: 10 5;
+}
+
+.graph-link.editing .graph-link-path {
+    stroke: #FFA500;
+}
+
+.graph-link-coat {
+    stroke: rgba(255, 255, 255, 0) !important;
+    fill: none;
+    stroke-width: 20;
+    cursor: pointer;
+    stroke-linecap: round;
+}
+
+.graph-link-label {
+    cursor: pointer;
+}
+
+.graph-link-edit {
+    
+}
+
+.graph-link.selected .graph-link-edit {
+    
+}
+
+.graph-link.selected .graph-link-path {
+    stroke: #007DFC;
+}
+
+.graph-link.selected .graph-link-coat.dragging + .graph-link-path {
+    opacity: .3;
+}
+
+.graph-link-head {
+    
+}
+
+.graph-link-tail {
+    
+}
+
+.graph-link-bend {
+
+}
+
+/** ================= AUXILIARY ================= **/
+
+/** SPOTLIGHT */
+.graph-util-spotlight {
+    
+}
+
+.graph-util-spotlight > line {
+    stroke: orange;
+    stroke-width: 1;
+    fill: none;
+    stroke-linecap: butt;
+}
+
+/** SNAPPER */
+.graph-snapper path {
+    stroke: #FFA500;
+    stroke-width: 1;
+    /*opacity: .5;*/
+    fill: none;
+    stroke-linecap: butt;
+    display: none;
+}
+
+.graph-snapper path.visible {
+    display: inline;;
+}
+
+/** HINTER */
+.graph-util-hinter > line {
+    stroke: #007DFC;
+    fill: none;
+    stroke-linecap: butt;
+    display: none;
+}
+
+.graph-util-hinter > line.visible {
+    display: inline;
+}
+
+/** linker */
+.graph-linker {}
+
+.graph-linker-path {
+    stroke-width: 2;
+    stroke: #000000;
+    stroke-dasharray: 5 3;
+}
+
+/** toolpad */
+.graph-toolpad {
+    position: absolute;
+    top: 140px;
+    left: 10px;
+    width: 38px;
+    background: #fff none repeat scroll 0 0;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.graph-toolpad a {
+    display: block;
+    width: 36px;
+    height: 36px;
+    color: #555555;
+    font-size: 24px;
+    text-align: center;
+    line-height: 36px;
+}
+
+.graph-toolpad a:hover {
+    color: orange;
+}
+
+.graph-toolpad .pad-header a:hover {
+    color: #555;
+}
+
+.graph-toolpad .splitter {
+    height: 1px;
+    background: #ddd;
+    margin: 0 4px;
+}
+
+/** editor */
+.graph-editor {
+    position: absolute;
+    background-color: #fff;
+    left: 0;
+    top: 0;
+    color: #333;
+    text-align: center;
+    border: solid 1px #ccc;
+    border-radius: 4px;
+    overflow: auto;
+    font-family: Roboto, 'Segoe UI', sans-serif;
+}
+
+
+/** COMMON SHAPES **/
+.graph-shape .dragging ~ text {
+    opacity: .3;
+}
+.graph-shape.picking .dragging,
+.graph-shape.picking .dragging ~ text {
+    opacity: 0;
+}
+
+/** ACTIVITY-SHAPES */
+.graph-shape-activity-final .comp-block {
+    fill: rgba(255,255,255,0);
+}
+
+.graph-shape-activity-final .comp-inner {
+    fill: #000;
+    stroke-width: 0;
+}
+
+.graph-shape-activity-final .comp-label tspan {
+    fill: #ffffff;
+}
+
+.graph-shape-activity-final .comp-block.allowed:hover ~ .comp-inner {
+    fill: #30D0C6;
+}
+
+/** ROUTER */
+.graph-shape-activity-router .graph-selected ~ .comp-inner {
+    stroke: #007DFC;
+}
+
+/** LANE */
+.graph-shape-activity-lane > .comp-block,
+.graph-shape-activity-lane > .comp-header {
+    fill: rgba(255,255,255,0);
+}
+
+.graph-shape-activity-lane.shape-selected > .comp-header {
+    stroke: #007DFC;
+}
+
+.graph-shape-activity-lane > rect {
+    /*stroke-width: 1;*/
+}
+
+.graph-shape-activity-lane.receiving > .comp-block {
+    fill: rgba(0, 125, 252, .05) !important;
+}
+
+/** JOIN */
+.graph-shape-activity-join .comp-block,
+.graph-shape-activity-fork .comp-block {
+    fill: #000;
+    stroke-width: 0;
+}
+
+.linking .graph-shape-activity-join .comp-block.connect-valid:hover,
+.linking .graph-shape-activity-fork .comp-block.connect-valid:hover {
+    fill: #30d0c6;
+}
+
+.linking .graph-shape-activity-join .comp-block.connect-invalid:hover,
+.linking .graph-shape-activity-fork .comp-block.connect-invalid:hover {
+    fill: #FF4081;
+}
+
+/** LABEL */
+.graph-shape.label-selected text,
+.graph-shape.label-selected text tspan {
+    fill: #007DFC;    
+}
+
+/** PALLET */
+.graph-pallet path {
+    stroke: #30D0C6;
+    stroke-width: 0;
+}
+.graph-pallet-item {
+    cursor: -webkit-grab;
+    cursor: -moz-grab;
+}
+
+.graph-pallet-item.grabbing {
+    cursor: -webkit-grabbing;
+    cursor: -moz-grabbing;
+}
+
+.graph-pallet-item line,
+.graph-pallet-item path,
+.graph-pallet-item rect,
+.graph-pallet-item polygon,
+.graph-pallet-item circle {
+    stroke-width: 2;
+    stroke: #30D0C6;
+}
+
+.graph-pallet-item rect,
+.graph-pallet-item polygon {
+    fill: rgba(255, 255, 255, 0);
+}
+
+.graph-pallet-item rect.full {
+    stroke-width: 0;
+    fill: #FF4081;
+}
+
+.graph-pallet-item circle {
+    fill: rgba(255, 255, 255, 0);
+}
+
+.graph-pallet-item circle.full {
+    stroke-width: 0;
+    fill: #FF4081;
+}
+
+.graph-pallet-item text,
+.graph-pallet-item text tspan {
+    stroke: #fff;
+    stroke-width: 0;
+    fill: #fff;
+    text-anchor: middle;
+    font-size: 12px;
+    pointer-events: none;
+}
+
+.graph-pallet-item:hover rect,
+.graph-pallet-item:hover circle,
+.graph-pallet-item:hover line {
+    stroke: #FF4081;
+}
+
+/** HTML */
+
+.graph-dialog-backdrop {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: rgba(0,0,0,.1);
+    z-index: 999998;
+}
+
+.graph-dialog {
+    position: absolute;
+    min-width: 380px;
+    top: 0;
+    left: 0;
+    z-index: 999999;
+    background: #fff;
+    padding: 20px;
+    color: #555;
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+}
+
+.graph-dialog.open {
+    display: block;
+}
