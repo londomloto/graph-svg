@@ -19,7 +19,8 @@
         var vendor = vendors[guid] = interact(node);
 
         vendor.on('down', function reactorDown(e){
-            if (e.target === node) {
+            var target = Graph.event.target(e);
+            if (target === node) {
                 e.originalType = 'pointerdown';
                 Graph.topic.publish('vector:pointerdown', {vector: vector});
                 vector.fire(e);
@@ -28,7 +29,8 @@
 
         vector.elem.on({
             contextmenu: function(e) {
-                if (e.currentTarget === node) {
+                var target = Graph.event.target(e);
+                if (target === node) {
                     vector.fire(e);
                     // e.preventDefault();
                 }

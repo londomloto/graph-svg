@@ -52,14 +52,16 @@
                 overlap: .2
             })
             .on('dropdeactivate', function(e){
-                var v = Graph.registry.vector.get(e.target);
+                var t = Graph.event.target(e);
+                var v = Graph.registry.vector.get(t);
                 if (v) {
                     v.removeClass(CLS_CONNECT_CLEAR);
                 }
                 me.invalidateTrans();
             })
             .on('dropactivate', function(e){
-                var v = Graph.registry.vector.get(e.target);
+                var t = Graph.event.target(e);
+                var v = Graph.registry.vector.get(t);
 
                 if (v) {
                     v.addClass(CLS_CONNECT_HOVER);
@@ -108,7 +110,8 @@
                 }
             })
             .on('dragleave', function(e){
-                var v = Graph.registry.vector.get(e.target);
+                var t = Graph.event.target(e);
+                var v = Graph.registry.vector.get(t);
                 if (v) {
                     v.removeClass(CLS_CONNECT_RESET);
                 }

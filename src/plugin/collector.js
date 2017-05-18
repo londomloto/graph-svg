@@ -205,8 +205,11 @@
                 }
             })
             .on('down', function(e){
-                var single = ! (e.ctrlKey || e.shiftKey),
-                    vector = Graph.registry.vector.get(e.target);
+                var target, single, vector;
+
+                target = Graph.event.target(e);
+                single = ! (e.ctrlKey || e.shiftKey);
+                vector = Graph.registry.vector.get(target);
 
                 if (vector) {
                     if ( ! vector.isSelectable()) {
@@ -223,8 +226,11 @@
                 }
             })
             .on('tap', function(e){
-                var vector = Graph.registry.vector.get(e.target),
-                    single = ! (e.ctrlKey || e.shiftKey);
+                var target, vector, single;
+                
+                target = Graph.event.target(e);
+                vector = Graph.registry.vector.get(target);
+                single = ! (e.ctrlKey || e.shiftKey);
 
                 if (vector && vector.isSelectable()) {
                     if (vector.paper().state() == 'linking') {

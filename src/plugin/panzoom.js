@@ -92,17 +92,11 @@
                 toolbox = me.components.toolbox = Graph.$('<div class="graph-zoom-toolbox">');
                 toolbox.html(
                     '<div>' +
-                        '<a data-tool="zoom-reset" href="javascript:void(0)" title="' + Graph._('Reset zoom') + '">' +
-                            '<i class="'+ Graph.icons.ZOOM_RESET +'"></i>' +
-                        '</a>'+
+                        '<a data-tool="zoom-reset" href="javascript:void(0)" title="' + Graph._('Reset zoom') + '">' + Graph.icons.ZOOM_RESET + '</a>'+
                         '<div class="splitter"></div>'+
-                        '<a data-tool="zoom-in" href="javascript:void(0)" title="' + Graph._('Zoom in') + '">' +
-                            '<i class="'+ Graph.icons.ZOOM_IN +'"></i>' +
-                        '</a>'+
+                        '<a data-tool="zoom-in" href="javascript:void(0)" title="' + Graph._('Zoom in') + '">' + Graph.icons.ZOOM_IN + '</a>'+
                         '<div class="splitter"></div>'+
-                        '<a data-tool="zoom-out" href="javascript:void(0)" title="' + Graph._('Zoom out') + '">' +
-                            '<i class="'+ Graph.icons.ZOOM_OUT +'"></i>' +
-                        '</a>'+
+                        '<a data-tool="zoom-out" href="javascript:void(0)" title="' + Graph._('Zoom out') + '">' + Graph.icons.ZOOM_OUT +  '</a>'+
                     '</div>'
                 );
 
@@ -287,7 +281,7 @@
         },
 
         onPointerDown: function(e, paper, viewport, vendor) {
-            var target = Graph.$(e.target),
+            var target = Graph.$(Graph.event.target(e)),
                 vector = Graph.registry.vector.get(target),
                 vendor = paper.interactable().vendor(),
                 tool   = paper.tool().current();

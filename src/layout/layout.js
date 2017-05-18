@@ -123,11 +123,13 @@
         },
 
         grabVector: function(event) {
-            return Graph.registry.vector.get(event.target);
+            var target = Graph.event.target(event);
+            return Graph.registry.vector.get(target);
         },
 
         grabLink: function(event) {
-            return Graph.registry.link.get(event.target);
+            var target = Graph.event.target(event);
+            return Graph.registry.link.get(target);
         },
 
         pointerLocation: function(pointer) {

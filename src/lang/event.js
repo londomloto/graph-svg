@@ -74,6 +74,20 @@
         return $.event.fix(event);
     };
 
+    Graph.event.target = function(event) {
+        var e = event.originalEvent || event;
+        var target = e.target;
+
+        if (Graph.config.shadow) {
+            var path = e.path || (e.composedPath && e.composedPath());
+            if (path) {
+                target = path[0];
+            }
+        }
+
+        return target;
+    }
+
     Graph.event.original = function(event) {
         return event.originalEvent || event;
     };

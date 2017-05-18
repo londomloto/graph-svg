@@ -55,6 +55,7 @@
     Graph.config = {
         base: '../',
         locale: 'id',
+        shadow: false,
         svg: {
             version: '1.1'
         },
@@ -79,10 +80,32 @@
     };
 
     Graph.setup = function(name, value) {
+        var locals = ['icons', 'string', 'styles'];
+        var key, val;
+
         if (_.isPlainObject(name)) {
-            _.extend(Graph.config, name);
+            for (key in name) {
+                val = name[key];
+                if (locals.indexOf(key) !== -1) {
+                    _.extend(Graph[key], val);
+                } else {
+                    if (_.isPlainObject(val)) {
+                        _.extend(Graph.config[key], val);
+                    } else {
+                        Graph.config[key] = val;
+                    }
+                }
+            }
         } else {
-            Graph.config[name] = value;
+            if (locals.indexOf(name) !== -1) {
+                _.extend(Graph[name], value);
+            } else {
+                if (_.isPlainObject(value)) {
+                    _.extend(Graph.config[name], value);
+                } else {
+                    Graph.config[name] = value;    
+                }
+            }
         }
     };
 
@@ -124,9 +147,9 @@
      * Icon params
      */
     Graph.icons = {
-        ZOOM_IN: 'ion-android-add',
-        ZOOM_OUT: 'ion-android-remove',
-        ZOOM_RESET: 'ion-pinpoint',
+        ZOOM_IN: '<i class="ion-android-add"></i>',
+        ZOOM_OUT: '<i class="ion-android-remove"></i>',
+        ZOOM_RESET: '<i class="ion-pinpoint"></i>',
 
         SHAPE: 'bpmn-icon-start-event-none',
         SHAPE_LANE: 'bpmn-icon-participant',
@@ -540,13 +563,13 @@
     ///////////////////////// HOOK DOCUMENT CLICK /////////////////////////
     
     Graph(function(){
-        var doc = $(DOCUMENT);
-
+        var doc = Graph.$(DOCUMENT);
+        
         doc.on('mousedown', function(e){
-            var target = $(e.target),
-                vector = target.data(Graph.string.ID_VECTOR);
+            var target, vector, paper;
 
-            var paper;
+            target = Graph.$(Graph.event.target(e));
+            vector = target.data(Graph.string.ID_VECTOR);
 
             if (vector) {
                 vector = Graph.registry.vector.get(vector);
@@ -562,7 +585,7 @@
 
             if (Graph.event.isNavigation(e)) {
                 paper = Graph.cached.paper;
-
+                
                 if (paper) {
                     paper = Graph.registry.vector.get(paper);
                     e.originalType = 'keynavdown';
