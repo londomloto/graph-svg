@@ -24,9 +24,9 @@
     "tests"
   ],
   "dependencies": {
-    "jquery-2.1.4": "jquery#2.1.4",
-    "lodash-4.14.1": "lodash#4.14.1",
-    "graph-fonts-1.0.2": "graph-fonts#1.0.2",
-    "graph-dd-1.0.0": "graph-dd#1.0.0"
+    "graph-lodash": "1.0.0",
+    "graph-jquery": "1.0.0",
+    "graph-interactjs": "1.0.0",
+    "graph-fonts": "1.0.2"
   }
 }
