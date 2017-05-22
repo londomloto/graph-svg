@@ -116,7 +116,7 @@ gulp.task('build', function(cb){
         rename('graph.min.js'),
         uglify({
             output: {
-                max_line_len: 1000
+                max_line_len: 3000
             }
         }),
         sourcemaps.write('../dist/'),
