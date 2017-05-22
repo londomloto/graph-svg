@@ -1066,6 +1066,12 @@
         remove: function() {
             var parent = this.parent();
 
+            if (this.props.removed) {
+                return;
+            }
+            
+            this.props.removed = true;
+
             this.fire('beforedestroy');
             this.deselect();
 
