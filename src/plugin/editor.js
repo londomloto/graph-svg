@@ -71,7 +71,6 @@
 
             this.suspend();
             this.vector().props.text = text;
-
             this.fire('edit', {
                 text: text,
                 left: this.cached.left,

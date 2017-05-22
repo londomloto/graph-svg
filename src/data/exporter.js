@@ -272,9 +272,24 @@
             result = '';
             
         var rules, rule, found;
-        
-        for (var i = 0, ii = styles.length; i < ii; i++) {
+
+        if (Graph.config.dom == 'shadow') {
+            var parent = element.parentNode,
+                counter = 0;
             
+            while(parent) {
+                if (parent == element.ownerDocument) {
+                    break;
+                }
+                if (parent.styleSheets !== undefined) {
+                    styles = parent.styleSheets;
+                    break;
+                }
+                parent = parent.parentNode;
+            }    
+        }
+
+        for (var i = 0, ii = styles.length; i < ii; i++) {
             rules = styles[i].cssRules;
             
             if (rules != null) {
@@ -297,7 +312,7 @@
                                     result += rule.cssText + '\n';
                                 }
                             } catch(e) {
-                                // console.log(e);
+                                
                                 continue;
                             }
                         }

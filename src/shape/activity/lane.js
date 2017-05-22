@@ -34,7 +34,6 @@
 
         constructor: function(options) {
             this.superclass.prototype.constructor.call(this, options);
-            this.initDropzone();
         },
 
         initMetadata: function() {
@@ -308,6 +307,8 @@
             // save
             this.tree.paper = paper.guid();
             Graph.registry.shape.setContext(this.guid(), paper.guid());
+
+            this.initDropzone();
         },
 
         sendToBack: function() {
@@ -602,7 +603,7 @@
                 };
 
             var bounds = _.extend({}, bbox);
-
+            
             if (actualBBox.y + padding.top - bbox.y < padding.top) {
                 bounds.y = actualBBox.y - padding.top;
             }

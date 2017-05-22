@@ -5,7 +5,8 @@
         
         props: {
             guid: null,
-            rendered: false
+            rendered: false,
+            template: null
         },
         
         components: {
@@ -38,10 +39,12 @@
         },
 
         initComponent: function() {
-            var template, pallet;
-            
-            template = _.format(
-                '<svg class="graph-pallet" xmlns="{0}" xmlns:xlink="{1}" version="{2}" style="width: 100%; height: 100%">' + 
+            var template, contents, pallet;
+
+            contents = this.props.template;
+
+            if ( ! contents) {
+                contents = '' + 
                     '<defs>' + 
                         '<marker id="marker-arrow-pallet" refX="11" refY="10" viewBox="0 0 20 20" markerWidth="10" markerHeight="10" orient="auto">' + 
                             '<path d="M 1 5 L 11 10 L 1 15 Z" fill="#30D0C6" stroke-linecap="round" stroke-dasharray="10000, 1"/>' + 
@@ -60,7 +63,7 @@
                         '<rect x="2" y="2" width="60" height="60" rx="7" ry="7"/>' + 
                         '<text x="32" y="34">Action</text>' + 
                     '</g>' + 
-                    /*'<g class="graph-pallet-item" data-shape="Graph.shape.activity.Router" transform="matrix(1,0,0,1,40,250)">' + 
+                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Router" transform="matrix(1,0,0,1,40,250)">' + 
                         '<rect x="4" y="4" width="54" height="54" transform="rotate(45,32,32)"/>' + 
                         '<text x="30" y="34">Route</text>' + 
                     '</g>' + 
@@ -79,18 +82,23 @@
                         '<path d="M 54 34 L 54 60" marker-end="url(#marker-arrow-pallet)" pointer-events="none" ></path>' + 
                         '<path d="M 32  0 L 32 28" pointer-events="none" ></path>' + 
                         '<text x="32" y="50">Fork</text>' + 
-                    '</g>' + */
-                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Lane" transform="matrix(1,0,0,1,40,250)">' + 
+                    '</g>' + 
+                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Lane" transform="matrix(1,0,0,1,40,510)">' + 
                         '<rect x="2" y="2" width="60" height="60" rx="0" ry="0"/>' + 
                         '<rect x="2" y="2" width="10" height="60" rx="0" ry="0"/>' + 
                         '<text x="32" y="34">Role</text>' + 
-                    '</g>' + 
+                    '</g>';
+            }
+
+            template = _.format(
+                '<svg class="graph-pallet" xmlns="{0}" xmlns:xlink="{1}" version="{2}" style="width: 100%; height: 100%">' + 
+                    contents + 
                 '</svg>',
                 Graph.config.xmlns.svg,
                 Graph.config.xmlns.xlink,
                 Graph.config.svg.version
             );
-            
+
             pallet = Graph.$(template);
             this.components.pallet = pallet;
         },
@@ -212,6 +220,7 @@
                 me.stopPicking();
             }
 
+            return this;
         },
         
         toString: function() {

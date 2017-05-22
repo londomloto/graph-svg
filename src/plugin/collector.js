@@ -82,15 +82,27 @@
                 manualStart: true,
 
                 onstart: function(e) {
+                    layout.invalidate();
+                    position = layout.position();
+
+                    var offset = {
+                        x: e.clientX - position.left,
+                        y: e.clientY - position.top
+                    };
+
                     _.assign(collecting, {
                         enabled: true,
                         start: {
-                            x: e.clientX,
-                            y: e.clientY,
+                            // x: e.clientX,
+                            // y: e.clientY,
+                            x: offset.x,
+                            y: offset.y
                         },
                         end: {
-                            x: e.clientX,
-                            y: e.clientY,
+                            // x: e.clientX,
+                            // y: e.clientY,
+                            x: offset.x,
+                            y: offset.y
                         },
                         bounds: {}
                     });
@@ -98,15 +110,22 @@
                     rubber.query.css({
                         width: 0,
                         height: 0,
-                        transform: 'translate(' + (collecting.start.x - position.left) + 'px, ' + (collecting.start.y - position.top) + 'px)'
+                        // transform: 'translate(' + (collecting.start.x - position.left) + 'px, ' + (collecting.start.y - position.top) + 'px)'
+                        transform: 'translate(' + (collecting.start.x) + 'px, ' + (collecting.start.y) + 'px)'
                     });
                 },
 
                 onmove: function(e) {
                     var start = collecting.start,
+                        offset = {
+                            x: e.clientX - position.left,
+                            y: e.clientY - position.top
+                        },
                         end = {
-                            x: e.clientX,
-                            y: e.clientY
+                            // x: e.clientX,
+                            // y: e.clientY
+                            x: offset.x,
+                            y: offset.y
                         };
 
                     var bounds;
@@ -153,7 +172,8 @@
                     rubber.query.css({
                         width:  bounds.width,
                         height: bounds.height,
-                        transform: 'translate(' + (bounds.x - position.left) + 'px,' + (bounds.y - position.top) + 'px)'
+                        // transform: 'translate(' + (bounds.x - position.left) + 'px,' + (bounds.y - position.top) + 'px)'
+                        transform: 'translate(' + (bounds.x) + 'px,' + (bounds.y) + 'px)'
                     });
                 },
 
@@ -164,19 +184,18 @@
 
                     var context = paper.guid(),
                         vectors = Graph.registry.vector.collect(context),
-                        bounds = collecting.bounds,
-                        scale = layout.scale();
+                        bounds = collecting.bounds;
 
                     var start = layout.pointerLocation({
-                        clientX: bounds.x,
-                        clientY: bounds.y
+                        clientX: bounds.x + position.left,
+                        clientY: bounds.y + position.top
                     });
 
                     var end = layout.pointerLocation({
-                        clientX: bounds.x + bounds.width,
-                        clientY: bounds.y + bounds.height
+                        clientX: bounds.x + position.left + bounds.width,
+                        clientY: bounds.y + position.top + bounds.height
                     });
-
+                    
                     var bbox = new Graph.lang.BBox({
                         x: start.x,
                         y: start.y,

@@ -18,8 +18,6 @@
                         ? self 
                         : Function('return this')());
 
-    var DOCUMENT  = document;
-    var LOCATION  = location;
     var NAVIGATOR = navigator;
 
     /**
@@ -34,19 +32,19 @@
 
     //--------------------------------------------------------------------//
     
-    var readyFn = [];
-
     /**
      * Banner
      */
     GLOBAL.Graph = function(ready) {
-        readyFn.push(ready);
+        Graph.BOOTSTRAPS.push(ready);
     };
+
+    Graph.BOOTSTRAPS = [];
 
     Graph.VERSION = '1.0.0';
     
     Graph.AUTHOR = 'Kreasindo Cipta Teknologi';
-    
+
     /**
      * Config
      */
@@ -55,7 +53,7 @@
     Graph.config = {
         base: '../',
         locale: 'id',
-        shadow: false,
+        dom: 'light',
         svg: {
             version: '1.1'
         },
@@ -151,29 +149,29 @@
         ZOOM_OUT: '<i class="ion-android-remove"></i>',
         ZOOM_RESET: '<i class="ion-pinpoint"></i>',
 
-        SHAPE: 'bpmn-icon-start-event-none',
-        SHAPE_LANE: 'bpmn-icon-participant',
-        SHAPE_LINK: 'ion-android-share-alt',
-        SHAPE_ACTION: 'bpmn-icon-task',
-        SHAPE_ROUTER: 'bpmn-icon-gateway-none',
+        SHAPE: '<i class="bpmn-icon-start-event-none"></i>',
+        SHAPE_LANE: '<i class="bpmn-icon-participant"></i>',
+        SHAPE_LINK: '<i class="ion-android-share-alt"></i>',
+        SHAPE_ACTION: '<i class="bpmn-icon-task"></i>',
+        SHAPE_ROUTER: '<i class="bpmn-icon-gateway-none"></i>',
 
-        LANE_ABOVE: 'bpmn-icon-lane-insert-above',
-        LANE_BELOW: 'bpmn-icon-lane-insert-below',
+        LANE_ABOVE: '<i class="bpmn-icon-lane-insert-above"></i>',
+        LANE_BELOW: '<i class="bpmn-icon-lane-insert-below"></i>',
 
-        CONFIG: 'bpmn-icon-screw-wrench',
-        LINK: 'bpmn-icon-connection-multi',
-        TRASH: 'bpmn-icon-trash',
+        CONFIG: '<i class="bpmn-icon-screw-wrench"></i>',
+        LINK: '<i class="bpmn-icon-connection-multi"></i>',
+        TRASH: '<i class="bpmn-icon-trash"></i>',
 
-        SEND_TO_BACK: 'font-icon-send-back',
-        SEND_TO_FRONT: 'font-icon-bring-front',
+        SEND_TO_BACK: '<i class="font-icon-send-back"></i>',
+        SEND_TO_FRONT: '<i class="font-icon-bring-front"></i>',
 
-        MOVE_UP: 'ion-android-arrow-up',
-        MOVE_DOWN: 'ion-android-arrow-down',
+        MOVE_UP: '<i class="ion-android-arrow-up"></i>',
+        MOVE_DOWN: '<i class="ion-android-arrow-down"></i>',
 
-        ROUTER_OR: 'bpmn-icon-gateway-or',
-        ROUTER_XOR: 'bpmn-icon-gateway-xor',
-        ROUTER_NONE: 'bpmn-icon-gateway-none',
-        ROUTER_PARALLEL: 'bpmn-icon-gateway-parallel'
+        ROUTER_OR: '<i class="bpmn-icon-gateway-or"></i>',
+        ROUTER_XOR: '<i class="bpmn-icon-gateway-xor"></i>',
+        ROUTER_NONE: '<i class="bpmn-icon-gateway-none"></i>',
+        ROUTER_PARALLEL: '<i class="bpmn-icon-gateway-parallel"></i>'
     };
 
     Graph.doc = function() {
@@ -559,106 +557,5 @@
     Graph.ns('Graph.popup');
     Graph.ns('Graph.shape.activity');
     Graph.ns('Graph.shape.common');
-
-    ///////////////////////// HOOK DOCUMENT CLICK /////////////////////////
-    
-    Graph(function(){
-        var doc = Graph.$(DOCUMENT);
-        
-        doc.on('mousedown', function(e){
-            var target, vector, paper;
-
-            target = Graph.$(Graph.event.target(e));
-            vector = target.data(Graph.string.ID_VECTOR);
-
-            if (vector) {
-                vector = Graph.registry.vector.get(vector);
-                paper = vector.paper();
-                Graph.cached.paper = paper ? paper.guid() : null;
-            }
-
-            vector = paper = null;
-        });
-
-        doc.on('keydown', function(e){
-            var paper;
-
-            if (Graph.event.isNavigation(e)) {
-                paper = Graph.cached.paper;
-                
-                if (paper) {
-                    paper = Graph.registry.vector.get(paper);
-                    e.originalType = 'keynavdown';
-                    paper.fire(e);
-                }
-            } else if (e.ctrlKey || e.cmdKey) {
-                paper = Graph.cached.paper;
-                
-                if (paper) {
-                    paper = Graph.registry.vector.get(paper);
-                    if (e.keyCode === Graph.event.C) {
-                        e.originalType = 'keycopy';
-                        paper.fire(e);
-                    } else if (e.keyCode === Graph.event.V) {
-                        e.originalType = 'keypaste';
-                        paper.fire(e);
-                    }
-                }   
-            }
-        });
-
-        doc.on('keyup', function(e){
-            if (Graph.event.isNavigation(e)) {
-                var paper = Graph.cached.paper;
-                if (paper) {
-                    paper = Graph.registry.vector.get(paper);
-                    e.originalType = 'keynavup';
-                    paper.fire(e);
-                }
-            }
-        });
-
-        doc = null;
-    });
-
-    ///////////////////////// LISTEN DOCUMENT READY ////////////////////////
-    
-    (function(doc, evt){
-        var timer;
-
-        var handler = function() {
-            doc.removeEventListener(evt, handler, false);
-            doc.readyState = 'complete';
-        };
-
-        var loaded = function() {
-            _.forEach(readyFn, function(f){
-                f();
-            });
-        };
-
-        var inspect = function() {
-            if (doc.readyState != 'complete') {
-                timer = _.delay(function(){
-                    clearTimeout(timer);
-                    timer = null;
-
-                    inspect();
-                }, 10);
-            } else {
-                loaded();
-            }
-        };
-
-        if (doc.readyState == null && doc.addEventListener) {
-            doc.addEventListener(evt, handler, false);
-            doc.readyState = 'loading';
-        }
-
-        inspect();
-        
-    }(DOCUMENT, 'DOMContentLoaded'));
-
-    ///////////////////////////////////////////////////////////////////////
     
 }());

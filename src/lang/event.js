@@ -78,7 +78,7 @@
         var e = event.originalEvent || event;
         var target = e.target;
 
-        if (Graph.config.shadow) {
+        if (Graph.config.dom == 'shadow') {
             var path = e.path || (e.composedPath && e.composedPath());
             if (path) {
                 target = path[0];

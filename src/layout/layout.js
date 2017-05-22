@@ -41,10 +41,6 @@
             return this.view().paper();
         },
 
-        invalidate: function() {
-            
-        },
-
         offset: function() {
             // TODO: please fix...
             return this.position();
@@ -53,10 +49,11 @@
         position: function() {
             var position = this.cached.position;
             var view, node;
-            
+
             if ( ! position) {
                 view = this.view();
                 node = view.isViewport() ? view.parent().node() : view.node();
+
                 position = node.getBoundingClientRect();
                 this.cached.position = position;
             }
@@ -120,6 +117,7 @@
         invalidate: function() {
             this.cached.offset = null;
             this.cached.center = null;
+            this.cached.position = null;
         },
 
         grabVector: function(event) {
@@ -144,9 +142,10 @@
                     y: invert.y(x, y)
                 };
 
+            
             location.x -= position.left / scale.x;
-            location.y -= position.top / scale.y;
-
+            location.y -= position.top / scale.y;    
+            
             matrix = invert = null;
 
             return location;

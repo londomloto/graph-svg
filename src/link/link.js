@@ -16,7 +16,10 @@
             connected: false,
             removed: false,
             command: null,
-            stroke: '#000' 
+            stroke: '#000',
+            convex: 1,
+            smooth: 0,
+            smoothness: 6
         },
 
         params: [],
@@ -649,8 +652,8 @@
                     sourceType: sourceShape ? 'shape' : 'vector',
                     target: targetShape ? targetShape.guid() : target.guid(),
                     targetType: targetShape ? 'shape' : 'vector',
-                    convex: 1,
-                    smooth: this.props.smooth ? 1 : 0,
+                    convex: +this.props.convex ? 1 : 0,
+                    smooth: +this.props.smooth ? 1 : 0,
                     smoothness: this.props.smoothness,
                     stroke: this.props.stroke
                 },

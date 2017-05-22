@@ -32,9 +32,9 @@
         initComponent: function(paper) {
             
             var pad = '<div class="graph-toolpad">' + 
-                            '<div class="pad-header"></div>' + 
-                            '<div class="pad-splitter"></div>' + 
-                            '<div class="pad-body">x</div>'+
+                            // '<div class="pad-header"></div>' + 
+                            // '<div class="pad-splitter"></div>' + 
+                            '<div class="pad-body"></div>'+
                       '</div>';
 
             pad = Graph.$(pad);
@@ -80,12 +80,14 @@
             var body = '';
 
             // pad.find('.pad-header').html('<a href="javascript:void(0);"><i class="' + meta.icon + '"></i></a>');            
-            pad.find('.pad-header').html('<a href="javascript:void(0);"><i class="ion-navicon-round"></i></a>');            
+            // pad.find('.pad-header').html('<a href="javascript:void(0);"><i class="ion-navicon-round"></i></a>');            
             
             _.forEach(meta.tools, function(tool, index){
                 if (tool.enabled) {
-                    body += '<div class="splitter"></div>';
-                    body += '<a data-shape-tool="' + tool.name + '" href="javascript:void(0)" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
+                    if (index > 0) {
+                        body += '<div class="splitter"></div>';    
+                    }
+                    body += '<a data-shape-tool="' + tool.name + '" href="javascript:void(0)" title="' + tool.title + '">' + tool.icon + '</a>';
                 }
             });
             
@@ -108,15 +110,16 @@
                 pad = this.components.pad;
             
             // pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
-            pad.find('.pad-header').html('<a><i class="ion-navicon-round"></i></a>');
+            // pad.find('.pad-header').html('<a><i class="ion-navicon-round"></i></a>');
             
             var body = '';
             
             _.forEach(meta.tools, function(tool, index){
                 if (tool.enabled) {
-                    body += '<div class="splitter"></div>';    
-                    body += '<a data-link-tool="' + tool.name + '" href="#" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
-                    
+                    if (index > 0) {
+                        body += '<div class="splitter"></div>';        
+                    }
+                    body += '<a data-link-tool="' + tool.name + '" href="#" title="' + tool.title + '">'+ tool.icon +'</a>';                    
                 }
             });
             

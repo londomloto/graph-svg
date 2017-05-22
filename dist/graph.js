@@ -185,8 +185,6 @@
                         ? self 
                         : Function('return this')());
 
-    var DOCUMENT  = document;
-    var LOCATION  = location;
     var NAVIGATOR = navigator;
 
     /**
@@ -201,19 +199,19 @@
 
     //--------------------------------------------------------------------//
     
-    var readyFn = [];
-
     /**
      * Banner
      */
     GLOBAL.Graph = function(ready) {
-        readyFn.push(ready);
+        Graph.BOOTSTRAPS.push(ready);
     };
+
+    Graph.BOOTSTRAPS = [];
 
     Graph.VERSION = '1.0.0';
     
     Graph.AUTHOR = 'Kreasindo Cipta Teknologi';
-    
+
     /**
      * Config
      */
@@ -222,6 +220,7 @@
     Graph.config = {
         base: '../',
         locale: 'id',
+        dom: 'light',
         svg: {
             version: '1.1'
         },
@@ -246,10 +245,32 @@
     };
 
     Graph.setup = function(name, value) {
+        var locals = ['icons', 'string', 'styles'];
+        var key, val;
+
         if (_.isPlainObject(name)) {
-            _.extend(Graph.config, name);
+            for (key in name) {
+                val = name[key];
+                if (locals.indexOf(key) !== -1) {
+                    _.extend(Graph[key], val);
+                } else {
+                    if (_.isPlainObject(val)) {
+                        _.extend(Graph.config[key], val);
+                    } else {
+                        Graph.config[key] = val;
+                    }
+                }
+            }
         } else {
-            Graph.config[name] = value;
+            if (locals.indexOf(name) !== -1) {
+                _.extend(Graph[name], value);
+            } else {
+                if (_.isPlainObject(value)) {
+                    _.extend(Graph.config[name], value);
+                } else {
+                    Graph.config[name] = value;    
+                }
+            }
         }
     };
 
@@ -291,33 +312,33 @@
      * Icon params
      */
     Graph.icons = {
-        ZOOM_IN: 'ion-android-add',
-        ZOOM_OUT: 'ion-android-remove',
-        ZOOM_RESET: 'ion-pinpoint',
+        ZOOM_IN: '<i class="ion-android-add"></i>',
+        ZOOM_OUT: '<i class="ion-android-remove"></i>',
+        ZOOM_RESET: '<i class="ion-pinpoint"></i>',
 
-        SHAPE: 'bpmn-icon-start-event-none',
-        SHAPE_LANE: 'bpmn-icon-participant',
-        SHAPE_LINK: 'ion-android-share-alt',
-        SHAPE_ACTION: 'bpmn-icon-task',
-        SHAPE_ROUTER: 'bpmn-icon-gateway-none',
+        SHAPE: '<i class="bpmn-icon-start-event-none"></i>',
+        SHAPE_LANE: '<i class="bpmn-icon-participant"></i>',
+        SHAPE_LINK: '<i class="ion-android-share-alt"></i>',
+        SHAPE_ACTION: '<i class="bpmn-icon-task"></i>',
+        SHAPE_ROUTER: '<i class="bpmn-icon-gateway-none"></i>',
 
-        LANE_ABOVE: 'bpmn-icon-lane-insert-above',
-        LANE_BELOW: 'bpmn-icon-lane-insert-below',
+        LANE_ABOVE: '<i class="bpmn-icon-lane-insert-above"></i>',
+        LANE_BELOW: '<i class="bpmn-icon-lane-insert-below"></i>',
 
-        CONFIG: 'bpmn-icon-screw-wrench',
-        LINK: 'bpmn-icon-connection-multi',
-        TRASH: 'bpmn-icon-trash',
+        CONFIG: '<i class="bpmn-icon-screw-wrench"></i>',
+        LINK: '<i class="bpmn-icon-connection-multi"></i>',
+        TRASH: '<i class="bpmn-icon-trash"></i>',
 
-        SEND_TO_BACK: 'font-icon-send-back',
-        SEND_TO_FRONT: 'font-icon-bring-front',
+        SEND_TO_BACK: '<i class="font-icon-send-back"></i>',
+        SEND_TO_FRONT: '<i class="font-icon-bring-front"></i>',
 
-        MOVE_UP: 'ion-android-arrow-up',
-        MOVE_DOWN: 'ion-android-arrow-down',
+        MOVE_UP: '<i class="ion-android-arrow-up"></i>',
+        MOVE_DOWN: '<i class="ion-android-arrow-down"></i>',
 
-        ROUTER_OR: 'bpmn-icon-gateway-or',
-        ROUTER_XOR: 'bpmn-icon-gateway-xor',
-        ROUTER_NONE: 'bpmn-icon-gateway-none',
-        ROUTER_PARALLEL: 'bpmn-icon-gateway-parallel'
+        ROUTER_OR: '<i class="bpmn-icon-gateway-or"></i>',
+        ROUTER_XOR: '<i class="bpmn-icon-gateway-xor"></i>',
+        ROUTER_NONE: '<i class="bpmn-icon-gateway-none"></i>',
+        ROUTER_PARALLEL: '<i class="bpmn-icon-gateway-parallel"></i>'
     };
 
     Graph.doc = function() {
@@ -703,107 +724,6 @@
     Graph.ns('Graph.popup');
     Graph.ns('Graph.shape.activity');
     Graph.ns('Graph.shape.common');
-
-    ///////////////////////// HOOK DOCUMENT CLICK /////////////////////////
-    
-    Graph(function(){
-        var doc = $(DOCUMENT);
-
-        doc.on('mousedown', function(e){
-            var target = $(e.target),
-                vector = target.data(Graph.string.ID_VECTOR);
-
-            var paper;
-
-            if (vector) {
-                vector = Graph.registry.vector.get(vector);
-                paper = vector.paper();
-                Graph.cached.paper = paper ? paper.guid() : null;
-            }
-
-            vector = paper = null;
-        });
-
-        doc.on('keydown', function(e){
-            var paper;
-
-            if (Graph.event.isNavigation(e)) {
-                paper = Graph.cached.paper;
-
-                if (paper) {
-                    paper = Graph.registry.vector.get(paper);
-                    e.originalType = 'keynavdown';
-                    paper.fire(e);
-                }
-            } else if (e.ctrlKey || e.cmdKey) {
-                paper = Graph.cached.paper;
-                
-                if (paper) {
-                    paper = Graph.registry.vector.get(paper);
-                    if (e.keyCode === Graph.event.C) {
-                        e.originalType = 'keycopy';
-                        paper.fire(e);
-                    } else if (e.keyCode === Graph.event.V) {
-                        e.originalType = 'keypaste';
-                        paper.fire(e);
-                    }
-                }   
-            }
-        });
-
-        doc.on('keyup', function(e){
-            if (Graph.event.isNavigation(e)) {
-                var paper = Graph.cached.paper;
-                if (paper) {
-                    paper = Graph.registry.vector.get(paper);
-                    e.originalType = 'keynavup';
-                    paper.fire(e);
-                }
-            }
-        });
-
-        doc = null;
-    });
-
-    ///////////////////////// LISTEN DOCUMENT READY ////////////////////////
-    
-    (function(doc, evt){
-        var timer;
-
-        var handler = function() {
-            doc.removeEventListener(evt, handler, false);
-            doc.readyState = 'complete';
-        };
-
-        var loaded = function() {
-            _.forEach(readyFn, function(f){
-                f();
-            });
-        };
-
-        var inspect = function() {
-            if (doc.readyState != 'complete') {
-                timer = _.delay(function(){
-                    clearTimeout(timer);
-                    timer = null;
-
-                    inspect();
-                }, 10);
-            } else {
-                loaded();
-            }
-        };
-
-        if (doc.readyState == null && doc.addEventListener) {
-            doc.addEventListener(evt, handler, false);
-            doc.readyState = 'loading';
-        }
-
-        inspect();
-        
-    }(DOCUMENT, 'DOMContentLoaded'));
-
-    ///////////////////////////////////////////////////////////////////////
     
 }());
 
@@ -2054,6 +1974,20 @@
     Graph.event.fix = function(event) {
         return $.event.fix(event);
     };
+
+    Graph.event.target = function(event) {
+        var e = event.originalEvent || event;
+        var target = e.target;
+
+        if (Graph.config.dom == 'shadow') {
+            var path = e.path || (e.composedPath && e.composedPath());
+            if (path) {
+                target = path[0];
+            }
+        }
+
+        return target;
+    }
 
     Graph.event.original = function(event) {
         return event.originalEvent || event;
@@ -8435,10 +8369,6 @@
             return this.view().paper();
         },
 
-        invalidate: function() {
-            
-        },
-
         offset: function() {
             // TODO: please fix...
             return this.position();
@@ -8447,10 +8377,11 @@
         position: function() {
             var position = this.cached.position;
             var view, node;
-            
+
             if ( ! position) {
                 view = this.view();
                 node = view.isViewport() ? view.parent().node() : view.node();
+
                 position = node.getBoundingClientRect();
                 this.cached.position = position;
             }
@@ -8514,14 +8445,17 @@
         invalidate: function() {
             this.cached.offset = null;
             this.cached.center = null;
+            this.cached.position = null;
         },
 
         grabVector: function(event) {
-            return Graph.registry.vector.get(event.target);
+            var target = Graph.event.target(event);
+            return Graph.registry.vector.get(target);
         },
 
         grabLink: function(event) {
-            return Graph.registry.link.get(event.target);
+            var target = Graph.event.target(event);
+            return Graph.registry.link.get(target);
         },
 
         pointerLocation: function(pointer) {
@@ -8536,9 +8470,10 @@
                     y: invert.y(x, y)
                 };
 
+            
             location.x -= position.left / scale.x;
-            location.y -= position.top / scale.y;
-
+            location.y -= position.top / scale.y;    
+            
             matrix = invert = null;
 
             return location;
@@ -10297,7 +10232,10 @@
             connected: false,
             removed: false,
             command: null,
-            stroke: '#000' 
+            stroke: '#000',
+            convex: 1,
+            smooth: 0,
+            smoothness: 6
         },
 
         params: [],
@@ -10930,8 +10868,8 @@
                     sourceType: sourceShape ? 'shape' : 'vector',
                     target: targetShape ? targetShape.guid() : target.guid(),
                     targetType: targetShape ? 'shape' : 'vector',
-                    convex: 1,
-                    smooth: this.props.smooth ? 1 : 0,
+                    convex: +this.props.convex ? 1 : 0,
+                    smooth: +this.props.smooth ? 1 : 0,
                     smoothness: this.props.smoothness,
                     stroke: this.props.stroke
                 },
@@ -12181,7 +12119,8 @@
         var vendor = vendors[guid] = interact(node);
 
         vendor.on('down', function reactorDown(e){
-            if (e.target === node) {
+            var target = Graph.event.target(e);
+            if (target === node) {
                 e.originalType = 'pointerdown';
                 Graph.topic.publish('vector:pointerdown', {vector: vector});
                 vector.fire(e);
@@ -12190,7 +12129,8 @@
 
         vector.elem.on({
             contextmenu: function(e) {
-                if (e.currentTarget === node) {
+                var target = Graph.event.target(e);
+                if (target === node) {
                     vector.fire(e);
                     // e.preventDefault();
                 }
@@ -14358,15 +14298,27 @@
                 manualStart: true,
 
                 onstart: function(e) {
+                    layout.invalidate();
+                    position = layout.position();
+
+                    var offset = {
+                        x: e.clientX - position.left,
+                        y: e.clientY - position.top
+                    };
+
                     _.assign(collecting, {
                         enabled: true,
                         start: {
-                            x: e.clientX,
-                            y: e.clientY,
+                            // x: e.clientX,
+                            // y: e.clientY,
+                            x: offset.x,
+                            y: offset.y
                         },
                         end: {
-                            x: e.clientX,
-                            y: e.clientY,
+                            // x: e.clientX,
+                            // y: e.clientY,
+                            x: offset.x,
+                            y: offset.y
                         },
                         bounds: {}
                     });
@@ -14374,15 +14326,22 @@
                     rubber.query.css({
                         width: 0,
                         height: 0,
-                        transform: 'translate(' + (collecting.start.x - position.left) + 'px, ' + (collecting.start.y - position.top) + 'px)'
+                        // transform: 'translate(' + (collecting.start.x - position.left) + 'px, ' + (collecting.start.y - position.top) + 'px)'
+                        transform: 'translate(' + (collecting.start.x) + 'px, ' + (collecting.start.y) + 'px)'
                     });
                 },
 
                 onmove: function(e) {
                     var start = collecting.start,
+                        offset = {
+                            x: e.clientX - position.left,
+                            y: e.clientY - position.top
+                        },
                         end = {
-                            x: e.clientX,
-                            y: e.clientY
+                            // x: e.clientX,
+                            // y: e.clientY
+                            x: offset.x,
+                            y: offset.y
                         };
 
                     var bounds;
@@ -14429,7 +14388,8 @@
                     rubber.query.css({
                         width:  bounds.width,
                         height: bounds.height,
-                        transform: 'translate(' + (bounds.x - position.left) + 'px,' + (bounds.y - position.top) + 'px)'
+                        // transform: 'translate(' + (bounds.x - position.left) + 'px,' + (bounds.y - position.top) + 'px)'
+                        transform: 'translate(' + (bounds.x) + 'px,' + (bounds.y) + 'px)'
                     });
                 },
 
@@ -14440,19 +14400,18 @@
 
                     var context = paper.guid(),
                         vectors = Graph.registry.vector.collect(context),
-                        bounds = collecting.bounds,
-                        scale = layout.scale();
+                        bounds = collecting.bounds;
 
                     var start = layout.pointerLocation({
-                        clientX: bounds.x,
-                        clientY: bounds.y
+                        clientX: bounds.x + position.left,
+                        clientY: bounds.y + position.top
                     });
 
                     var end = layout.pointerLocation({
-                        clientX: bounds.x + bounds.width,
-                        clientY: bounds.y + bounds.height
+                        clientX: bounds.x + position.left + bounds.width,
+                        clientY: bounds.y + position.top + bounds.height
                     });
-
+                    
                     var bbox = new Graph.lang.BBox({
                         x: start.x,
                         y: start.y,
@@ -14481,8 +14440,11 @@
                 }
             })
             .on('down', function(e){
-                var single = ! (e.ctrlKey || e.shiftKey),
-                    vector = Graph.registry.vector.get(e.target);
+                var target, single, vector;
+
+                target = Graph.event.target(e);
+                single = ! (e.ctrlKey || e.shiftKey);
+                vector = Graph.registry.vector.get(target);
 
                 if (vector) {
                     if ( ! vector.isSelectable()) {
@@ -14499,8 +14461,11 @@
                 }
             })
             .on('tap', function(e){
-                var vector = Graph.registry.vector.get(e.target),
-                    single = ! (e.ctrlKey || e.shiftKey);
+                var target, vector, single;
+                
+                target = Graph.event.target(e);
+                vector = Graph.registry.vector.get(target);
+                single = ! (e.ctrlKey || e.shiftKey);
 
                 if (vector && vector.isSelectable()) {
                     if (vector.paper().state() == 'linking') {
@@ -15504,14 +15469,16 @@
                 overlap: .2
             })
             .on('dropdeactivate', function(e){
-                var v = Graph.registry.vector.get(e.target);
+                var t = Graph.event.target(e);
+                var v = Graph.registry.vector.get(t);
                 if (v) {
                     v.removeClass(CLS_CONNECT_CLEAR);
                 }
                 me.invalidateTrans();
             })
             .on('dropactivate', function(e){
-                var v = Graph.registry.vector.get(e.target);
+                var t = Graph.event.target(e);
+                var v = Graph.registry.vector.get(t);
 
                 if (v) {
                     v.addClass(CLS_CONNECT_HOVER);
@@ -15560,7 +15527,8 @@
                 }
             })
             .on('dragleave', function(e){
-                var v = Graph.registry.vector.get(e.target);
+                var t = Graph.event.target(e);
+                var v = Graph.registry.vector.get(t);
                 if (v) {
                     v.removeClass(CLS_CONNECT_RESET);
                 }
@@ -16070,6 +16038,7 @@
             vendor.on('wheel', _.bind(me.onMouseWheel, me, _, vector, viewport));
             vendor.on('down', _.bind(me.onPointerDown, me, _, vector, viewport));
 
+
             if (vector.props.rendered) {
                 me.revalidate(vector);
 
@@ -16100,17 +16069,11 @@
                 toolbox = me.components.toolbox = Graph.$('<div class="graph-zoom-toolbox">');
                 toolbox.html(
                     '<div>' +
-                        '<a data-tool="zoom-reset" href="javascript:void(0)" title="' + Graph._('Reset zoom') + '">' +
-                            '<i class="'+ Graph.icons.ZOOM_RESET +'"></i>' +
-                        '</a>'+
+                        '<a data-tool="zoom-reset" href="javascript:void(0)" title="' + Graph._('Reset zoom') + '">' + Graph.icons.ZOOM_RESET + '</a>'+
                         '<div class="splitter"></div>'+
-                        '<a data-tool="zoom-in" href="javascript:void(0)" title="' + Graph._('Zoom in') + '">' +
-                            '<i class="'+ Graph.icons.ZOOM_IN +'"></i>' +
-                        '</a>'+
+                        '<a data-tool="zoom-in" href="javascript:void(0)" title="' + Graph._('Zoom in') + '">' + Graph.icons.ZOOM_IN + '</a>'+
                         '<div class="splitter"></div>'+
-                        '<a data-tool="zoom-out" href="javascript:void(0)" title="' + Graph._('Zoom out') + '">' +
-                            '<i class="'+ Graph.icons.ZOOM_OUT +'"></i>' +
-                        '</a>'+
+                        '<a data-tool="zoom-out" href="javascript:void(0)" title="' + Graph._('Zoom out') + '">' + Graph.icons.ZOOM_OUT +  '</a>'+
                     '</div>'
                 );
 
@@ -16295,7 +16258,8 @@
         },
 
         onPointerDown: function(e, paper, viewport, vendor) {
-            var target = Graph.$(e.target),
+
+            var target = Graph.$(Graph.event.target(e)),
                 vector = Graph.registry.vector.get(target),
                 vendor = paper.interactable().vendor(),
                 tool   = paper.tool().current();
@@ -17155,7 +17119,6 @@
 
             this.suspend();
             this.vector().props.text = text;
-
             this.fire('edit', {
                 text: text,
                 left: this.cached.left,
@@ -17801,9 +17764,9 @@
         initComponent: function(paper) {
             
             var pad = '<div class="graph-toolpad">' + 
-                            '<div class="pad-header"></div>' + 
-                            '<div class="pad-splitter"></div>' + 
-                            '<div class="pad-body">x</div>'+
+                            // '<div class="pad-header"></div>' + 
+                            // '<div class="pad-splitter"></div>' + 
+                            '<div class="pad-body"></div>'+
                       '</div>';
 
             pad = Graph.$(pad);
@@ -17849,12 +17812,14 @@
             var body = '';
 
             // pad.find('.pad-header').html('<a href="javascript:void(0);"><i class="' + meta.icon + '"></i></a>');            
-            pad.find('.pad-header').html('<a href="javascript:void(0);"><i class="ion-navicon-round"></i></a>');            
+            // pad.find('.pad-header').html('<a href="javascript:void(0);"><i class="ion-navicon-round"></i></a>');            
             
             _.forEach(meta.tools, function(tool, index){
                 if (tool.enabled) {
-                    body += '<div class="splitter"></div>';
-                    body += '<a data-shape-tool="' + tool.name + '" href="javascript:void(0)" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
+                    if (index > 0) {
+                        body += '<div class="splitter"></div>';    
+                    }
+                    body += '<a data-shape-tool="' + tool.name + '" href="javascript:void(0)" title="' + tool.title + '">' + tool.icon + '</a>';
                 }
             });
             
@@ -17877,15 +17842,16 @@
                 pad = this.components.pad;
             
             // pad.find('.pad-header').html('<a><i class="' + meta.icon + '"></i></a>');
-            pad.find('.pad-header').html('<a><i class="ion-navicon-round"></i></a>');
+            // pad.find('.pad-header').html('<a><i class="ion-navicon-round"></i></a>');
             
             var body = '';
             
             _.forEach(meta.tools, function(tool, index){
                 if (tool.enabled) {
-                    body += '<div class="splitter"></div>';    
-                    body += '<a data-link-tool="' + tool.name + '" href="#" title="' + tool.title + '"><i class="' + tool.icon + '"></i></a>';
-                    
+                    if (index > 0) {
+                        body += '<div class="splitter"></div>';        
+                    }
+                    body += '<a data-link-tool="' + tool.name + '" href="#" title="' + tool.title + '">'+ tool.icon +'</a>';                    
                 }
             });
             
@@ -19992,7 +19958,6 @@
 
         constructor: function(options) {
             this.superclass.prototype.constructor.call(this, options);
-            this.initDropzone();
         },
 
         initMetadata: function() {
@@ -20266,6 +20231,8 @@
             // save
             this.tree.paper = paper.guid();
             Graph.registry.shape.setContext(this.guid(), paper.guid());
+
+            this.initDropzone();
         },
 
         sendToBack: function() {
@@ -20560,7 +20527,7 @@
                 };
 
             var bounds = _.extend({}, bbox);
-
+            
             if (actualBBox.y + padding.top - bbox.y < padding.top) {
                 bounds.y = actualBBox.y - padding.top;
             }
@@ -21901,9 +21868,24 @@
             result = '';
             
         var rules, rule, found;
-        
-        for (var i = 0, ii = styles.length; i < ii; i++) {
+
+        if (Graph.config.dom == 'shadow') {
+            var parent = element.parentNode,
+                counter = 0;
             
+            while(parent) {
+                if (parent == element.ownerDocument) {
+                    break;
+                }
+                if (parent.styleSheets !== undefined) {
+                    styles = parent.styleSheets;
+                    break;
+                }
+                parent = parent.parentNode;
+            }    
+        }
+
+        for (var i = 0, ii = styles.length; i < ii; i++) {
             rules = styles[i].cssRules;
             
             if (rules != null) {
@@ -21926,7 +21908,7 @@
                                     result += rule.cssText + '\n';
                                 }
                             } catch(e) {
-                                // console.log(e);
+                                
                                 continue;
                             }
                         }
@@ -22238,7 +22220,8 @@
         
         props: {
             guid: null,
-            rendered: false
+            rendered: false,
+            template: null
         },
         
         components: {
@@ -22271,10 +22254,12 @@
         },
 
         initComponent: function() {
-            var template, pallet;
-            
-            template = _.format(
-                '<svg class="graph-pallet" xmlns="{0}" xmlns:xlink="{1}" version="{2}" style="width: 100%; height: 100%">' + 
+            var template, contents, pallet;
+
+            contents = this.props.template;
+
+            if ( ! contents) {
+                contents = '' + 
                     '<defs>' + 
                         '<marker id="marker-arrow-pallet" refX="11" refY="10" viewBox="0 0 20 20" markerWidth="10" markerHeight="10" orient="auto">' + 
                             '<path d="M 1 5 L 11 10 L 1 15 Z" fill="#30D0C6" stroke-linecap="round" stroke-dasharray="10000, 1"/>' + 
@@ -22293,7 +22278,7 @@
                         '<rect x="2" y="2" width="60" height="60" rx="7" ry="7"/>' + 
                         '<text x="32" y="34">Action</text>' + 
                     '</g>' + 
-                    /*'<g class="graph-pallet-item" data-shape="Graph.shape.activity.Router" transform="matrix(1,0,0,1,40,250)">' + 
+                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Router" transform="matrix(1,0,0,1,40,250)">' + 
                         '<rect x="4" y="4" width="54" height="54" transform="rotate(45,32,32)"/>' + 
                         '<text x="30" y="34">Route</text>' + 
                     '</g>' + 
@@ -22312,18 +22297,23 @@
                         '<path d="M 54 34 L 54 60" marker-end="url(#marker-arrow-pallet)" pointer-events="none" ></path>' + 
                         '<path d="M 32  0 L 32 28" pointer-events="none" ></path>' + 
                         '<text x="32" y="50">Fork</text>' + 
-                    '</g>' + */
-                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Lane" transform="matrix(1,0,0,1,40,250)">' + 
+                    '</g>' + 
+                    '<g class="graph-pallet-item" data-shape="Graph.shape.activity.Lane" transform="matrix(1,0,0,1,40,510)">' + 
                         '<rect x="2" y="2" width="60" height="60" rx="0" ry="0"/>' + 
                         '<rect x="2" y="2" width="10" height="60" rx="0" ry="0"/>' + 
                         '<text x="32" y="34">Role</text>' + 
-                    '</g>' + 
+                    '</g>';
+            }
+
+            template = _.format(
+                '<svg class="graph-pallet" xmlns="{0}" xmlns:xlink="{1}" version="{2}" style="width: 100%; height: 100%">' + 
+                    contents + 
                 '</svg>',
                 Graph.config.xmlns.svg,
                 Graph.config.xmlns.xlink,
                 Graph.config.svg.version
             );
-            
+
             pallet = Graph.$(template);
             this.components.pallet = pallet;
         },
@@ -22445,6 +22435,7 @@
                 me.stopPicking();
             }
 
+            return this;
         },
         
         toString: function() {
@@ -22456,6 +22447,533 @@
     Pallet.guid = 0;
 
 }());
+
+(function(){
+
+    Graph.diagram.type.Diagram = Graph.extend({
+        props: {
+            id: null,
+            paper: null,
+            dirty: false
+        },
+
+        drawing: {
+            enabled: false
+        },
+
+        metadata: {
+            type: 'diagram.diagram'
+        },
+
+        constructor: function(paper, options) {
+            options = options || {};
+            _.assign(this.props, options);
+
+            this.props.paper = paper.guid();
+            this.empty();
+        },
+
+        /**
+         * update properties
+         */
+        update: function(data) {
+            var me = this,
+                parser = new Graph.diagram.Parser(data),
+                paper = me.paper();
+            
+            parser.props().each(function(v, k){
+                if (k != 'type') {
+                    me.props[k] = v;    
+                }
+            });
+
+            parser.shapes().each(function(item){
+                var shape;
+
+                if (item.props.id) {
+                    shape = me.getShapeBy(function(shape){ 
+                        return shape.props.id == item.props.id; 
+                    });
+                } else {
+                    shape = me.getShapeBy(function(shape){
+                        return shape.props.guid == item.props.client_id;
+                    });
+                }
+
+                if (shape) {
+                    shape.update(item);
+                }
+            });
+
+            parser.links().each(function(item){
+                var link;
+                if (item.props.id) {
+                    link = me.getLinkBy(function(link){
+                        return link.props.id == item.props.id;
+                    });
+                } else {
+                    link = me.getLinkBy(function(link){
+                        return link.props.guid == item.props.client_id;
+                    });
+                }
+
+                if (link) {
+                    // link.update(item);
+                }
+            });
+
+            parser.destroy();
+            parser = null;
+        },
+
+        commit: function() {
+            this.props.dirty = false;
+            return this;
+        },
+
+        /**
+         * Render data and update properties
+         */
+        render: function(data) {
+
+        },
+
+        paper: function() {
+            return Graph.registry.vector.get(this.props.paper);
+        },
+
+        empty: function() {
+            var shapes = this.getShapes();
+            
+            this.paper().snapper().invalidate();
+
+            shapes.each(function(shape){
+                if ( ! shape.tree.parent) {
+                    shape.remove();
+                }
+            });
+
+            shapes = null;
+            return this;
+        },
+
+        getShapes: function() {
+            var context = this.paper().guid(),
+                shapes = Graph.registry.shape.collect(context);
+            
+            return new Graph.collection.Shape(shapes);
+        },
+
+        getLinks: function() {
+            var shapes = this.getShapes().toArray(),  
+                indexes = {},
+                links = [];
+
+            var network, connections, i, ii, j, jj;
+
+            for(i = 0, ii = shapes.length; i < ii; i++) {
+                network = shapes[i].connectable().plugin();
+                if (network) {
+                    connections = network.connections();
+                    for (j = 0, jj = connections.length; j < jj; j++) {
+                        if (indexes[connections[j].guid] === undefined) {
+                            links.push(connections[j].link);
+                            indexes[connections[j].guid] = true;
+                        }
+                    }
+                }
+            }
+
+            indexes = null;
+            return new Graph.collection.Link(links);
+        },
+        
+        drawShape: function(namespace, options) {
+
+        },
+
+        findShapeBy: function(identity) {
+            var shapes = this.getShapes().toArray();
+            return _.filter(shapes, identity);
+        },
+
+        getShapeBy: function(identity) {
+            var shapes = this.getShapes().toArray();
+            return _.find(shapes, identity);
+        },
+
+        getLinkBy: function(identity) {
+            var links = this.getLinks().toArray();
+            return _.find(links, identity);
+        },
+
+        remove: function() {
+            this.empty();
+            this.fire('afterdestroy');
+        },
+
+        toJson: function() {
+            var json = {};
+            return json;
+        }
+
+    });
+
+}());
+(function(){
+
+    var Diagram = Graph.diagram.type.Activity = Graph.extend(Graph.diagram.type.Diagram, {
+
+        props: {
+            name: 'Activity Diagram',
+            description: 'No diagram description',
+            cover: null
+        },
+
+        rendering: {
+            active: false
+        },
+
+        metadata: {
+            type: 'diagram.activity'
+        },
+
+        drawShape: function(namespace, options) {
+            var paper = this.paper();
+
+            // already drawing
+            if (this.drawing.dragging) {
+                this.drawing.dragging = false;
+
+                this.drawing.shape.off('beforedrag', this.drawing.beforeDrag);
+                this.drawing.shape.off('aferdrag', this.drawing.afterDrag);
+
+                this.drawing.beforeDrag = null;
+                this.drawing.afterDrag = null;
+
+                // mark as invalid
+                this.drawing.shape.remove();
+                this.drawing.shape = null;
+            }
+
+            var clazz, shape, movable;
+
+            options = options || {};
+            movable = true;
+
+            if (namespace == 'Graph.shape.activity.Lane') {
+                var shapes = this.getShapes();
+                if (shapes.size() && ! this.hasLane()) {
+                    var bbox = shapes.bbox().toJson();
+                    
+                    options.left = bbox.x - 40;
+                    options.top = bbox.y - 20;
+
+                    movable = false;
+                    bbox = null;
+                }
+                shapes = null;
+            } else if (namespace == 'Graph.shape.common.Label') {
+                movable = false;
+            }
+
+            clazz = Graph.ns(namespace);
+            shape = Graph.factory(clazz, [options]);
+
+            // check again...
+            if (movable) {
+                movable = !!shape.draggable().plugin();
+            }
+
+            var me = this;
+
+            this.drawing.beforeDrag = function(e) {
+                shape.component().addClass('picking');
+            };
+
+            this.drawing.afterDrag = function() {
+                var timer;
+
+                timer = _.delay(function(shape){
+                    var valid = false;
+
+                    clearTimeout(timer);
+                    timer = null;
+
+                    if (shape.is('activity.lane')) {
+                        valid = true;
+                    } else {
+                        if (me.hasLane()) {
+                            var parent = shape.parent();
+                            valid = parent && parent.is('activity.lane');
+                        } else {
+                            valid = true;
+                        }
+                    }
+
+                    if ( ! valid) {
+                        Graph.message("Can't drop shape outside lane or pool", 'warning');
+                        shape.remove();
+                        shape = null;
+                    }
+                }, 0, me.drawing.shape);
+
+                shape.component().removeClass('picking');
+
+                me.drawing.beforeDrag = null;
+                me.drawing.afterDrag = null;
+                me.drawing.dragging = false;
+                me.drawing.shape = null;
+
+            };
+
+            if (movable) {
+                this.drawing.dragging = true;
+                this.drawing.shape = shape;
+
+                shape.render(paper);
+
+                var draggable = shape.draggable().plugin(),
+                    snappcomp = shape.snappable().component();
+
+                draggable.start();
+
+                if (options.left !== undefined && options.top !== undefined) {
+                    var center = shape.center(),
+                        dx = options.left - center.x,
+                        dy = options.top - center.y;
+                    shape.translate(dx, dy);    
+
+                    if (snappcomp) {
+                        snappcomp.dirty(true);
+                    }
+                }
+
+                shape.one('beforedrag', this.drawing.beforeDrag);
+                shape.one('afterdrag', this.drawing.afterDrag);
+
+            } else {
+
+                me.drawing.dragging = false;
+                me.drawing.shape = null;
+                me.drawing.beforeDrag = null;
+                me.drawing.afterDrag = null;
+                
+                if (shape.is('activity.lane')) {
+                    var children = me.getShapes().toArray();
+
+                    shape.render(paper);
+                    shape.addChild(children);
+                    children = null;
+
+                } else if (shape.is('common.label')) {
+
+                    var lanes = me.findShapeBy(function(shape){ return shape.is('activity.lane'); }),
+                        coord = {x: shape.props.left, y: shape.props.top},
+                        found = false;
+
+                    shape.render(paper);
+
+                    /*if (lanes.length) {
+                        var box, i, j;
+
+                        for (i = 0, j = lanes.length; i < j; i++) {
+                            box = lanes[i].bbox().toJson();
+                            
+                            if (Graph.util.isBoxContainsPoint(box, coord)) {
+                                found = lanes[i];
+                                break;
+                            }
+                        }
+
+                        if (found) {
+                            found.addChild(shape);
+                        } else {
+                            Graph.message("Can't drop shape outside lane or pool", 'warning');
+                            shape.remove();
+                            shape = null;
+                        }
+
+                    }*/
+                }
+            }
+
+            return {
+                movable: movable,
+                shape: shape
+            };
+        },
+
+        hasLane: function() {
+            return this.findShapeBy(function(shape){ return shape.is('activity.lane'); }).length !== 0;
+        },
+
+        render: function(data) {
+            var me = this,
+                paper = this.paper(),
+                parser = new Graph.diagram.Parser(data);
+
+            if (this.rendering.active) {
+                return;
+            }
+
+            this.rendering.active = true;
+            this.empty();
+
+            parser.props().each(function(v, k){
+                me.props[k] = v;
+            });
+
+            render(parser).then(function(rendered){
+                parser.links().each(function(item){
+                    var props = item.props,
+                        params = JSON.parse(item.params),
+                        sourceShape = rendered[props.source_id],
+                        targetShape = rendered[props.target_id];
+
+                    if (sourceShape && targetShape) {
+                        var sourceNetwork = sourceShape.connectable().plugin(),
+                            targetNetwork = targetShape.connectable().plugin();
+
+                        if (sourceNetwork && targetNetwork) {
+                            var link = sourceNetwork.connect(targetNetwork, null, null, item.props);
+                            link.params = params;
+                        }
+                    }
+                })
+                
+                me.rendering.active = false;
+
+                parser.destroy();
+                parser = null;
+
+                me.paper().snapper().refresh();
+            }); 
+
+            ///////// RENDERER /////////
+            
+            function render(parser) {
+                var def = Graph.defer(),
+                    rendered = {},
+                    pools = {},
+                    count = 0,
+                    tick = 0;
+
+                parser.shapes().each(function(item, index, total){
+                    var props = item.props,
+                        params = JSON.parse(item.params),
+                        clazz = Graph.ns(props.type);
+
+                    var shape, delay;
+
+                    delay = _.delay(function(clazz, props, params){
+                        clearTimeout(delay);
+                        delay = null;
+
+                        shape = Graph.factory(clazz, [props]);
+                        shape.params = params;
+                        shape.render(paper);
+
+                        if (props.client_pool) {
+                            if (pools[props.client_pool] === undefined) {
+                                pools[props.client_pool] = [];
+                            }
+                            pools[props.client_pool].push(shape);
+                        }
+
+                        if (rendered[props.parent_id] !== undefined) {
+                            rendered[props.parent_id].addChild(shape, false);
+                            
+                            var netcom = shape.connectable().component();
+
+                            if (netcom) {
+                                netcom.dirty(true);
+                            }
+                        }
+
+                        rendered[props.id] = shape;
+                        count++;
+                        
+                        if (count === total) {
+                            
+                            var lanes, key, pool;
+
+                            for (key in pools) {
+                                lanes = pools[key];
+                                pool  = null;
+
+                                if (lanes.length > 1) {
+                                    _.forEach(lanes, function(lane, idx){
+                                        if ( ! pool) {
+                                            pool = lane.pool();
+                                        } else {
+                                            lane.tree.pool = pool;
+                                            pool.insert(lane);
+                                        }
+                                    });
+                                }
+
+                                if (pool) {
+                                    pool.invalidate();
+                                }
+                            }
+
+                            def.resolve(rendered);
+                        }
+
+                    }, (tick * 100), clazz, props, params);
+
+                    tick++;
+                });
+
+                return def.promise();
+            };  
+        },  
+
+        toString: function() {
+            return 'Graph.diagram.type.Activity';
+        },
+
+        toJson: function() {
+            var diagram = {
+                props: {
+                    id: this.props.id,
+                    name: this.props.name,
+                    type: this.toString(),
+                    description: this.props.description,
+                    cover: this.props.cover
+                },
+                shapes: [],
+                links: []
+            };
+
+            var shapes = this.getShapes(),
+                links = this.getLinks();
+
+            shapes.each(function(shape){
+                var data = shape.toJson();
+                diagram.shapes.push({
+                    props: data.props,
+                    params: data.params
+                });
+            });
+
+            links.each(function(link){
+                var data = link.toJson();
+                diagram.links.push({
+                    props: data.props,
+                    params: data.params
+                });
+            });
+
+            shapes = links = null;
+            return diagram;
+        }
+    });
+    
+}());
+
+
 
 (function(){
 
@@ -22617,5 +23135,114 @@
     Graph.dialog = function(element, options){
         return new Graph.popup.Dialog(element, options);
     };
+
+}());
+(function(){
+    var DOCUMENT  = document;
+
+    ///////////////////////// HOOK DOCUMENT CLICK /////////////////////////
+    
+    Graph(function(){
+        var doc = DOCUMENT,
+            on = function(target, type, handler) {
+                if (target.addEventListener) {
+                    target.addEventListener(type, handler, false);
+                } else {
+                    target.attachEvent('on' + type, handler);
+                }
+            };
+
+        on(doc, 'mousedown', function(e){
+            var target, vector, paper;
+
+            target = Graph.$(Graph.event.target(e));
+            vector = target.data(Graph.string.ID_VECTOR);
+
+            if (vector) {
+                vector = Graph.registry.vector.get(vector);
+                paper = vector.paper();
+                Graph.cached.paper = paper ? paper.guid() : null;
+            }
+
+            vector = paper = null;
+        });
+
+        on(doc, 'keydown', function(e){
+            var paper;
+
+            if (Graph.event.isNavigation(e)) {
+                paper = Graph.cached.paper;
+                
+                if (paper) {
+                    paper = Graph.registry.vector.get(paper);
+                    e.originalType = 'keynavdown';
+                    paper.fire(e);
+                }
+            } else if (e.ctrlKey || e.cmdKey) {
+                paper = Graph.cached.paper;
+                
+                if (paper) {
+                    paper = Graph.registry.vector.get(paper);
+                    if (e.keyCode === Graph.event.C) {
+                        e.originalType = 'keycopy';
+                        paper.fire(e);
+                    } else if (e.keyCode === Graph.event.V) {
+                        e.originalType = 'keypaste';
+                        paper.fire(e);
+                    }
+                }   
+            }
+        });
+
+        on(doc, 'keyup', function(e){
+            if (Graph.event.isNavigation(e)) {
+                var paper = Graph.cached.paper;
+                if (paper) {
+                    paper = Graph.registry.vector.get(paper);
+                    e.originalType = 'keynavup';
+                    paper.fire(e);
+                }
+            }
+        });
+    });
+
+    ///////////////////////// LISTEN DOCUMENT READY ////////////////////////
+    
+    (function(doc){
+        var timer;
+
+        var execute = function() {
+            _.forEach(Graph.BOOTSTRAPS, function(f){
+                f();
+            });
+        };
+
+        var ready = function() {
+            doc.removeEventListener('DOMContentLoaded', ready, false);
+            doc.readyState = 'complete';
+        };
+
+        var inspect = function() {
+            if (doc.readyState != 'complete') {
+                timer = _.delay(function(){
+                    clearTimeout(timer);
+                    timer = null;
+                    inspect();
+                }, 10);
+            } else {
+                execute();
+            }
+        };
+
+        if (doc.readyState == null && doc.addEventListener) {
+            doc.addEventListener('DOMContentLoaded', ready, false);
+            doc.readyState = 'loading';
+        }
+
+        inspect();
+        
+    }(DOCUMENT));
+
+    ///////////////////////////////////////////////////////////////////////
 
 }());

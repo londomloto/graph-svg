@@ -62,6 +62,7 @@
             vendor.on('wheel', _.bind(me.onMouseWheel, me, _, vector, viewport));
             vendor.on('down', _.bind(me.onPointerDown, me, _, vector, viewport));
 
+
             if (vector.props.rendered) {
                 me.revalidate(vector);
 
@@ -281,6 +282,7 @@
         },
 
         onPointerDown: function(e, paper, viewport, vendor) {
+
             var target = Graph.$(Graph.event.target(e)),
                 vector = Graph.registry.vector.get(target),
                 vendor = paper.interactable().vendor(),

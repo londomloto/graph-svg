@@ -111,6 +111,7 @@
         getShapes: function() {
             var context = this.paper().guid(),
                 shapes = Graph.registry.shape.collect(context);
+            
             return new Graph.collection.Shape(shapes);
         },
 

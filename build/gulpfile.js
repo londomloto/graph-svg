@@ -105,7 +105,9 @@ gulp.task('build', function(cb){
             '../src/diagram/type/Diagram.js',
             '../src/diagram/type/Activity.js',
             
-            '../src/popup/dialog.js'
+            '../src/popup/dialog.js',
+
+            '../src/init.js'
             
         ]),
         sourcemaps.init(),
