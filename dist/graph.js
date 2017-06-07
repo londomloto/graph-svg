@@ -10227,6 +10227,7 @@
 
         props: {
             id: null,
+            name: null,
             guid: null,
             type: 'normal',
             rendered: false,
@@ -10864,6 +10865,7 @@
                 },
                 props: {
                     id: this.props.id,
+                    name: this.props.name,
                     guid: this.guid(),
                     type: this.toString(),
                     routerType: this.router.type(),
