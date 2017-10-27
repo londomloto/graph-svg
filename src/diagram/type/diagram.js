@@ -28,6 +28,7 @@
          * update properties
          */
         update: function(data) {
+
             var me = this,
                 parser = new Graph.diagram.Parser(data),
                 paper = me.paper();
@@ -42,14 +43,25 @@
                 var shape;
 
                 if (item.props.id) {
-                    shape = me.getShapeBy(function(shape){ 
-                        return shape.props.id == item.props.id; 
-                    });
-                } else {
-                    shape = me.getShapeBy(function(shape){
-                        return shape.props.guid == item.props.client_id;
+                    shape = me.getShapeBy(function(s){ 
+                        return s.props.id == item.props.id; 
                     });
                 }
+
+                // stil not found?
+                shape = me.getShapeBy(function(s){
+                    return s.props.guid == item.props.client_id;
+                });
+
+                // if (item.props.id) {
+                //     shape = me.getShapeBy(function(s){ 
+                //         return s.props.id == item.props.id; 
+                //     });
+                // } else {
+                //     shape = me.getShapeBy(function(s){
+                //         return s.props.guid == item.props.client_id;
+                //     });
+                // }
 
                 if (shape) {
                     shape.update(item);
@@ -58,18 +70,30 @@
 
             parser.links().each(function(item){
                 var link;
+
                 if (item.props.id) {
                     link = me.getLinkBy(function(link){
                         return link.props.id == item.props.id;
                     });
-                } else {
-                    link = me.getLinkBy(function(link){
-                        return link.props.guid == item.props.client_id;
-                    });
                 }
 
+                // still not found ?
+                link = me.getLinkBy(function(link){
+                    return link.props.guid == item.props.client_id;
+                });
+
+                // if (item.props.id) {
+                //     link = me.getLinkBy(function(link){
+                //         return link.props.id == item.props.id;
+                //     });
+                // } else {
+                //     link = me.getLinkBy(function(link){
+                //         return link.props.guid == item.props.client_id;
+                //     });
+                // }
+
                 if (link) {
-                    // link.update(item);
+                    link.data(item.props);
                 }
             });
 

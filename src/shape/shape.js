@@ -16,7 +16,8 @@
             alias: '',
             fill: 'rgb(255, 255, 255)',
             stroke: 'rgb(0, 0, 0)',
-            strokeWidth: 2
+            strokeWidth: 2,
+            dataSource: null
         },
 
         params: [],
@@ -102,7 +103,8 @@
             };
 
             var maps = {
-                stroke_width: 'strokeWidth'
+                stroke_width: 'strokeWidth',
+                data_source: 'dataSource'
             };
 
             var map, key;
@@ -657,7 +659,8 @@
                     rotate: this.props.rotate,
                     fill: this.props.fill,
                     strokeWidth: this.props.strokeWidth,
-                    stroke: this.props.stroke
+                    stroke: this.props.stroke,
+                    dataSource: this.props.dataSource
                 },
                 params: this.params,
                 links: [

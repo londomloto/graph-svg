@@ -10242,7 +10242,8 @@
             stroke: '#000',
             convex: 1,
             smooth: 0,
-            smoothness: 6
+            smoothness: 6,
+            dataSource: null
         },
 
         params: [],
@@ -10310,7 +10311,8 @@
             };
 
             var maps = {
-                label_distance: 'labelDistance'
+                label_distance: 'labelDistance',
+                data_source: 'dataSource'
             };
 
             var key, map;
@@ -10719,6 +10721,15 @@
             return this;
         },
 
+        stroke: function(color) {
+            color = color || '#000';
+
+            this.props.stroke = color;
+            this.component('path').attr('stroke', color);
+
+            return this;
+        },
+
         select: function(single) {
             var paper = this.router.source().paper();
             single = _.defaultTo(single, false);
@@ -10879,7 +10890,8 @@
                     convex: +this.props.convex ? 1 : 0,
                     smooth: +this.props.smooth ? 1 : 0,
                     smoothness: this.props.smoothness,
-                    stroke: this.props.stroke
+                    stroke: this.props.stroke,
+                    dataSource: this.props.dataSource
                 },
 
                 params: this.params
@@ -18054,7 +18066,8 @@
             alias: '',
             fill: 'rgb(255, 255, 255)',
             stroke: 'rgb(0, 0, 0)',
-            strokeWidth: 2
+            strokeWidth: 2,
+            dataSource: null
         },
 
         params: [],
@@ -18140,7 +18153,8 @@
             };
 
             var maps = {
-                stroke_width: 'strokeWidth'
+                stroke_width: 'strokeWidth',
+                data_source: 'dataSource'
             };
 
             var map, key;
@@ -18695,7 +18709,8 @@
                     rotate: this.props.rotate,
                     fill: this.props.fill,
                     strokeWidth: this.props.strokeWidth,
-                    stroke: this.props.stroke
+                    stroke: this.props.stroke,
+                    dataSource: this.props.dataSource
                 },
                 params: this.params,
                 links: [
@@ -22485,6 +22500,7 @@
          * update properties
          */
         update: function(data) {
+
             var me = this,
                 parser = new Graph.diagram.Parser(data),
                 paper = me.paper();
@@ -22499,14 +22515,25 @@
                 var shape;
 
                 if (item.props.id) {
-                    shape = me.getShapeBy(function(shape){ 
-                        return shape.props.id == item.props.id; 
-                    });
-                } else {
-                    shape = me.getShapeBy(function(shape){
-                        return shape.props.guid == item.props.client_id;
+                    shape = me.getShapeBy(function(s){ 
+                        return s.props.id == item.props.id; 
                     });
                 }
+
+                // stil not found?
+                shape = me.getShapeBy(function(s){
+                    return s.props.guid == item.props.client_id;
+                });
+
+                // if (item.props.id) {
+                //     shape = me.getShapeBy(function(s){ 
+                //         return s.props.id == item.props.id; 
+                //     });
+                // } else {
+                //     shape = me.getShapeBy(function(s){
+                //         return s.props.guid == item.props.client_id;
+                //     });
+                // }
 
                 if (shape) {
                     shape.update(item);
@@ -22515,18 +22542,30 @@
 
             parser.links().each(function(item){
                 var link;
+
                 if (item.props.id) {
                     link = me.getLinkBy(function(link){
                         return link.props.id == item.props.id;
                     });
-                } else {
-                    link = me.getLinkBy(function(link){
-                        return link.props.guid == item.props.client_id;
-                    });
                 }
 
+                // still not found ?
+                link = me.getLinkBy(function(link){
+                    return link.props.guid == item.props.client_id;
+                });
+
+                // if (item.props.id) {
+                //     link = me.getLinkBy(function(link){
+                //         return link.props.id == item.props.id;
+                //     });
+                // } else {
+                //     link = me.getLinkBy(function(link){
+                //         return link.props.guid == item.props.client_id;
+                //     });
+                // }
+
                 if (link) {
-                    // link.update(item);
+                    link.data(item.props);
                 }
             });
 

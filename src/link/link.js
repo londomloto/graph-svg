@@ -20,7 +20,8 @@
             stroke: '#000',
             convex: 1,
             smooth: 0,
-            smoothness: 6
+            smoothness: 6,
+            dataSource: null
         },
 
         params: [],
@@ -88,7 +89,8 @@
             };
 
             var maps = {
-                label_distance: 'labelDistance'
+                label_distance: 'labelDistance',
+                data_source: 'dataSource'
             };
 
             var key, map;
@@ -497,6 +499,15 @@
             return this;
         },
 
+        stroke: function(color) {
+            color = color || '#000';
+
+            this.props.stroke = color;
+            this.component('path').attr('stroke', color);
+
+            return this;
+        },
+
         select: function(single) {
             var paper = this.router.source().paper();
             single = _.defaultTo(single, false);
@@ -657,7 +668,8 @@
                     convex: +this.props.convex ? 1 : 0,
                     smooth: +this.props.smooth ? 1 : 0,
                     smoothness: this.props.smoothness,
-                    stroke: this.props.stroke
+                    stroke: this.props.stroke,
+                    dataSource: this.props.dataSource
                 },
 
                 params: this.params
