@@ -313,14 +313,18 @@
         },
 
         toJson: function() {
+            var props = this.props;
+            props.type = this.toString();
+
             var diagram = {
-                props: {
-                    id: this.props.id,
-                    name: this.props.name,
-                    type: this.toString(),
-                    description: this.props.description,
-                    cover: this.props.cover
-                },
+                props: props,
+                // props: {
+                //     id: this.props.id,
+                //     name: this.props.name,
+                //     type: this.toString(),
+                //     description: this.props.description,
+                //     cover: this.props.cover
+                // },
                 shapes: [],
                 links: []
             };
