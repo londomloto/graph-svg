@@ -214,8 +214,9 @@
         image.onerror = function() {
             callback(false);
         };
-        
+
         image.src = data; // DOMURL.createObjectURL(blob);
+        
     }
 
     function createData(element, options) {
@@ -223,10 +224,11 @@
             cloned = element.cloneNode(true);
         
         var css, sty, svg, xml, uri;
-            
+
         if (cloned.tagName == 'svg') {
             cloned.setAttribute('width',  options.width);
             cloned.setAttribute('height', options.height);
+            cloned.setAttribute('xmlns:xlink', Graph.config.xmlns.xlink);
         } else {
             svg = Graph.dom('<svg/>');
             
